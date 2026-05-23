@@ -499,6 +499,7 @@ export default function Home() {
             <a href="#pos-simulator" className="hover:text-orange-500 transition-colors">Live POS Demo</a>
             <a href="#marketplace" className="hover:text-orange-500 transition-colors">POS Add-ons</a>
             <a href="#calculator" className="hover:text-orange-500 transition-colors">ROI Calculator</a>
+            <a href="#pricing" className="hover:text-orange-500 transition-colors">Pricing</a>
             <a href="#faq" className="hover:text-orange-500 transition-colors">FAQ</a>
           </nav>
           
@@ -1588,6 +1589,175 @@ export default function Home() {
           </div>
         </section>
 
+        {/* PRICING SECTION */}
+        <section id="pricing" className="scroll-mt-24 max-w-6xl mx-auto w-full relative py-8">
+          <div className="text-center max-w-2xl mx-auto space-y-2 mb-12">
+            <span className="text-xs font-black tracking-widest text-orange-600 uppercase">Pricing Plans</span>
+            <h2 className="text-3xl md:text-4xl font-black text-slate-900">Simple, Transparent Pricing</h2>
+            <p className="text-slate-500 text-sm md:text-base">
+              All plans start with a <strong className="text-slate-800">7-Day Free Trial</strong>. No credit card required.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch">
+            {/* Plan 1: Basic */}
+            <div className="bg-white border border-slate-200/85 rounded-3xl p-8 flex flex-col justify-between hover:border-orange-500/30 transition duration-300 shadow-sm hover:shadow-md relative overflow-hidden group">
+              <div className="space-y-6">
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 px-3 py-1 rounded-full border border-slate-200/50">7-Day Trial</span>
+                  <h3 className="text-xl font-black text-slate-800 mt-4">Basic Plan</h3>
+                  <p className="text-slate-450 text-xs mt-1">Perfect for small cafes and food trucks.</p>
+                </div>
+
+                <div className="flex items-baseline gap-1.5 border-b border-slate-100 pb-6">
+                  <span className="text-3xl font-black text-slate-900">₹499</span>
+                  <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">/ Month</span>
+                </div>
+
+                <ul className="space-y-3.5 text-xs font-semibold text-slate-650">
+                  <li className="flex items-center gap-2.5">
+                    <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                    <span>1 Active Outlet / Restaurant</span>
+                  </li>
+                  <li className="flex items-center gap-2.5">
+                    <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                    <span>High-Speed POS Billing Terminal</span>
+                  </li>
+                  <li className="flex items-center gap-2.5">
+                    <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                    <span>View-Only Digital QR Code Menu</span>
+                  </li>
+                  <li className="flex items-center gap-2.5">
+                    <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                    <span>Basic Kitchen Display (KDS) Feed</span>
+                  </li>
+                  <li className="flex items-center gap-2.5">
+                    <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                    <span>Standard Daily Reports & Analytics</span>
+                  </li>
+                </ul>
+              </div>
+
+              <div className="pt-8">
+                <a 
+                  href="https://app.restuvexo.shop/auth/signup"
+                  className="w-full inline-flex py-3.5 px-4 bg-slate-50 hover:bg-slate-100 border border-slate-200 hover:border-slate-300 text-slate-800 font-extrabold uppercase tracking-wider rounded-2xl transition duration-200 active:scale-95 text-[10px] items-center justify-center gap-1.5"
+                >
+                  Start 7-Day Free Trial
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </a>
+              </div>
+            </div>
+
+            {/* Plan 2: Pro (Featured/Popular) */}
+            <div className="bg-white border-2 border-orange-500 rounded-3xl p-8 flex flex-col justify-between transition duration-300 shadow-xl shadow-orange-500/5 relative overflow-hidden group">
+              <div className="absolute top-0 right-0 bg-gradient-to-l from-orange-500 to-orange-600 text-white text-[9px] font-black uppercase tracking-widest px-4 py-1.5 rounded-bl-2xl">
+                Most Popular
+              </div>
+
+              <div className="space-y-6">
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-orange-600 bg-orange-50 px-3 py-1 rounded-full border border-orange-100">7-Day Trial</span>
+                  <h3 className="text-xl font-black text-slate-800 mt-4 flex items-center gap-1.5">
+                    Pro Plan <Zap className="w-4.5 h-4.5 text-orange-500 fill-orange-500" />
+                  </h3>
+                  <p className="text-slate-450 text-xs mt-1">Advanced controls for full-service bistros.</p>
+                </div>
+
+                <div className="flex items-baseline gap-1.5 border-b border-slate-100 pb-6">
+                  <span className="text-3xl font-black text-slate-900">₹1,499</span>
+                  <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">/ Month</span>
+                </div>
+
+                <ul className="space-y-3.5 text-xs font-semibold text-slate-650">
+                  <li className="flex items-center gap-2.5">
+                    <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                    <span className="font-extrabold text-slate-800">Everything in Basic Plan</span>
+                  </li>
+                  <li className="flex items-center gap-2.5">
+                    <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                    <span>Unlimited Waiter & Chef Terminals</span>
+                  </li>
+                  <li className="flex items-center gap-2.5">
+                    <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                    <span>Customer QR Code Self-Ordering</span>
+                  </li>
+                  <li className="flex items-center gap-2.5">
+                    <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                    <span>Recipe costing & Auto-stock depletion</span>
+                  </li>
+                  <li className="flex items-center gap-2.5">
+                    <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                    <span>Esc/Pos local thermal printer routing</span>
+                  </li>
+                  <li className="flex items-center gap-2.5">
+                    <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                    <span>Granular staff roles & PIN security</span>
+                  </li>
+                </ul>
+              </div>
+
+              <div className="pt-8">
+                <a 
+                  href="https://app.restuvexo.shop/auth/signup"
+                  className="w-full inline-flex py-3.5 px-4 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-extrabold uppercase tracking-wider rounded-2xl shadow-md shadow-orange-500/10 transition duration-200 active:scale-95 text-[10px] items-center justify-center gap-1.5"
+                >
+                  Start 7-Day Free Trial
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </a>
+              </div>
+            </div>
+
+            {/* Plan 3: Custom */}
+            <div className="bg-white border border-slate-200/85 rounded-3xl p-8 flex flex-col justify-between hover:border-orange-500/30 transition duration-300 shadow-sm hover:shadow-md relative overflow-hidden group">
+              <div className="space-y-6">
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 px-3 py-1 rounded-full border border-slate-200/50">Enterprise</span>
+                  <h3 className="text-xl font-black text-slate-800 mt-4">Custom Plan</h3>
+                  <p className="text-slate-455 text-xs mt-1">Tailored features for large restaurant chains.</p>
+                </div>
+
+                <div className="flex items-baseline gap-1.5 border-b border-slate-100 pb-6">
+                  <span className="text-3xl font-black text-slate-900">Custom</span>
+                  <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">/ Business</span>
+                </div>
+
+                <ul className="space-y-3.5 text-xs font-semibold text-slate-650">
+                  <li className="flex items-center gap-2.5">
+                    <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                    <span>Multi-outlet franchise dashboard sync</span>
+                  </li>
+                  <li className="flex items-center gap-2.5">
+                    <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                    <span>Dedicated account executive manager</span>
+                  </li>
+                  <li className="flex items-center gap-2.5">
+                    <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                    <span>24/7 SLA Priority Phone Support</span>
+                  </li>
+                  <li className="flex items-center gap-2.5">
+                    <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                    <span>Custom domain digital menus</span>
+                  </li>
+                  <li className="flex items-center gap-2.5">
+                    <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                    <span>Custom third-party integrations</span>
+                  </li>
+                </ul>
+              </div>
+
+              <div className="pt-8">
+                <a 
+                  href="#book-demo"
+                  className="w-full inline-flex py-3.5 px-4 bg-slate-950 hover:bg-slate-900 text-white font-extrabold uppercase tracking-wider rounded-2xl transition duration-200 active:scale-95 text-[10px] items-center justify-center gap-1.5"
+                >
+                  Contact Sales
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </a>
+              </div>
+            </div>
+          </div>
+        </section>
 
         {/* BOOK A DEMO DATABASE-CONNECTED FORM SECTION */}
         <section id="book-demo" className="scroll-mt-24 max-w-4xl mx-auto w-full pt-10">

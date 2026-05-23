@@ -69,6 +69,9 @@ app.use('/api', (req, res, next) => {
   next();
 });
 
+const { subscriptionGuard } = require('./middleware/subscriptionGuard');
+app.use('/api', subscriptionGuard);
+
 // Lightweight Request Logger for easy debugging and zero overhead
 app.use((req, res, next) => {
   console.log(`🌐 [ROS API] ${req.method} ${req.url}`);

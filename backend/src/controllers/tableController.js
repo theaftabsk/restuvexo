@@ -277,7 +277,13 @@ exports.updateSettings = async (req, res) => {
     sidebarQuickActions,
     sidebarStoreSwitch,
     sidebarCollapsible,
-    sidebarHiddenItems
+    sidebarHiddenItems,
+    vexoAiEnabled,
+    vexoAiNormalLimit,
+    vexoAiApiLimit,
+    subscriptionPlan,
+    subscriptionStatus,
+    trialEndsAt
   } = req.body;
 
   try {
@@ -291,6 +297,12 @@ exports.updateSettings = async (req, res) => {
     if (sidebarHiddenItems !== undefined) {
       updateData.sidebarHiddenItems = Array.isArray(sidebarHiddenItems) ? sidebarHiddenItems : [];
     }
+    if (vexoAiEnabled !== undefined) updateData.vexoAiEnabled = vexoAiEnabled === true;
+    if (vexoAiNormalLimit !== undefined) updateData.vexoAiNormalLimit = parseInt(vexoAiNormalLimit, 10);
+    if (vexoAiApiLimit !== undefined) updateData.vexoAiApiLimit = parseInt(vexoAiApiLimit, 10);
+    if (subscriptionPlan !== undefined) updateData.subscriptionPlan = subscriptionPlan;
+    if (subscriptionStatus !== undefined) updateData.subscriptionStatus = subscriptionStatus;
+    if (trialEndsAt !== undefined) updateData.trialEndsAt = trialEndsAt;
 
     const restSettings = await settingsService.updateRestaurantSettings(restaurantId, updateData);
 

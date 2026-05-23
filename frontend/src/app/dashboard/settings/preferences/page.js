@@ -7,6 +7,10 @@ export default function PreferencesSettings() {
   const [enableQrOrdering, setEnableQrOrdering] = useState(true);
   const [sidebarQuickActions, setSidebarQuickActions] = useState(true);
   const [sidebarStoreSwitch, setSidebarStoreSwitch] = useState(true);
+  const [enableVexoAi, setEnableVexoAi] = useState(true);
+  const [vexoAiNormalLimit, setVexoAiNormalLimit] = useState(15);
+  const [vexoAiApiLimit, setVexoAiApiLimit] = useState(5);
+  const [subscriptionPlan, setSubscriptionPlan] = useState("trial");
   const [isSaved, setIsSaved] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -21,9 +25,13 @@ export default function PreferencesSettings() {
         });
         if (res.ok) {
           const data = await res.json();
-          setEnableQrOrdering(data.qrOrderingEnabled !== false);
+          setEnableQrOrdering(data.subscriptionPlan === "basic" ? false : (data.qrOrderingEnabled !== false));
           setSidebarQuickActions(data.sidebarQuickActions !== false);
           setSidebarStoreSwitch(data.sidebarStoreSwitch !== false);
+          setEnableVexoAi(data.subscriptionPlan === "basic" ? false : (data.vexoAiEnabled !== false));
+          setVexoAiNormalLimit(data.vexoAiNormalLimit !== undefined ? data.vexoAiNormalLimit : 15);
+          setVexoAiApiLimit(data.vexoAiApiLimit !== undefined ? data.vexoAiApiLimit : 5);
+          setSubscriptionPlan(data.subscriptionPlan || "trial");
         }
       } catch (e) {
         console.error("Failed to load settings from server:", e);
@@ -116,6 +124,9 @@ export default function PreferencesSettings() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
                 </svg>
                 Customer QR Self-Ordering Portal
+                {subscriptionPlan === "basic" && (
+                  <span className="bg-orange-100 border border-orange-200 text-orange-600 px-2 py-0.5 rounded text-[8px] font-black tracking-widest uppercase shrink-0">PRO</span>
+                )}
               </p>
               <p className="text-[10px] text-slate-455 font-semibold leading-relaxed">
                 When ENABLED, visitors scanning their table QR code can place in-store food orders directly from their phones. If DISABLED, it acts as a View-Only digital menu.
@@ -124,10 +135,15 @@ export default function PreferencesSettings() {
             
             <button
               type="button"
-              onClick={handleToggleQrOrdering}
-              className={`relative inline-flex h-7 w-13 items-center rounded-full transition-colors duration-300 focus:outline-none shrink-0 ${enableQrOrdering ? "bg-[#ff5722]" : "bg-slate-200"}`}
+              onClick={subscriptionPlan === "basic" ? null : handleToggleQrOrdering}
+              disabled={subscriptionPlan === "basic"}
+              className={`relative inline-flex h-7 w-13 items-center rounded-full transition-colors duration-300 focus:outline-none shrink-0 ${
+                subscriptionPlan === "basic" ? "bg-slate-100 border border-slate-200 cursor-not-allowed" : (enableQrOrdering ? "bg-[#ff5722]" : "bg-slate-200")
+              }`}
             >
-              <span className={`inline-block h-5.5 w-5.5 transform rounded-full bg-white transition-transform duration-300 ${enableQrOrdering ? "translate-x-6.5" : "translate-x-1"}`} />
+              <span className={`inline-block h-5.5 w-5.5 transform rounded-full bg-white transition-transform duration-300 ${
+                subscriptionPlan === "basic" ? "translate-x-1" : (enableQrOrdering ? "translate-x-6.5" : "translate-x-1")
+              }`} />
             </button>
           </div>
 
@@ -184,6 +200,95 @@ export default function PreferencesSettings() {
               <span className={`inline-block h-5.5 w-5.5 transform rounded-full bg-white transition-transform duration-300 ${sidebarQuickActions ? "translate-x-6.5" : "translate-x-1"}`} />
             </button>
           </div>
+
+          {/* Preference Config Row 5: VexoAI Chatbot Toggle */}
+          <div className="flex items-center justify-between gap-6 p-4 rounded-2xl hover:bg-slate-50/80 transition duration-300 border-t border-slate-100/60 pt-5 mt-2">
+            <div className="space-y-1.5 max-w-md text-left">
+              <p className="text-xs font-black text-slate-900 flex items-center gap-2">
+                <svg className="w-4 h-4 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                </svg>
+                Enable VexoAI Chatbot Assistant
+                {subscriptionPlan === "basic" && (
+                  <span className="bg-orange-100 border border-orange-200 text-orange-600 px-2 py-0.5 rounded text-[8px] font-black tracking-widest uppercase shrink-0">PRO</span>
+                )}
+              </p>
+              <p className="text-[10px] text-slate-455 font-semibold leading-relaxed">
+                When ENABLED, the VexoAI smart floating helper widget is displayed on the main admin dashboard. If DISABLED, the AI assistant widget is hidden.
+              </p>
+            </div>
+            
+            <button
+              type="button"
+              onClick={subscriptionPlan === "basic" ? null : () => {
+                const next = !enableVexoAi;
+                setEnableVexoAi(next);
+                saveSetting("vexoAiEnabled", next);
+              }}
+              disabled={subscriptionPlan === "basic"}
+              className={`relative inline-flex h-7 w-13 items-center rounded-full transition-colors duration-300 focus:outline-none shrink-0 ${
+                subscriptionPlan === "basic" ? "bg-slate-100 border border-slate-200 cursor-not-allowed" : (enableVexoAi ? "bg-[#ff5722]" : "bg-slate-200")
+              }`}
+            >
+              <span className={`inline-block h-5.5 w-5.5 transform rounded-full bg-white transition-transform duration-300 ${
+                subscriptionPlan === "basic" ? "translate-x-1" : (enableVexoAi ? "translate-x-6.5" : "translate-x-1")
+              }`} />
+            </button>
+          </div>
+
+          {/* Preference Config Row 6: VexoAI Message Daily Limits */}
+          {enableVexoAi && (
+            <div className="p-4 rounded-2xl bg-slate-50/60 border border-slate-100 space-y-4 text-left mt-2">
+              <p className="text-xs font-black text-slate-900 flex items-center gap-2">
+                <svg className="w-4 h-4 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
+                VexoAI Daily Rate Limits
+              </p>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Normal Queries Limit (per Day)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="500"
+                    value={vexoAiNormalLimit}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value, 10) || 15;
+                      setVexoAiNormalLimit(val);
+                    }}
+                    onBlur={(e) => {
+                      const val = parseInt(e.target.value, 10) || 15;
+                      saveSetting("vexoAiNormalLimit", val);
+                    }}
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-200 focus:border-[#ff5722] focus:outline-none rounded-xl text-xs font-bold text-slate-800"
+                  />
+                  <span className="text-[9px] text-slate-400 font-medium">Standard status, POS, KDS navigation guides.</span>
+                </div>
+                
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Advanced API Queries Limit (per Day)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="500"
+                    value={vexoAiApiLimit}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value, 10) || 5;
+                      setVexoAiApiLimit(val);
+                    }}
+                    onBlur={(e) => {
+                      const val = parseInt(e.target.value, 10) || 5;
+                      saveSetting("vexoAiApiLimit", val);
+                    }}
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-200 focus:border-[#ff5722] focus:outline-none rounded-xl text-xs font-bold text-slate-800"
+                  />
+                  <span className="text-[9px] text-slate-400 font-medium">Queries requiring active LLM API execution.</span>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Info card */}
           <div className="bg-slate-50/50 border border-slate-100 p-5 rounded-2xl flex items-start gap-3.5 text-left">

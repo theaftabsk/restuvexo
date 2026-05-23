@@ -21,6 +21,10 @@ export default function DashboardLayout({ children }) {
   const [collapsedGroups, setCollapsedGroups] = useState({});
   const [isQuickActionOpen, setIsQuickActionOpen] = useState(false);
   const [updatingStoreStatus, setUpdatingStoreStatus] = useState(false);
+  const [vexoAiEnabled, setVexoAiEnabled] = useState(true);
+  const [subscriptionPlan, setSubscriptionPlan] = useState('trial');
+  const [subscriptionStatus, setSubscriptionStatus] = useState('active');
+  const [trialEndsAt, setTrialEndsAt] = useState(null);
 
   // Custom Sidebar Configuration States
   const [sidebarTheme, setSidebarTheme] = useState('light');
@@ -89,6 +93,10 @@ export default function DashboardLayout({ children }) {
         setSidebarStoreSwitch(data.sidebarStoreSwitch !== false);
         setSidebarCollapsible(data.sidebarCollapsible !== false);
         setSidebarHiddenItems(data.sidebarHiddenItems || []);
+        setVexoAiEnabled(data.vexoAiEnabled !== false);
+        setSubscriptionPlan(data.subscriptionPlan || 'trial');
+        setSubscriptionStatus(data.subscriptionStatus || 'active');
+        setTrialEndsAt(data.trialEndsAt || null);
       }
     } catch (err) {
       console.error("Failed to sync sidebar telemetry:", err);
@@ -202,12 +210,26 @@ export default function DashboardLayout({ children }) {
         setSidebarStoreSwitch(data.sidebarStoreSwitch !== false);
         setSidebarCollapsible(data.sidebarCollapsible !== false);
         setSidebarHiddenItems(data.sidebarHiddenItems || []);
+        setSubscriptionPlan(data.subscriptionPlan || 'trial');
+        setSubscriptionStatus(data.subscriptionStatus || 'active');
+        setTrialEndsAt(data.trialEndsAt || null);
       }
     });
 
     return () => {
       socket.disconnect();
       if (fetchTimeoutRef.current) clearTimeout(fetchTimeoutRef.current);
+    };
+  }, []);
+
+  // Event listener to reload telemetry when upgraded in settings
+  useEffect(() => {
+    const handleSubUpdated = () => {
+      fetchCountsAndSettings();
+    };
+    window.addEventListener("subscription_updated", handleSubUpdated);
+    return () => {
+      window.removeEventListener("subscription_updated", handleSubUpdated);
     };
   }, []);
 
@@ -368,7 +390,7 @@ export default function DashboardLayout({ children }) {
       items: [
         { name: "POS Billing", path: "/dashboard/pos", icon: "POS Billing", allowed: user?.role === "owner" || user?.role === "waiter", badge: "FAST" },
         { name: "Orders Manager", path: "/dashboard/orders", icon: "Orders Manager", allowed: user?.role === "owner" || user?.role === "waiter" },
-        { name: "QR Code Approvals", path: "/dashboard/qr", icon: "QR Code Order Management", allowed: user?.role === "owner" || user?.role === "waiter" },
+        { name: "QR Code Approvals", path: "/dashboard/qr", icon: "QR Code Order Management", allowed: user?.role === "owner" || user?.role === "waiter", badge: subscriptionPlan === "basic" ? "PRO" : null },
         { name: "Kitchen Display (KDS)", path: "/dashboard/kds", icon: "Kitchen", allowed: user?.role === "owner" || user?.role === "kitchen" }
       ]
     },
@@ -394,7 +416,7 @@ export default function DashboardLayout({ children }) {
       title: "SYSTEM SETTINGS",
       activeGradient: "from-[#ff5722] to-[#ff7a47]",
       items: [
-        { name: "Staff & Security", path: "/dashboard/staff", icon: "Staff", allowed: user?.role === "owner" },
+        { name: "Staff & Security", path: "/dashboard/staff", icon: "Staff", allowed: user?.role === "owner", badge: subscriptionPlan === "basic" ? "PRO" : null },
         { name: "Settings Console", path: "/dashboard/settings", icon: "Security", allowed: user?.role === "owner" }
       ]
     }
@@ -924,7 +946,7 @@ export default function DashboardLayout({ children }) {
             </div>
           </div>
 
-          {restaurant && (
+          {restaurant && vexoAiEnabled && (
             <div className="flex items-center gap-3 shrink-0">
               <button
                 type="button"
@@ -947,11 +969,77 @@ export default function DashboardLayout({ children }) {
 
         {/* Page Content */}
         <main className="flex-1 p-4 md:p-8 max-w-7xl w-full mx-auto">
-          {children}
+          {(() => {
+            const isExpired = subscriptionStatus === "expired" || (subscriptionPlan === "trial" && trialEndsAt && new Date(trialEndsAt).getTime() - Date.now() <= 0);
+            const isBillingPage = pathname === "/dashboard/settings/billing";
+            const isProRoute = pathname === "/dashboard/staff" || pathname === "/dashboard/qr";
+
+            if (isExpired && !isBillingPage) {
+              return (
+                <div className="flex flex-col items-center justify-center min-h-[50vh] text-center p-6 bg-white border border-slate-200/80 rounded-[2rem] shadow-xl max-w-2xl mx-auto my-12 space-y-6 animate-fade-in text-slate-800">
+                  <div className="w-16 h-16 rounded-full bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-600 animate-bounce shadow-md">
+                    <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                  </div>
+                  <div className="space-y-2">
+                    <span className="text-[10px] font-black uppercase tracking-widest px-3.5 py-1 rounded-full bg-rose-100 border border-rose-200 text-rose-700">Trial Expired</span>
+                    <h3 className="text-2xl font-black text-slate-900 tracking-tight mt-2">Your 7-Day Free Trial Has Expired</h3>
+                    <p className="text-xs text-slate-500 font-semibold leading-relaxed max-w-md mx-auto">
+                      Access to your POS billing terminal, live order queue, KDS feed, and analytics is currently suspended. Upgrade to a premium plan to restore access immediately.
+                    </p>
+                  </div>
+                  <div className="pt-2">
+                    <Link
+                      href="/dashboard/settings/billing"
+                      className="inline-flex py-3.5 px-8 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-black uppercase tracking-wider rounded-2xl shadow-lg shadow-orange-500/20 text-xs items-center gap-2 transition duration-200 active:scale-95 cursor-pointer"
+                    >
+                      Choose a Subscription Plan
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                      </svg>
+                    </Link>
+                  </div>
+                </div>
+              );
+            }
+
+            if (subscriptionPlan === "basic" && isProRoute) {
+              return (
+                <div className="flex flex-col items-center justify-center min-h-[50vh] text-center p-6 bg-white border border-slate-200/80 rounded-[2rem] shadow-xl max-w-2xl mx-auto my-12 space-y-6 animate-fade-in text-slate-800">
+                  <div className="w-16 h-16 rounded-full bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600 animate-pulse shadow-md">
+                    <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                  </div>
+                  <div className="space-y-2">
+                    <span className="text-[10px] font-black uppercase tracking-widest px-3.5 py-1 rounded-full bg-amber-100 border border-amber-200 text-amber-700">Pro Feature</span>
+                    <h3 className="text-2xl font-black text-slate-900 tracking-tight mt-2">Pro Plan Required</h3>
+                    <p className="text-xs text-slate-500 font-semibold leading-relaxed max-w-md mx-auto">
+                      Staff management terminals, custom waiter permissions, and customer QR self-ordering portals are Pro-exclusive features. Upgrade your plan to unlock.
+                    </p>
+                  </div>
+                  <div className="pt-2">
+                    <Link
+                      href="/dashboard/settings/billing"
+                      className="inline-flex py-3.5 px-8 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-black uppercase tracking-wider rounded-2xl shadow-lg shadow-orange-500/20 text-xs items-center gap-2 transition duration-200 active:scale-95 cursor-pointer"
+                    >
+                      Upgrade to Pro Plan
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                      </svg>
+                    </Link>
+                  </div>
+                </div>
+              );
+            }
+
+            return children;
+          })()}
         </main>
 
       </div>
-      <Chatbot />
+      {vexoAiEnabled && <Chatbot />}
     </div>
   );
 }

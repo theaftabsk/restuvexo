@@ -239,6 +239,14 @@ model RestaurantSetting {
   sidebarCollapsible  Boolean    @default(true) @map("sidebar_collapsible")
   sidebarHiddenItems  String[]   @default([]) @map("sidebar_hidden_items")
 
+  vexoAiEnabled       Boolean    @default(true) @map("vexo_ai_enabled")
+  vexoAiNormalLimit   Int        @default(15) @map("vexo_ai_normal_limit")
+  vexoAiApiLimit      Int        @default(5) @map("vexo_ai_api_limit")
+
+  subscriptionPlan    String     @default("trial") @map("subscription_plan") @db.VarChar(50)
+  subscriptionStatus  String     @default("active") @map("subscription_status") @db.VarChar(50)
+  trialEndsAt         DateTime?  @map("trial_ends_at")
+
   restaurant          Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 
   @@map("restaurant_settings")

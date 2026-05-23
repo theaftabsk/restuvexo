@@ -337,7 +337,11 @@ exports.getSidebarTelemetry = async (req, res) => {
       sidebarQuickActions: restSettings.sidebarQuickActions,
       sidebarStoreSwitch: restSettings.sidebarStoreSwitch,
       sidebarCollapsible: restSettings.sidebarCollapsible,
-      sidebarHiddenItems: restSettings.sidebarHiddenItems
+      sidebarHiddenItems: restSettings.sidebarHiddenItems,
+      vexoAiEnabled: restSettings.vexoAiEnabled,
+      subscriptionPlan: restSettings.subscriptionPlan,
+      subscriptionStatus: restSettings.subscriptionStatus,
+      trialEndsAt: restSettings.trialEndsAt
     });
   } catch (error) {
     console.error('Error fetching sidebar telemetry:', error);
@@ -383,7 +387,11 @@ exports.broadcastSidebarTelemetry = async (io, restaurantId) => {
       sidebarQuickActions: restSettings.sidebarQuickActions,
       sidebarStoreSwitch: restSettings.sidebarStoreSwitch,
       sidebarCollapsible: restSettings.sidebarCollapsible,
-      sidebarHiddenItems: restSettings.sidebarHiddenItems
+      sidebarHiddenItems: restSettings.sidebarHiddenItems,
+      vexoAiEnabled: restSettings.vexoAiEnabled,
+      subscriptionPlan: restSettings.subscriptionPlan,
+      subscriptionStatus: restSettings.subscriptionStatus,
+      trialEndsAt: restSettings.trialEndsAt
     });
   } catch (error) {
     console.error('Error broadcasting sidebar telemetry:', error);

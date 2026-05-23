@@ -12,6 +12,8 @@ export default function Chatbot() {
   const [userName, setUserName] = useState("Owner");
   const [activeTab, setActiveTab] = useState("chat"); // 'chat' | 'history'
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [isLocked, setIsLocked] = useState(false);
+  const [subscriptionPlan, setSubscriptionPlan] = useState("trial");
   
   const chatEndRef = useRef(null);
   const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
@@ -30,6 +32,46 @@ export default function Chatbot() {
         } catch (e) {}
       }
     }
+
+    // Fetch subscription plan
+    const fetchSettings = async () => {
+      const token = localStorage.getItem("authToken");
+      if (!token) return;
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/tables/settings`, {
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setSubscriptionPlan(data.subscriptionPlan || "trial");
+        }
+      } catch (e) {
+        console.error("Failed to load settings in chatbot:", e);
+      }
+    };
+    fetchSettings();
+  }, []);
+
+  useEffect(() => {
+    const handleSubUpdated = () => {
+      const token = localStorage.getItem("authToken");
+      if (!token) return;
+      fetch(`${BACKEND_URL}/api/tables/settings`, {
+        headers: { "Authorization": `Bearer ${token}` }
+      })
+        .then(res => res.json())
+        .then(data => {
+          setSubscriptionPlan(data.subscriptionPlan || "trial");
+        })
+        .catch(e => console.error(e));
+    };
+    window.addEventListener("subscription_updated", handleSubUpdated);
+    return () => {
+      window.removeEventListener("subscription_updated", handleSubUpdated);
+    };
+  }, []);
+
+  useEffect(() => {
 
     let hasRestored = false;
     if (typeof window !== "undefined") {
@@ -142,7 +184,7 @@ export default function Chatbot() {
 
   const handleSend = async (textToSend = inputText) => {
     const trimmed = textToSend.trim();
-    if (!trimmed) return;
+    if (!trimmed || isLocked) return;
 
     // Add user message to log
     const userMsg = {
@@ -179,6 +221,13 @@ export default function Chatbot() {
       const data = await response.json();
       
       setIsTyping(false);
+
+      // Check if message limit is reached
+      if (data.text && data.text.includes("reached your daily limit")) {
+        setIsLocked(true);
+      } else {
+        setIsLocked(false);
+      }
 
       // Add bot response to log
       setMessages(prev => [...prev, {
@@ -286,6 +335,7 @@ export default function Chatbot() {
 
   const handleClearHistory = () => {
     setMessages([]);
+    setIsLocked(false);
     sessionStorage.removeItem("vexoai_messages");
     setShowClearConfirm(false);
   };
@@ -396,9 +446,34 @@ export default function Chatbot() {
         </header>
 
         {/* Drawer Body Scroll Content */}
-        <div className="flex-1 overflow-y-auto px-6 py-5 bg-slate-50/40 dark:bg-slate-900/10 scrollbar-thin">
+        <div className="flex-1 overflow-y-auto px-6 py-5 bg-slate-50/40 dark:bg-slate-900/10 scrollbar-thin flex flex-col">
           
-          {showWelcomeScreen ? (
+          {subscriptionPlan === "basic" ? (
+            <div className="flex flex-col items-center justify-center flex-1 text-center p-4 space-y-5 animate-fade-in text-slate-800 dark:text-slate-100">
+              <div className="w-14 h-14 rounded-2xl bg-orange-50 dark:bg-orange-950/20 border border-orange-100 dark:border-orange-900 flex items-center justify-center text-[#ff5722] animate-pulse shadow-md shadow-orange-500/5">
+                <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </div>
+              <div className="space-y-1.5">
+                <span className="text-[9px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-350 border border-orange-200/50">PRO ONLY</span>
+                <h3 className="text-base font-black tracking-tight mt-1">VexoAI Assistant Locked</h3>
+                <p className="text-[10px] text-slate-455 dark:text-slate-500 font-semibold leading-relaxed max-w-xs mx-auto">
+                  Get real-time operational advice, quick-actions triggers, KDS metrics audits, and thermal printer setups by upgrading to the **Pro Plan**.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsOpen(false);
+                  window.location.href = "/dashboard/settings/billing";
+                }}
+                className="w-full py-3.5 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-black uppercase tracking-wider rounded-2xl text-[10px] items-center justify-center shadow-md shadow-orange-500/10 cursor-pointer"
+              >
+                Upgrade to Pro Plan
+              </button>
+            </div>
+          ) : showWelcomeScreen ? (
             /* Hostinger style Welcome Home Screen */
             <div className="space-y-6 animate-fade-in flex flex-col justify-center min-h-[60%] text-left">
               <div className="space-y-2">
@@ -545,6 +620,7 @@ export default function Chatbot() {
 
         {/* Drawer Footer Input Panel */}
         <footer className="p-4 border-t border-slate-100 dark:border-slate-900 bg-white dark:bg-slate-950 shrink-0">
+          {subscriptionPlan !== "basic" && (
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -556,7 +632,8 @@ export default function Chatbot() {
             <div className="border border-slate-200 dark:border-slate-850 focus-within:border-[#ff5722] focus-within:ring-1 focus-within:ring-[#ff5722]/20 rounded-[1.5rem] p-3 flex bg-slate-50/50 dark:bg-slate-900/50 transition relative">
               <textarea
                 rows={2}
-                placeholder={isListening ? "Listening, speak now..." : "Ask VexoAI anything..."}
+                disabled={isLocked}
+                placeholder={isLocked ? "Daily message limit reached..." : (isListening ? "Listening, speak now..." : "Ask VexoAI anything...")}
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
                 onKeyDown={(e) => {
@@ -571,13 +648,16 @@ export default function Chatbot() {
               {/* Voice recognition mic floating inside input box */}
               <button
                 type="button"
+                disabled={isLocked}
                 onClick={toggleVoiceInput}
-                className={`absolute right-3.5 bottom-3.5 w-7.5 h-7.5 rounded-lg flex items-center justify-center transition border cursor-pointer ${
-                  isListening
-                    ? "bg-rose-500 border-rose-600 text-white animate-pulse"
-                    : "bg-white dark:bg-slate-800 border-slate-250/80 dark:border-slate-700 text-slate-450 hover:text-slate-800 dark:hover:text-slate-100 hover:bg-slate-50"
+                className={`absolute right-3.5 bottom-3.5 w-7.5 h-7.5 rounded-lg flex items-center justify-center transition border ${
+                  isLocked 
+                    ? "bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-300 dark:text-slate-600 cursor-not-allowed"
+                    : isListening
+                      ? "bg-rose-500 border-rose-600 text-white animate-pulse cursor-pointer"
+                      : "bg-white dark:bg-slate-800 border-slate-250/80 dark:border-slate-700 text-slate-450 hover:text-slate-800 dark:hover:text-slate-100 hover:bg-slate-50 cursor-pointer"
                 }`}
-                title={isListening ? "Listening... Click to stop" : "Speak (Voice input)"}
+                title={isLocked ? "Input locked" : (isListening ? "Listening... Click to stop" : "Speak (Voice input)")}
               >
                 {isListening ? (
                   <span className="flex h-2.5 w-2.5 relative">
@@ -601,7 +681,7 @@ export default function Chatbot() {
               {/* Send Button */}
               <button
                 type="submit"
-                disabled={!inputText.trim()}
+                disabled={!inputText.trim() || isLocked}
                 className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#ff5722] via-[#e11d48] to-[#ec4899] text-white hover:brightness-105 disabled:opacity-40 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider transition cursor-pointer disabled:pointer-events-none active:scale-95"
               >
                 <span>Send</span>
@@ -611,6 +691,7 @@ export default function Chatbot() {
               </button>
             </div>
           </form>
+          )}
         </footer>
 
       </div>

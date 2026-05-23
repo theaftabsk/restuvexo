@@ -254,28 +254,104 @@ function getLocalFallbackResponse(message, telemetry, userName) {
   return { text: responseText, action };
 }
 
+const settingsService = require('../settingsService');
+
+// In-memory usage map to track messages count per user
+// Key: userId
+// Value: { date: YYYY-MM-DD, localCount: number, apiCount: number }
+const userUsageMap = new Map();
+
+function getUserUsage(userId) {
+  const today = new Date().toISOString().split('T')[0]; // Format: YYYY-MM-DD
+  if (!userUsageMap.has(userId)) {
+    userUsageMap.set(userId, { date: today, localCount: 0, apiCount: 0 });
+  }
+
+  const usage = userUsageMap.get(userId);
+  if (usage.date !== today) {
+    // New day, reset counts
+    usage.date = today;
+    usage.localCount = 0;
+    usage.apiCount = 0;
+  }
+
+  return usage;
+}
+
+function isNormalQuestion(message) {
+  const query = message.toLowerCase();
+  const keywords = [
+    "sales", "revenue", "profit", "আজকের বিক্রি", "আজকের সেল", "আজকের ইনকাম", "আজকের প্রফিট",
+    "pos", "billing", "অর্ডার কিভাবে add", "বিলিং", "অর্ডার যোগ", "নতুন অর্ডার",
+    "kitchen", "kds", "রান্নাঘর", "কিচেন প্যানেল",
+    "printer", "print", "প্রিন্টার", "প্রিন্ট হচ্ছে না",
+    "qr", "কিউআর", "self order",
+    "customer", "কাস্টমার", "গ্রাহক",
+    "table", "টেবিল", "খালি",
+    "expense", "খরচ", "হিসাব",
+    "inventory", "ইনভেন্টরি", "কাঁচামাল", "স্টক",
+    "staff", "স্টাফ", "কর্মী", "পিন",
+    "help", "সাহায্য", "hi", "hello", "কেমন আছ", "vexoai"
+  ];
+  return keywords.some(keyword => query.includes(keyword));
+}
+
 // Main API Handler
 exports.handleChat = async (req, res) => {
   const { message, history } = req.body;
   const restaurantId = req.user.restaurantId;
   const userName = req.user.name || "Owner";
   const userRole = req.user.role || "owner";
+  const userId = req.user.id || 0;
 
   if (!message) {
     return res.status(400).json({ error: "Message content is required." });
   }
 
-  // 1. Fetch real-time aggregate statistics securely via middleware functions
-  const telemetry = await getRestaurantTelemetry(restaurantId);
+  try {
+    // Check settings for VexoAI status
+    const settings = await settingsService.getRestaurantSettings(restaurantId);
+    if (settings.vexoAiEnabled === false) {
+      return res.json({
+        text: "VexoAI Chatbot has been disabled by the restaurant administrator.",
+        action: null
+      });
+    }
 
-  const groqKey = process.env.GROQ_API_KEY;
-  const geminiKey = process.env.GEMINI_API_KEY;
+    const isNormal = isNormalQuestion(message);
+    const usage = getUserUsage(userId);
 
-  // If no keys configured, run local rules responder immediately
-  if (!groqKey && !geminiKey) {
-    const fallback = getLocalFallbackResponse(message, telemetry, userName);
-    return res.json(fallback);
-  }
+    if (isNormal) {
+      const normalLimit = settings.vexoAiNormalLimit !== undefined ? settings.vexoAiNormalLimit : 15;
+      if (usage.localCount >= normalLimit) {
+        return res.json({
+          text: `You have reached your daily limit of ${normalLimit} normal queries for VexoAI. Please contact your restaurant administrator to increase this limit.`,
+          action: null
+        });
+      }
+      usage.localCount += 1;
+    } else {
+      const apiLimit = settings.vexoAiApiLimit !== undefined ? settings.vexoAiApiLimit : 5;
+      if (usage.apiCount >= apiLimit) {
+        return res.json({
+          text: `You have reached your daily limit of ${apiLimit} advanced AI queries for VexoAI. Please contact your restaurant administrator to increase this limit.`,
+          action: null
+        });
+      }
+      usage.apiCount += 1;
+    }
+
+    // 1. Fetch real-time aggregate statistics securely via middleware functions
+    const telemetry = await getRestaurantTelemetry(restaurantId);
+
+    const groqKey = process.env.GROQ_API_KEY;
+    const geminiKey = process.env.GEMINI_API_KEY;
+
+    // If no keys configured, run local rules responder immediately
+    if (!groqKey && !geminiKey) {
+      const fallback = getLocalFallbackResponse(message, telemetry, userName);
+      return res.json(fallback);
+    }
 
   // 2. Build system context system instruction
   const systemInstruction = `You are "VexoAI", an advanced intelligent Restaurant Virtual Assistant.
@@ -430,5 +506,9 @@ CRITICAL: Do NOT output anything outside the JSON object block. Your entire outp
       const fallback = getLocalFallbackResponse(message, telemetry, userName);
       return res.json(fallback);
     }
+  }
+  } catch (error) {
+    console.error('Chatbot Controller Error:', error);
+    res.status(500).json({ error: "Internal chatbot error." });
   }
 };
