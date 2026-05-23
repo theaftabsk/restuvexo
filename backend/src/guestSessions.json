@@ -1,0 +1,27 @@
+{
+  "tmp_1779306303715_hhjud2sqb": {
+    "sessionId": "tmp_1779306303715_hhjud2sqb",
+    "deviceId": "dev_1779306303263_npzp3w32i",
+    "tableId": 7,
+    "deviceInfo": "Mobile Scanner",
+    "activeOrders": [],
+    "createdAt": 1779306303716,
+    "updatedAt": 1779306303716
+  },
+  "tmp_1779306308794_jgo83o009": {
+    "sessionId": "tmp_1779306308794_jgo83o009",
+    "deviceId": "dev_1779306303263_npzp3w32i",
+    "tableId": 7,
+    "deviceInfo": "Windows PC",
+    "activeOrders": [
+      13
+    ],
+    "createdAt": 1779306308795,
+    "updatedAt": 1779307244391,
+    "customerName": "Walk-in Guest",
+    "customerPhone": "N/A",
+    "orderTimestamps": [
+      1779306335049
+    ]
+  }
+}

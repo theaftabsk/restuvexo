@@ -1,0 +1,264 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider   = "prisma-client-js"
+  engineType = "binary"
+}
+
+model Restaurant {
+  id        Int      @id @default(autoincrement())
+  name      String   @db.VarChar(150)
+  phone     String   @db.VarChar(20)
+  email     String   @unique @db.VarChar(100)
+  address   String?  @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+
+  users      User[]
+  tables     Table[]
+  categories Category[]
+  menuItems  MenuItem[]
+  inventory  Inventory[]
+  orders     Order[]
+  expenses   Expense[]
+  settings   RestaurantSetting?
+
+  @@map("restaurants")
+}
+
+enum Role {
+  owner
+  waiter
+  kitchen
+  other
+}
+
+enum UserStatus {
+  active
+  inactive
+}
+
+model User {
+  id           Int        @id @default(autoincrement())
+  restaurantId Int        @map("restaurant_id")
+  name         String     @db.VarChar(100)
+  role         Role
+  // loginId: 10-digit unique auto-generated staff login identifier (replaces phone)
+  // For owner accounts, loginId is set to their email address
+  loginId      String     @unique @map("login_id") @db.VarChar(255)
+  passwordHash String     @map("password_hash") @db.VarChar(255)
+  pinHash      String     @map("pin_hash") @db.VarChar(255)
+  status       UserStatus @default(active)
+  
+  // Granular Permission Triggers
+  hasPos       Boolean    @default(false) @map("has_pos")
+  hasKitchen   Boolean    @default(false) @map("has_kitchen")
+  hasOrders    Boolean    @default(false) @map("has_orders")
+  hasInventory Boolean    @default(false) @map("has_inventory")
+  hasStaff     Boolean    @default(false) @map("has_staff")
+
+  createdAt    DateTime   @default(now()) @map("created_at")
+
+  // Password Reset Fields
+  resetToken   String?    @map("reset_token") @db.VarChar(255)
+  resetExpires DateTime?  @map("reset_expires")
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  orders     Order[]
+
+  @@map("users")
+}
+
+model OtpVerification {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique @db.VarChar(100)
+  otp       String   @db.VarChar(6)
+  payload   String   @db.Text // JSON string of name, restaurantName, phone, passwordHash
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("otp_verifications")
+}
+
+enum TableStatus {
+  free
+  occupied
+  reserved
+}
+
+model Table {
+  id           Int         @id @default(autoincrement())
+  restaurantId Int         @map("restaurant_id")
+  tableNo      String      @map("table_no") @db.VarChar(20)
+  qrCode       String?     @map("qr_code") @db.VarChar(255)
+  status       TableStatus @default(free)
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  orders     Order[]
+
+  @@map("tables")
+}
+
+model Category {
+  id           Int    @id @default(autoincrement())
+  restaurantId Int    @map("restaurant_id")
+  name         String @db.VarChar(100)
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  menuItems  MenuItem[]
+
+  @@map("categories")
+}
+
+model MenuItem {
+  id           Int     @id @default(autoincrement())
+  restaurantId Int     @map("restaurant_id")
+  categoryId   Int     @map("category_id")
+  name         String  @db.VarChar(150)
+  price        Decimal @db.Decimal(10, 2)
+  costPrice    Decimal @default(0.00) @map("cost_price") @db.Decimal(10, 2)
+  stockQty     Int     @default(999) @map("stock_qty")
+  isAvailable  Boolean @default(true) @map("is_available")
+  trackStock   Boolean @default(true) @map("track_stock")
+  imageUrl     String? @map("image_url") @db.VarChar(500)
+
+  restaurant Restaurant  @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  category   Category    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  recipes    Recipe[]
+  orderItems OrderItem[]
+
+  @@map("menu_items")
+}
+
+model Inventory {
+  id            Int     @id @default(autoincrement())
+  restaurantId  Int     @map("restaurant_id")
+  itemName      String  @map("item_name") @db.VarChar(150)
+  qty           Decimal @db.Decimal(10, 2)
+  unit          String  @db.VarChar(20)
+  lowStockAlert Decimal @default(5.00) @map("low_stock_alert") @db.Decimal(10, 2)
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  recipes    Recipe[]
+
+  @@map("inventory")
+}
+
+model Recipe {
+  id          Int     @id @default(autoincrement())
+  menuItemId  Int     @map("menu_item_id")
+  inventoryId Int     @map("inventory_id")
+  qtyRequired Decimal @map("qty_required") @db.Decimal(10, 3)
+
+  menuItem  MenuItem  @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  inventory Inventory @relation(fields: [inventoryId], references: [id], onDelete: Restrict)
+
+  @@map("recipes")
+}
+
+enum OrderStatus {
+  pending
+  cooking
+  ready
+  completed
+}
+
+enum PaymentStatus {
+  unpaid
+  paid
+}
+
+enum PaymentMethod {
+  cash
+  upi
+  card
+}
+
+enum OrderType {
+  dine_in
+  takeaway
+  delivery
+}
+
+model Order {
+  id              Int           @id @default(autoincrement())
+  restaurantId    Int           @map("restaurant_id")
+  tableId         Int?          @map("table_id")
+  createdBy       Int           @map("created_by")
+  orderType       OrderType     @default(dine_in) @map("order_type")
+  subtotal        Decimal       @default(0.00) @db.Decimal(10, 2)
+  discountApplied Decimal       @default(0.00) @map("discount_applied") @db.Decimal(10, 2)
+  totalAmount     Decimal       @map("total_amount") @db.Decimal(10, 2)
+  totalCost       Decimal       @default(0.00) @map("total_cost") @db.Decimal(10, 2)
+  totalProfit     Decimal       @default(0.00) @map("total_profit") @db.Decimal(10, 2)
+  status          OrderStatus   @default(pending)
+  paymentStatus   PaymentStatus @default(unpaid) @map("payment_status")
+  paymentMethod   PaymentMethod? @map("payment_method")
+  approvedBy      String?       @map("approved_by") @db.VarChar(100)
+  createdAt       DateTime      @default(now()) @map("created_at")
+
+  restaurant Restaurant  @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  table      Table?      @relation(fields: [tableId], references: [id], onDelete: SetNull)
+  creator    User        @relation(fields: [createdBy], references: [id], onDelete: Restrict)
+  orderItems OrderItem[]
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id         Int     @id @default(autoincrement())
+  orderId    Int     @map("order_id")
+  menuItemId Int     @map("menu_item_id")
+  qty        Int
+  price      Decimal @db.Decimal(10, 2)
+  costPrice  Decimal @default(0.00) @map("cost_price") @db.Decimal(10, 2)
+  note       String? @db.VarChar(255)
+
+  order    Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Restrict)
+
+  @@map("order_items")
+}
+
+model Expense {
+  id           Int      @id @default(autoincrement())
+  restaurantId Int      @map("restaurant_id")
+  title        String   @db.VarChar(255)
+  category     String   @db.VarChar(100)
+  amount       Decimal  @db.Decimal(10, 2)
+  date         DateTime @default(now())
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@map("expenses")
+}
+
+model RestaurantSetting {
+  id                  Int        @id @default(autoincrement())
+  restaurantId        Int        @unique @map("restaurant_id")
+  qrOrderingEnabled   Boolean    @default(true) @map("qr_ordering_enabled")
+  customerTheme       String     @default("sunset") @map("customer_theme") @db.VarChar(50)
+  sidebarTheme        String     @default("light") @map("sidebar_theme") @db.VarChar(50)
+  sidebarQuickActions Boolean    @default(true) @map("sidebar_quick_actions")
+  sidebarStoreSwitch  Boolean    @default(true) @map("sidebar_store_switch")
+  sidebarCollapsible  Boolean    @default(true) @map("sidebar_collapsible")
+  sidebarHiddenItems  String[]   @default([]) @map("sidebar_hidden_items")
+
+  restaurant          Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@map("restaurant_settings")
+}
+
+model DemoRequest {
+  id             Int      @id @default(autoincrement())
+  name           String   @db.VarChar(100)
+  email          String   @db.VarChar(100)
+  phone          String   @db.VarChar(20)
+  restaurantName String   @map("restaurant_name") @db.VarChar(150)
+  message        String?  @db.Text
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@map("demo_requests")
+}

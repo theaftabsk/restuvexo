@@ -1,0 +1,11 @@
+{
+  "3": {
+    "qrOrderingEnabled": true,
+    "customerTheme": "emerald",
+    "sidebarTheme": "orange",
+    "sidebarQuickActions": true,
+    "sidebarStoreSwitch": true,
+    "sidebarCollapsible": true,
+    "sidebarHiddenItems": []
+  }
+}
