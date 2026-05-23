@@ -195,7 +195,7 @@ export default function Chatbot() {
       setIsTyping(false);
       setMessages(prev => [...prev, {
         sender: "bot",
-        text: "দুঃখিত, কোনো টেকনিক্যাল সমস্যার কারণে আমি উত্তর দিতে পারছি না। অনুগ্রহ করে আবার চেষ্টা করুন বা ইন্টারনেট কানেকশন চেক করুন।",
+        text: "Sorry, I'm unable to respond due to a technical issue. Please try again or check your internet connection.",
         timestamp: new Date()
       }]);
     }
@@ -314,10 +314,10 @@ export default function Chatbot() {
             </div>
             <div className="space-y-1">
               <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">
-                চ্যাট হিস্ট্রি মুছে ফেলবেন?
+                Clear Chat History?
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                আপনি কি নিশ্চিত যে আপনি চ্যাট হিস্ট্রি মুছে ফেলতে চান? এটি আর ফিরিয়ে আনা যাবে না।
+                Are you sure you want to clear all chat history? This action cannot be undone.
               </p>
             </div>
             <div className="flex gap-3 pt-2">
@@ -325,13 +325,13 @@ export default function Chatbot() {
                 onClick={handleClearHistory}
                 className="flex-1 py-2.5 bg-gradient-to-r from-[#ff5722] via-[#e11d48] to-[#ec4899] text-white text-xs font-black uppercase tracking-wider rounded-xl hover:brightness-105 active:scale-95 transition shadow-sm shadow-orange-500/10 cursor-pointer border-none outline-none"
               >
-                Yes, Clear (হ্যাঁ)
+                Yes, Clear
               </button>
               <button
                 onClick={() => setShowClearConfirm(false)}
                 className="flex-1 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-350 text-xs font-black uppercase tracking-wider rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-95 transition cursor-pointer border border-slate-200/50 dark:border-slate-800"
               >
-                Cancel (না)
+                Cancel
               </button>
             </div>
           </div>
@@ -420,10 +420,10 @@ export default function Chatbot() {
               {/* Hostinger-style Quick Action Lists with Arrow Hover */}
               <div className="space-y-2.5">
                 {[
-                  { q: "আজকের sales কত?", label: "আজকের বিক্রির হিসাব দেখুন" },
-                  { q: "Kitchen panel কোথায়?", label: "রান্নাঘর (KDS) প্যানেল ওপেন করুন" },
-                  { q: "Order কিভাবে add করব?", label: "নতুন খাবার বা অর্ডার অ্যাড করার নিয়ম" },
-                  { q: "Printer কানেক্ট হচ্ছে না কেন?", label: "থার্মাল প্রিন্টার ট্রাবলশুট গাইড" }
+                  { q: "What are today's sales?", label: "View today's sales & revenue summary" },
+                  { q: "Where is the Kitchen panel?", label: "Open the Kitchen Display (KDS) panel" },
+                  { q: "How do I add an order?", label: "Steps to add new items or orders" },
+                  { q: "Why is the printer not connecting?", label: "Thermal printer troubleshoot guide" }
                 ].map((item, idx) => (
                   <button
                     key={idx}
@@ -448,11 +448,11 @@ export default function Chatbot() {
                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-0.5">Quick Topics</span>
                 <div className="flex flex-wrap gap-1.5">
                   {[
-                    { c: "POS Billing", q: "POS Billing screen-এ কীভাবে অর্ডার নেব?" },
-                    { c: "KDS Panel", q: "রান্নাঘর বা KDS প্যানেল কীভাবে ব্যবহার করব?" },
-                    { c: "Orders", q: "অর্ডার ম্যানেজার পেজে কী কী করা যায়?" },
-                    { c: "Inventory", q: "ইনভেন্টরি এবং কাঁচামাল কীভাবে কন্ট্রোল করব?" },
-                    { c: "Settings", q: "সেটিংস কীভাবে কনফিগার করব?" }
+                    { c: "POS Billing", q: "How do I take orders on the POS Billing screen?" },
+                    { c: "KDS Panel", q: "How do I use the Kitchen Display (KDS) panel?" },
+                    { c: "Orders", q: "What can I do on the Orders Manager page?" },
+                    { c: "Inventory", q: "How do I manage inventory and raw materials?" },
+                    { c: "Settings", q: "How do I configure the restaurant settings?" }
                   ].map((cat, idx) => (
                     <button
                       key={idx}
@@ -486,7 +486,7 @@ export default function Chatbot() {
                         <div className="mt-3.5 pt-3 border-t border-slate-100 dark:border-slate-800/80 space-y-2">
                           <p className="text-[10px] font-black text-[#ff5722] uppercase tracking-widest leading-none">VexoAI Action Request</p>
                           <p className="text-[11px] font-bold text-slate-700 dark:text-slate-350 leading-tight">
-                            {msg.action.type === 'redirect' ? 'ন্যাভিগেশন কনফার্ম করুন' : 'প্রিন্ট কনফার্ম করুন'}
+                            {msg.action.type === 'redirect' ? 'Confirm Navigation' : 'Confirm Print'}
                           </p>
                           <div className="flex gap-2">
                             <button
@@ -494,14 +494,14 @@ export default function Chatbot() {
                               onClick={() => confirmAction(idx)}
                               className="px-3.5 py-2 bg-gradient-to-r from-[#ff5722] via-[#e11d48] to-[#ec4899] text-white text-[10px] font-black uppercase tracking-wider rounded-xl hover:brightness-105 active:scale-95 transition cursor-pointer shadow-sm shadow-orange-500/10"
                             >
-                              Allow (হ্যাঁ)
+                              Allow
                             </button>
                             <button
                               type="button"
                               onClick={() => cancelAction(idx)}
                               className="px-3.5 py-2 bg-slate-100 dark:bg-slate-800 text-slate-650 dark:text-slate-300 text-[10px] font-black uppercase tracking-wider rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-95 transition cursor-pointer border border-slate-200/50 dark:border-slate-800"
                             >
-                              Cancel (না)
+                              Cancel
                             </button>
                           </div>
                         </div>
@@ -511,14 +511,14 @@ export default function Chatbot() {
                       {isBot && msg.action && msg.actionExecuted && (
                         <div className="mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center gap-1.5 text-[9px] font-black text-emerald-600 dark:text-emerald-500 uppercase tracking-wider text-left">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                          <span>অ্যাকশন সম্পন্ন হয়েছে</span>
+                          <span>Action completed successfully</span>
                         </div>
                       )}
 
                       {isBot && msg.action && msg.actionCancelled && (
                         <div className="mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center gap-1.5 text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider text-left">
                           <span className="w-1.5 h-1.5 rounded-full bg-slate-450" />
-                          <span>অ্যাকশন বাতিল করা হয়েছে</span>
+                          <span>Action cancelled</span>
                         </div>
                       )}
                     </div>
@@ -556,7 +556,7 @@ export default function Chatbot() {
             <div className="border border-slate-200 dark:border-slate-850 focus-within:border-[#ff5722] focus-within:ring-1 focus-within:ring-[#ff5722]/20 rounded-[1.5rem] p-3 flex bg-slate-50/50 dark:bg-slate-900/50 transition relative">
               <textarea
                 rows={2}
-                placeholder={isListening ? "বলুন, আমি শুনছি..." : "VexoAI কে জিজ্ঞেস করুন..."}
+                placeholder={isListening ? "Listening, speak now..." : "Ask VexoAI anything..."}
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
                 onKeyDown={(e) => {
