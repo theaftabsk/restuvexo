@@ -18,8 +18,7 @@ export default function StaffManagement() {
   const [showEditForm, setShowEditForm] = useState(false);
   const [editTarget, setEditTarget] = useState(null);
   const [editData, setEditData] = useState({
-    name: "", role: "waiter", password: "",
-    hasPos: false, hasKitchen: false, hasOrders: false, hasInventory: false, hasStaff: false
+    name: "", role: "waiter", password: ""
   });
   const [editLoading, setEditLoading] = useState(false);
 
@@ -97,12 +96,7 @@ export default function StaffManagement() {
     setEditData({
       name: staff.name,
       role: staff.role,
-      password: "",
-      hasPos: staff.hasPos,
-      hasKitchen: staff.hasKitchen,
-      hasOrders: staff.hasOrders,
-      hasInventory: staff.hasInventory,
-      hasStaff: staff.hasStaff
+      password: ""
     });
     setShowEditForm(true);
   };
@@ -117,12 +111,7 @@ export default function StaffManagement() {
     const token = localStorage.getItem("authToken");
     const payload = {
       name: editData.name,
-      role: editData.role,
-      hasPos: editData.hasPos,
-      hasKitchen: editData.hasKitchen,
-      hasOrders: editData.hasOrders,
-      hasInventory: editData.hasInventory,
-      hasStaff: editData.hasStaff
+      role: editData.role
     };
     if (editData.password) payload.password = editData.password;
 
@@ -188,22 +177,7 @@ export default function StaffManagement() {
     );
   }
 
-  const PermissionToggle = ({ label, checked, onChange }) => (
-    <button
-      type="button"
-      onClick={onChange}
-      className={`flex items-center justify-between w-full px-3 py-2.5 rounded-xl border text-[10px] font-black uppercase tracking-widest transition cursor-pointer ${
-        checked
-          ? "bg-emerald-50 border-emerald-200 text-emerald-700"
-          : "bg-slate-50 border-slate-200 text-slate-400"
-      }`}
-    >
-      <span>{label}</span>
-      <span className={`w-8 h-4 rounded-full relative transition-colors ${checked ? "bg-emerald-500" : "bg-slate-200"}`}>
-        <span className={`absolute top-0.5 w-3 h-3 bg-white rounded-full shadow transition-all ${checked ? "left-4" : "left-0.5"}`} />
-      </span>
-    </button>
-  );
+  // PermissionToggle component removed
 
   return (
     <div className="space-y-8 relative text-slate-800 font-sans">
@@ -401,15 +375,7 @@ export default function StaffManagement() {
                 />
               </div>
 
-              {/* Permissions */}
-              <div className="space-y-2 pt-2 border-t border-slate-100">
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-1 pb-1">Module Access Permissions</p>
-                <PermissionToggle label="POS Billing" checked={editData.hasPos} onChange={() => setEditData(p => ({ ...p, hasPos: !p.hasPos }))} />
-                <PermissionToggle label="Kitchen Display (KDS)" checked={editData.hasKitchen} onChange={() => setEditData(p => ({ ...p, hasKitchen: !p.hasKitchen }))} />
-                <PermissionToggle label="Orders Manager" checked={editData.hasOrders} onChange={() => setEditData(p => ({ ...p, hasOrders: !p.hasOrders }))} />
-                <PermissionToggle label="Inventory Access" checked={editData.hasInventory} onChange={() => setEditData(p => ({ ...p, hasInventory: !p.hasInventory }))} />
-                <PermissionToggle label="Staff Management" checked={editData.hasStaff} onChange={() => setEditData(p => ({ ...p, hasStaff: !p.hasStaff }))} />
-              </div>
+
 
               <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-100">
                 <button type="button" onClick={() => setShowEditForm(false)}

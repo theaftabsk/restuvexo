@@ -366,10 +366,10 @@ export default function DashboardLayout({ children }) {
       title: "LIVE TERMINALS",
       activeGradient: "from-[#ff5722] to-[#ff7a47]",
       items: [
-        { name: "POS Billing", path: "/dashboard/pos", icon: "POS Billing", allowed: user?.role === "owner" || user?.hasPos, badge: "FAST" },
-        { name: "Orders Manager", path: "/dashboard/orders", icon: "Orders Manager", allowed: user?.role === "owner" || user?.hasOrders },
-        { name: "QR Code Approvals", path: "/dashboard/qr", icon: "QR Code Order Management", allowed: user?.role === "owner" || user?.hasOrders },
-        { name: "Kitchen Display (KDS)", path: "/dashboard/kds", icon: "Kitchen", allowed: user?.role === "owner" || user?.hasKitchen }
+        { name: "POS Billing", path: "/dashboard/pos", icon: "POS Billing", allowed: user?.role === "owner" || user?.role === "waiter", badge: "FAST" },
+        { name: "Orders Manager", path: "/dashboard/orders", icon: "Orders Manager", allowed: user?.role === "owner" || user?.role === "waiter" },
+        { name: "QR Code Approvals", path: "/dashboard/qr", icon: "QR Code Order Management", allowed: user?.role === "owner" || user?.role === "waiter" },
+        { name: "Kitchen Display (KDS)", path: "/dashboard/kds", icon: "Kitchen", allowed: user?.role === "owner" || user?.role === "kitchen" }
       ]
     },
     {
@@ -386,7 +386,7 @@ export default function DashboardLayout({ children }) {
         { name: "Menu Catalog", path: "/dashboard/menu", icon: "Menu", allowed: user?.role === "owner" },
         { name: "Menu Stock Control", path: "/dashboard/menu/stock", icon: "StockControl", allowed: user?.role === "owner" },
         { name: "Table Settings", path: "/dashboard/tables", icon: "Table Manager", allowed: user?.role === "owner" },
-        { name: "Inventory Stock", path: "/dashboard/inventory", icon: "Inventory", allowed: user?.role === "owner" || user?.hasInventory },
+        { name: "Inventory Stock", path: "/dashboard/inventory", icon: "Inventory", allowed: user?.role === "owner" },
         { name: "Expenses Tracker", path: "/dashboard/expenses", icon: "Expenses", allowed: user?.role === "owner" }
       ]
     },
@@ -394,7 +394,7 @@ export default function DashboardLayout({ children }) {
       title: "SYSTEM SETTINGS",
       activeGradient: "from-[#ff5722] to-[#ff7a47]",
       items: [
-        { name: "Staff & Security", path: "/dashboard/staff", icon: "Staff", allowed: user?.role === "owner" || user?.hasStaff },
+        { name: "Staff & Security", path: "/dashboard/staff", icon: "Staff", allowed: user?.role === "owner" },
         { name: "Settings Console", path: "/dashboard/settings", icon: "Security", allowed: user?.role === "owner" }
       ]
     }

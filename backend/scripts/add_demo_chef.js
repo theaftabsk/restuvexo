@@ -29,12 +29,7 @@ async function main() {
       role: "kitchen",
       passwordHash: passwordHash,
       pinHash: pinHash,
-      status: "active",
-      hasPos: false,
-      hasOrders: false,
-      hasKitchen: true,
-      hasInventory: false,
-      hasStaff: false
+      status: "active"
     },
     create: {
       restaurantId: restaurant.id,
@@ -43,12 +38,7 @@ async function main() {
       loginId: "01800000000",
       passwordHash: passwordHash,
       pinHash: pinHash,
-      status: "active",
-      hasPos: false,
-      hasOrders: false,
-      hasKitchen: true,
-      hasInventory: false,
-      hasStaff: false
+      status: "active"
     }
   });
 

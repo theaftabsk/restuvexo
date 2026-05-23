@@ -141,13 +141,7 @@ exports.verifyOtp = async (req, res) => {
           loginId: email, // Owner loginId = their email address
           passwordHash: passwordHash,
           pinHash: defaultPinHash,
-          status: "active",
-          // Owner has 100% full master permissions by default
-          hasPos: true,
-          hasKitchen: true,
-          hasOrders: true,
-          hasInventory: true,
-          hasStaff: true
+          status: "active"
         }
       });
 
@@ -192,12 +186,7 @@ exports.verifyOtp = async (req, res) => {
       user: {
         id: result.user.id,
         name: result.user.name,
-        role: result.user.role,
-        hasPos: result.user.hasPos,
-        hasKitchen: result.user.hasKitchen,
-        hasOrders: result.user.hasOrders,
-        hasInventory: result.user.hasInventory,
-        hasStaff: result.user.hasStaff
+        role: result.user.role
       }
     });
 
@@ -245,6 +234,10 @@ exports.login = async (req, res) => {
       return res.status(401).json({ error: "Account not found, inactive, or invalid credentials." });
     }
 
+    if (user.role === 'other') {
+      return res.status(403).json({ error: "Access Denied. Other staff are not permitted to log in." });
+    }
+
     // Owners use passwordHash; staff also use passwordHash (set manually by owner)
     const isMatch = await bcrypt.compare(credential, user.passwordHash);
 
@@ -280,12 +273,7 @@ exports.login = async (req, res) => {
       user: {
         id: user.id,
         name: user.name,
-        role: user.role,
-        hasPos: user.hasPos,
-        hasKitchen: user.hasKitchen,
-        hasOrders: user.hasOrders,
-        hasInventory: user.hasInventory,
-        hasStaff: user.hasStaff
+        role: user.role
       }
     });
 
@@ -460,9 +448,6 @@ exports.addStaff = async (req, res) => {
     const pinHash = await bcrypt.hash('0000', salt); // Default PIN (unused for staff)
 
     const dbRole = role === 'other' ? 'other' : role;
-    const hasPos = role === 'waiter';
-    const hasKitchen = role === 'kitchen';
-    const hasOrders = role === 'waiter';
 
     const newStaff = await prisma.user.create({
       data: {
@@ -472,12 +457,7 @@ exports.addStaff = async (req, res) => {
         loginId,
         passwordHash,
         pinHash,
-        status: 'active',
-        hasPos,
-        hasKitchen,
-        hasOrders,
-        hasInventory: false,
-        hasStaff: false
+        status: 'active'
       }
     });
 
@@ -488,11 +468,6 @@ exports.addStaff = async (req, res) => {
         name: newStaff.name,
         role,
         loginId, // Return generated loginId so owner can hand it to staff
-        hasPos: newStaff.hasPos,
-        hasKitchen: newStaff.hasKitchen,
-        hasOrders: newStaff.hasOrders,
-        hasInventory: newStaff.hasInventory,
-        hasStaff: newStaff.hasStaff,
         status: newStaff.status
       }
     });
@@ -518,11 +493,6 @@ exports.getStaff = async (req, res) => {
         role: true,
         loginId: true,
         status: true,
-        hasPos: true,
-        hasKitchen: true,
-        hasOrders: true,
-        hasInventory: true,
-        hasStaff: true,
         createdAt: true
       },
       orderBy: { id: 'asc' }
@@ -560,7 +530,7 @@ exports.updateStaffStatus = async (req, res) => {
 // 6b. Edit Staff Details (Name, Role, Password)
 exports.editStaff = async (req, res) => {
   const { id } = req.params;
-  const { name, role, password, hasPos, hasKitchen, hasOrders, hasInventory, hasStaff } = req.body;
+  const { name, role, password } = req.body;
   const restaurantId = req.user.restaurantId;
 
   try {
@@ -577,27 +547,17 @@ exports.editStaff = async (req, res) => {
     if (name) updateData.name = name;
     if (role && ['waiter', 'kitchen', 'other'].includes(role)) {
       updateData.role = role;
-      // Auto-adjust permissions on role change
-      if (hasPos === undefined) updateData.hasPos = role === 'waiter';
-      if (hasKitchen === undefined) updateData.hasKitchen = role === 'kitchen';
-      if (hasOrders === undefined) updateData.hasOrders = role === 'waiter';
     }
     if (password && password.length >= 4) {
       const salt = await bcrypt.genSalt(10);
       updateData.passwordHash = await bcrypt.hash(password, salt);
     }
-    if (hasPos !== undefined) updateData.hasPos = !!hasPos;
-    if (hasKitchen !== undefined) updateData.hasKitchen = !!hasKitchen;
-    if (hasOrders !== undefined) updateData.hasOrders = !!hasOrders;
-    if (hasInventory !== undefined) updateData.hasInventory = !!hasInventory;
-    if (hasStaff !== undefined) updateData.hasStaff = !!hasStaff;
 
     const updated = await prisma.user.update({
       where: { id: parseInt(id) },
       data: updateData,
       select: {
-        id: true, name: true, role: true, loginId: true, status: true,
-        hasPos: true, hasKitchen: true, hasOrders: true, hasInventory: true, hasStaff: true
+        id: true, name: true, role: true, loginId: true, status: true
       }
     });
 
@@ -609,29 +569,7 @@ exports.editStaff = async (req, res) => {
 };
 
 
-// 7. Update Staff Module Permissions Switches
-exports.updateStaffPermissions = async (req, res) => {
-  const { id } = req.params;
-  const { hasPos, hasKitchen, hasOrders, hasInventory, hasStaff } = req.body;
-  const restaurantId = req.user.restaurantId;
-
-  try {
-    const staff = await prisma.user.update({
-      where: { id: parseInt(id), restaurantId: restaurantId },
-      data: {
-        hasPos: hasPos !== undefined ? !!hasPos : false,
-        hasKitchen: hasKitchen !== undefined ? !!hasKitchen : false,
-        hasOrders: hasOrders !== undefined ? !!hasOrders : false,
-        hasInventory: hasInventory !== undefined ? !!hasInventory : false,
-        hasStaff: hasStaff !== undefined ? !!hasStaff : false
-      }
-    });
-    res.json({ message: "Staff permissions successfully synchronized.", staff });
-  } catch (error) {
-    console.error('[Update Staff Permissions Error]', error);
-    res.status(500).json({ error: "Failed to update staff permissions." });
-  }
-};
+// 7. Update Staff Module Permissions Switches (Deleted)
 
 // 8. Delete Staff Member Completely (Owner Only - Database Hard Delete)
 exports.deleteStaff = async (req, res) => {

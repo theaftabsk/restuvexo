@@ -16,7 +16,6 @@ router.post('/staff', authenticate, checkRole('owner'), authController.addStaff)
 router.get('/staff', authenticate, checkRole('owner'), authController.getStaff);
 router.put('/staff/:id', authenticate, checkRole('owner'), authController.editStaff);
 router.patch('/staff/:id/status', authenticate, checkRole('owner'), authController.updateStaffStatus);
-router.patch('/staff/:id/permissions', authenticate, checkRole('owner'), authController.updateStaffPermissions);
 router.delete('/staff/:id', authenticate, checkRole('owner'), authController.deleteStaff);
 
 module.exports = router;

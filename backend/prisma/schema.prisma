@@ -52,13 +52,6 @@ model User {
   pinHash      String     @map("pin_hash") @db.VarChar(255)
   status       UserStatus @default(active)
   
-  // Granular Permission Triggers
-  hasPos       Boolean    @default(false) @map("has_pos")
-  hasKitchen   Boolean    @default(false) @map("has_kitchen")
-  hasOrders    Boolean    @default(false) @map("has_orders")
-  hasInventory Boolean    @default(false) @map("has_inventory")
-  hasStaff     Boolean    @default(false) @map("has_staff")
-
   createdAt    DateTime   @default(now()) @map("created_at")
 
   // Password Reset Fields

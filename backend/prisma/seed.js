@@ -43,12 +43,7 @@ async function main() {
       loginId: "demo@restuvexo.shop",
       passwordHash: passwordHash,
       pinHash: pinHash,
-      status: "active",
-      hasPos: true,
-      hasKitchen: true,
-      hasOrders: true,
-      hasInventory: true,
-      hasStaff: true
+      status: "active"
     }
   });
 
@@ -62,12 +57,7 @@ async function main() {
       loginId: "01700000000",
       passwordHash: passwordHash,
       pinHash: pinHash,
-      status: "active",
-      hasPos: true,
-      hasOrders: true,
-      hasKitchen: false,
-      hasInventory: false,
-      hasStaff: false
+      status: "active"
     }
   });
 
@@ -81,12 +71,7 @@ async function main() {
       loginId: "01800000000",
       passwordHash: passwordHash,
       pinHash: pinHash,
-      status: "active",
-      hasPos: false,
-      hasOrders: false,
-      hasKitchen: true,
-      hasInventory: false,
-      hasStaff: false
+      status: "active"
     }
   });
 
