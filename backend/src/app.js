@@ -21,7 +21,8 @@ app.use(helmet());
 const allowedOrigins = [
   'https://app.restuvexo.shop',
   'https://restuvexo.shop',
-  'https://www.restuvexo.shop'
+  'https://www.restuvexo.shop',
+  'https://admin.restuvexo.shop'
 ];
 
 if (process.env.NODE_ENV !== 'production') {

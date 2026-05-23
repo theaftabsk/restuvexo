@@ -263,6 +263,8 @@ model DemoRequest {
   phone          String   @db.VarChar(20)
   restaurantName String   @map("restaurant_name") @db.VarChar(150)
   message        String?  @db.Text
+  status         String   @default("pending") @db.VarChar(30)
+  adminNote      String?  @map("admin_note") @db.Text
   createdAt      DateTime @default(now()) @map("created_at")
 
   @@map("demo_requests")
