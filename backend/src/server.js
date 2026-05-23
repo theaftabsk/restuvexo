@@ -6,10 +6,39 @@ const PORT = process.env.PORT || 5000;
 const server = http.createServer(app);
 
 // Setup Socket.IO with CORS support
+const allowedSocketOrigins = [
+  'https://app.restuvexo.shop',
+  'https://restuvexo.shop',
+  'https://www.restuvexo.shop'
+];
+
+if (process.env.NODE_ENV !== 'production') {
+  allowedSocketOrigins.push('http://localhost:3000');
+  allowedSocketOrigins.push('http://app.localhost:3000');
+}
+
+if (process.env.FRONTEND_URL) {
+  allowedSocketOrigins.push(process.env.FRONTEND_URL);
+}
+
 const io = new Server(server, {
   cors: {
-    origin: "*", // In production, replace with your frontend URL Ex: "https://restuvexo.shop"
-    methods: ["GET", "POST", "PATCH", "PUT", "DELETE"]
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true);
+      let isAllowed = allowedSocketOrigins.includes(origin);
+      if (process.env.NODE_ENV !== 'production') {
+        if (/^https?:\/\/([a-z0-9-]+)\.localhost:3000$/.test(origin)) {
+          isAllowed = true;
+        }
+      }
+      if (isAllowed) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
+    methods: ["GET", "POST", "PATCH", "PUT", "DELETE"],
+    credentials: true
   }
 });
 

@@ -19,12 +19,16 @@ app.use(helmet());
 
 // Dynamic CORS configurations supporting subdomains
 const allowedOrigins = [
-  'http://localhost:3000',
-  'http://app.localhost:3000',
   'https://app.restuvexo.shop',
   'https://restuvexo.shop',
   'https://www.restuvexo.shop'
 ];
+
+if (process.env.NODE_ENV !== 'production') {
+  allowedOrigins.push('http://localhost:3000');
+  allowedOrigins.push('http://app.localhost:3000');
+}
+
 if (process.env.FRONTEND_URL) {
   allowedOrigins.push(process.env.FRONTEND_URL);
 }
@@ -34,9 +38,14 @@ app.use(cors({
     // Allow requests with no origin (like mobile apps, curl, postman)
     if (!origin) return callback(null, true);
     
-    const isAllowed = allowedOrigins.includes(origin) ||
-      /^https?:\/\/([a-z0-9-]+)\.localhost:3000$/.test(origin) ||
-      /^https?:\/\/([a-z0-9-]+)\.restuvexo\.shop$/.test(origin);
+    let isAllowed = allowedOrigins.includes(origin);
+    
+    // In non-production, allow localhost subdomains
+    if (process.env.NODE_ENV !== 'production') {
+      if (/^https?:\/\/([a-z0-9-]+)\.localhost:3000$/.test(origin)) {
+        isAllowed = true;
+      }
+    }
       
     if (isAllowed) {
       callback(null, true);
