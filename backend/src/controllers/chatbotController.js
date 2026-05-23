@@ -321,6 +321,29 @@ exports.handleChat = async (req, res) => {
     const isNormal = isNormalQuestion(message);
     const usage = getUserUsage(userId);
 
+    // Trial Plan restriction: only normal queries allowed, and they use local fallback responder directly
+    if (settings.subscriptionPlan === 'trial') {
+      if (!isNormal) {
+        return res.json({
+          text: "Advanced AI queries are only available on the **Pro Plan**. Please upgrade to Pro to unlock the full power of VexoAI.",
+          action: null
+        });
+      }
+
+      const normalLimit = settings.vexoAiNormalLimit !== undefined ? settings.vexoAiNormalLimit : 15;
+      if (usage.localCount >= normalLimit) {
+        return res.json({
+          text: `You have reached your daily limit of ${normalLimit} normal queries for VexoAI. Please contact your restaurant administrator to increase this limit.`,
+          action: null
+        });
+      }
+      usage.localCount += 1;
+
+      const telemetry = await getRestaurantTelemetry(restaurantId);
+      const fallback = getLocalFallbackResponse(message, telemetry, userName);
+      return res.json(fallback);
+    }
+
     if (isNormal) {
       const normalLimit = settings.vexoAiNormalLimit !== undefined ? settings.vexoAiNormalLimit : 15;
       if (usage.localCount >= normalLimit) {

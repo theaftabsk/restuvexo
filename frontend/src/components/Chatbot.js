@@ -14,6 +14,7 @@ export default function Chatbot() {
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
   const [subscriptionPlan, setSubscriptionPlan] = useState("trial");
+  const [vexoAiLocked, setVexoAiLocked] = useState(false);
   
   const chatEndRef = useRef(null);
   const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
@@ -44,6 +45,7 @@ export default function Chatbot() {
         if (res.ok) {
           const data = await res.json();
           setSubscriptionPlan(data.subscriptionPlan || "trial");
+          setVexoAiLocked(data.enabledFeatures?.vexoAI === false);
         }
       } catch (e) {
         console.error("Failed to load settings in chatbot:", e);
@@ -62,6 +64,7 @@ export default function Chatbot() {
         .then(res => res.json())
         .then(data => {
           setSubscriptionPlan(data.subscriptionPlan || "trial");
+          setVexoAiLocked(data.enabledFeatures?.vexoAI === false);
         })
         .catch(e => console.error(e));
     };
@@ -448,7 +451,7 @@ export default function Chatbot() {
         {/* Drawer Body Scroll Content */}
         <div className="flex-1 overflow-y-auto px-6 py-5 bg-slate-50/40 dark:bg-slate-900/10 scrollbar-thin flex flex-col">
           
-          {subscriptionPlan === "basic" ? (
+          {vexoAiLocked ? (
             <div className="flex flex-col items-center justify-center flex-1 text-center p-4 space-y-5 animate-fade-in text-slate-800 dark:text-slate-100">
               <div className="w-14 h-14 rounded-2xl bg-orange-50 dark:bg-orange-950/20 border border-orange-100 dark:border-orange-900 flex items-center justify-center text-[#ff5722] animate-pulse shadow-md shadow-orange-500/5">
                 <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
@@ -456,10 +459,10 @@ export default function Chatbot() {
                 </svg>
               </div>
               <div className="space-y-1.5">
-                <span className="text-[9px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-350 border border-orange-200/50">PRO ONLY</span>
+                <span className="text-[9px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-350 border border-orange-200/50">LOCKED</span>
                 <h3 className="text-base font-black tracking-tight mt-1">VexoAI Assistant Locked</h3>
                 <p className="text-[10px] text-slate-455 dark:text-slate-500 font-semibold leading-relaxed max-w-xs mx-auto">
-                  Get real-time operational advice, quick-actions triggers, KDS metrics audits, and thermal printer setups by upgrading to the **Pro Plan**.
+                  Get real-time operational advice, quick-actions triggers, KDS metrics audits, and thermal printer setups by contacting support to unlock this module.
                 </p>
               </div>
               <button
@@ -470,7 +473,7 @@ export default function Chatbot() {
                 }}
                 className="w-full py-3.5 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-black uppercase tracking-wider rounded-2xl text-[10px] items-center justify-center shadow-md shadow-orange-500/10 cursor-pointer"
               >
-                Upgrade to Pro Plan
+                View Module Configuration
               </button>
             </div>
           ) : showWelcomeScreen ? (
@@ -620,7 +623,7 @@ export default function Chatbot() {
 
         {/* Drawer Footer Input Panel */}
         <footer className="p-4 border-t border-slate-100 dark:border-slate-900 bg-white dark:bg-slate-950 shrink-0">
-          {subscriptionPlan !== "basic" && (
+          {!vexoAiLocked && (
           <form
             onSubmit={(e) => {
               e.preventDefault();

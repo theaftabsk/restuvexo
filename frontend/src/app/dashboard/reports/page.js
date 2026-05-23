@@ -10,7 +10,7 @@ export default function ReportsDashboard() {
   const [orders, setOrders] = useState([]);
   const [dateRange, setDateRange] = useState("7days"); // today, yesterday, 7days, 30days, all
   const [cogsPercentage, setCogsPercentage] = useState(35); // Cost of Goods Sold (COGS) %: customizable slider
-  
+
   // Dynamic OPEX Expense items (Loaded from Database)
   const [expenses, setExpenses] = useState([]);
 
@@ -43,7 +43,7 @@ export default function ReportsDashboard() {
       try {
         const user = JSON.parse(atob(token.split(".")[1]));
         socket = io(BACKEND_URL);
-        
+
         socket.on("connect", () => {
           socket.emit("join_restaurant", user.restaurantId);
         });
@@ -60,7 +60,7 @@ export default function ReportsDashboard() {
         socket.on("order_status_updated", () => {
           fetchOrdersData();
         });
-        
+
       } catch (err) {
         console.error("Socket connection error:", err);
       }
@@ -188,7 +188,7 @@ export default function ReportsDashboard() {
   // Date Filtering Calculations
   const getFilteredData = () => {
     const now = new Date();
-    
+
     // Filter Orders by range
     const filteredOrders = orders.filter(order => {
       const oDate = new Date(order.createdAt);
@@ -298,7 +298,7 @@ export default function ReportsDashboard() {
   // Construct dynamic Category Breakdown based on menu item categories from database
   const getCategoryBreakdown = () => {
     const catMap = {};
-    
+
     // Initialize map keys using real database categories
     dbCategories.forEach(c => {
       catMap[c.name] = 0;
@@ -314,7 +314,7 @@ export default function ReportsDashboard() {
         o.orderItems.forEach(item => {
           const amt = (parseFloat(item.price) || parseFloat(item.menuItem?.price) || 0) * (item.qty || 1);
           const catName = item.menuItem?.category?.name || "Others";
-          
+
           if (catMap[catName] !== undefined) {
             catMap[catName] += amt;
           } else {
@@ -347,7 +347,7 @@ export default function ReportsDashboard() {
   // --- LEDGER SPECIFIC FILTERING ---
   const getLedgerData = () => {
     const now = new Date();
-    
+
     const filterByDate = (dateStr) => {
       const d = new Date(dateStr);
       if (ledgerFilter === "today") {
@@ -365,7 +365,7 @@ export default function ReportsDashboard() {
 
     const lRevenue = lOrders.reduce((sum, o) => sum + parseFloat(o.totalAmount || 0), 0);
     const lExpAmount = lExpenses.reduce((sum, e) => sum + parseFloat(e.amount || 0), 0);
-    
+
     // Sort all ledger items by date descending
     const allLedgerItems = [
       ...lOrders.map(o => ({
@@ -498,10 +498,10 @@ export default function ReportsDashboard() {
 
   return (
     <div className="space-y-8 text-slate-800 pb-16 font-sans text-left">
-      
+
       {/* Date Range Selection & Export Options bar */}
       <div className="flex flex-col gap-4 bg-white border border-slate-200 p-4 rounded-[2rem] shadow-sm">
-        
+
         {/* Date Filters */}
         <div className="flex gap-2 overflow-x-auto scrollbar-none justify-start flex-wrap">
           {[
@@ -513,11 +513,10 @@ export default function ReportsDashboard() {
             <button
               key={tab.key}
               onClick={() => setDateRange(tab.key)}
-              className={`px-4.5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border whitespace-nowrap transition duration-200 ${
-                dateRange === tab.key 
-                  ? "bg-[#ff5722] border-[#ff5722] text-white shadow-md shadow-orange-500/10" 
+              className={`px-4.5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border whitespace-nowrap transition duration-200 ${dateRange === tab.key
+                  ? "bg-[#ff5722] border-[#ff5722] text-white shadow-md shadow-orange-500/10"
                   : "bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-500 font-extrabold"
-              }`}
+                }`}
             >
               {tab.label}
             </button>
@@ -526,7 +525,7 @@ export default function ReportsDashboard() {
 
         {/* Action Trigger Buttons */}
         <div className="flex items-center gap-2 flex-wrap">
-          
+
           <button
             onClick={() => setShowLedgerModal(true)}
             className="flex-1 sm:flex-none px-3 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-[10px] uppercase tracking-widest rounded-xl transition shadow-md shadow-indigo-500/20 flex items-center justify-center gap-2"
@@ -563,7 +562,7 @@ export default function ReportsDashboard() {
 
       {/*  STRONG MATHEMATICAL PROFIT & LOSS CARDS */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        
+
         {/* Card 1: Gross Sales */}
         <div className="bg-white border border-slate-150 p-6 rounded-[2.2rem] shadow-xl hover:shadow-2xl transition duration-300 relative overflow-hidden flex flex-col justify-between min-h-[140px]">
           <div className="space-y-1">
@@ -586,11 +585,11 @@ export default function ReportsDashboard() {
             <h3 className="text-2xl font-black text-slate-900 leading-none pt-1">₹{calculatedCOGS.toLocaleString(undefined, { minimumFractionDigits: 2 })}</h3>
           </div>
           <div className="space-y-1 border-t border-slate-100 pt-2.5">
-            <input 
-              type="range" 
-              min="10" 
-              max="70" 
-              value={cogsPercentage} 
+            <input
+              type="range"
+              min="10"
+              max="70"
+              value={cogsPercentage}
               onChange={(e) => setCogsPercentage(parseInt(e.target.value))}
               className="w-full accent-orange-500 h-1 bg-slate-100 rounded-lg cursor-pointer"
             />
@@ -614,9 +613,8 @@ export default function ReportsDashboard() {
         </div>
 
         {/* Card 4: Net Profit or Loss Balance */}
-        <div className={`border p-6 rounded-[2.2rem] shadow-xl hover:shadow-2xl transition duration-300 relative overflow-hidden flex flex-col justify-between min-h-[140px] ${
-          netEarnings >= 0 ? "bg-emerald-500/5 border-emerald-200" : "bg-rose-500/5 border-rose-200"
-        }`}>
+        <div className={`border p-6 rounded-[2.2rem] shadow-xl hover:shadow-2xl transition duration-300 relative overflow-hidden flex flex-col justify-between min-h-[140px] ${netEarnings >= 0 ? "bg-emerald-500/5 border-emerald-200" : "bg-rose-500/5 border-rose-200"
+          }`}>
           <div className="space-y-1">
             <span className={`text-[9px] font-black uppercase tracking-widest block ${netEarnings >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
               {netEarnings >= 0 ? "Net Profit Balance" : "Net Loss Deficit"}
@@ -627,9 +625,8 @@ export default function ReportsDashboard() {
           </div>
           <div className="flex items-center justify-between text-[9px] font-bold tracking-wide border-t border-slate-100 pt-3">
             <span className={netEarnings >= 0 ? "text-emerald-600" : "text-rose-600"}>Margin: {netProfitMargin.toFixed(1)}%</span>
-            <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${
-              netEarnings >= 0 ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"
-            }`}>
+            <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${netEarnings >= 0 ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"
+              }`}>
               {netEarnings >= 0 ? "Surplus Profit" : "Loss Alert"}
             </span>
           </div>
@@ -639,7 +636,7 @@ export default function ReportsDashboard() {
 
       {/*  PREMIUM CUSTOM SVG OFFLINE CHARTS GRID */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        
+
         {/* Chart 1: Daily Sales Trend Line Graph */}
         <div className="bg-white border border-slate-200 p-5 md:p-6 rounded-[2.5rem] shadow-xl md:col-span-2 space-y-4">
           <div className="flex items-center justify-between">
@@ -665,7 +662,7 @@ export default function ReportsDashboard() {
               <line x1="0" y1="37.5" x2="500" y2="37.5" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="5,5" />
               <line x1="0" y1="75" x2="500" y2="75" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="5,5" />
               <line x1="0" y1="112.5" x2="500" y2="112.5" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="5,5" />
-              
+
               {/* Spark Trend Path */}
               <path
                 d={weeklyTrend.map((t, idx) => {
@@ -722,7 +719,7 @@ export default function ReportsDashboard() {
             <svg className="w-36 h-36" viewBox="0 0 36 36">
               {/* Background circle */}
               <circle cx="18" cy="18" r="15.915" fill="none" stroke="#f1f5f9" strokeWidth="3" />
-              
+
               {/* Segment 1: Dine-in */}
               <circle
                 cx="18"
@@ -787,7 +784,7 @@ export default function ReportsDashboard() {
 
       {/* Expense ledger logger & Category Sales breakdown */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        
+
         {/* Category Breakdown Bar Chart */}
         <div className="bg-white border border-slate-200 p-6 rounded-[2.5rem] shadow-xl space-y-5 text-left">
           <div className="space-y-0.5">
@@ -871,14 +868,14 @@ export default function ReportsDashboard() {
         </div>
 
       </div>
-        
+
 
       {/* LOG EXPENSE MODAL OVERLAY */}
       {showExpenseModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-fade-in text-slate-800">
           <form onSubmit={handleAddExpense} className="bg-white rounded-[2.2rem] p-8 w-full max-w-md shadow-2xl relative border border-slate-200 text-left">
             <button type="button" onClick={() => setShowExpenseModal(false)} className="absolute top-5 right-5 text-slate-450 hover:text-slate-900 text-2xl font-black">×</button>
-            
+
             <div className="text-center space-y-1.5 mb-6.5">
               <div className="w-14 h-14 bg-rose-50 text-rose-500 border border-rose-100 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-sm">
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
@@ -890,7 +887,7 @@ export default function ReportsDashboard() {
             </div>
 
             <div className="space-y-4.5">
-              
+
               <div className="space-y-1.5">
                 <label className="text-[9px] font-black uppercase text-slate-450 tracking-widest pl-1.5">Expense Description</label>
                 <input
@@ -963,14 +960,14 @@ export default function ReportsDashboard() {
           style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', backgroundColor: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(8px)' }}
         >
           <div className="bg-white rounded-[2rem] w-full max-w-[90vw] xl:max-w-5xl max-h-[88vh] shadow-2xl flex flex-col overflow-hidden">
-            
+
             {/* Modal Header */}
             <div className="p-5 md:p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white shrink-0">
               <div>
                 <h2 className="text-xl font-black text-slate-900 tracking-tight">Profit & Loss Ledger</h2>
                 <p className="text-xs text-slate-500 font-semibold mt-0.5">Complete double-entry accounting ledger</p>
               </div>
-              
+
               <div className="flex items-center gap-3 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
                 <div className="bg-slate-100 p-1 rounded-full flex gap-1 shrink-0">
                   <button onClick={() => setLedgerFilter('today')} className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-full transition-all ${ledgerFilter === 'today' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>Today</button>
@@ -1004,7 +1001,7 @@ export default function ReportsDashboard() {
                     )}
                     {allLedgerItems.map((item) => (
                       <tr key={item.id} className={`transition ${item.type === 'inflow' ? 'hover:bg-emerald-50/50' : 'hover:bg-rose-50/50'}`}>
-                        <td className="py-4 px-6 whitespace-nowrap">{item.date.toLocaleDateString('en-IN', {day:'2-digit', month:'short', year:'numeric'})}</td>
+                        <td className="py-4 px-6 whitespace-nowrap">{item.date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
                         <td className="py-4 px-6 font-extrabold text-slate-900">{item.title}</td>
                         <td className="py-4 px-6">
                           <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider ${item.type === 'inflow' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
@@ -1056,7 +1053,7 @@ export default function ReportsDashboard() {
 
           </div>
         </div>
-      , document.body)}
+        , document.body)}
 
       {/* FULL SCREEN MAXIMIZED 14-DAY CHART MODAL */}
       {showMaximizedChart && mounted && createPortal(
@@ -1065,7 +1062,7 @@ export default function ReportsDashboard() {
           className="animate-in fade-in duration-300"
         >
           <div className="bg-white rounded-[2.5rem] w-full max-w-[95vw] xl:max-w-6xl max-h-[92vh] shadow-2xl flex flex-col overflow-hidden relative animate-in slide-in-from-bottom-8 duration-300">
-            
+
             {/* Modal Header */}
             <div className="p-6 md:p-8 border-b border-slate-100 flex items-center justify-between bg-white shrink-0">
               <div>
@@ -1080,7 +1077,7 @@ export default function ReportsDashboard() {
                   Continuous billing telemetry matching physical dining revenue and remote channels.
                 </p>
               </div>
-              <button 
+              <button
                 onClick={() => setShowMaximizedChart(false)}
                 className="w-10 h-10 bg-slate-100 hover:bg-rose-100 text-slate-500 hover:text-rose-600 rounded-full flex items-center justify-center transition"
               >
@@ -1092,7 +1089,7 @@ export default function ReportsDashboard() {
 
             {/* Modal Body */}
             <div className="flex-1 overflow-y-auto p-6 md:p-8 bg-slate-50/50 space-y-6">
-              
+
               {/* Analytics Summary Stats */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
@@ -1114,14 +1111,14 @@ export default function ReportsDashboard() {
 
               {/* Large Outline SVG Graph with dynamic scrolling and zoom controls */}
               <div className="bg-white border border-slate-200 rounded-3xl p-6 md:p-8 shadow-sm flex flex-col justify-end min-h-[380px] relative overflow-hidden">
-                
+
                 {/* Header elements */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2 select-none">
                   <div className="flex items-center gap-2">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                     <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Interactive Data Wave</span>
                   </div>
-                  
+
                   {/* Zoom Controls */}
                   <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-100 p-1.5 rounded-xl self-start sm:self-auto shadow-inner">
                     <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest px-2">Zoom:</span>
@@ -1129,11 +1126,10 @@ export default function ReportsDashboard() {
                       <button
                         key={scale}
                         onClick={() => setZoomScale(scale)}
-                        className={`px-3 py-1 rounded-lg text-[9px] font-black tracking-widest uppercase transition-all ${
-                          zoomScale === scale
+                        className={`px-3 py-1 rounded-lg text-[9px] font-black tracking-widest uppercase transition-all ${zoomScale === scale
                             ? "bg-[#ff5722] text-white shadow"
                             : "bg-transparent hover:bg-slate-200 text-slate-500 font-extrabold"
-                        }`}
+                          }`}
                       >
                         {scale}x
                       </button>
@@ -1143,8 +1139,8 @@ export default function ReportsDashboard() {
 
                 {/* Horizontal Scrollable Container */}
                 <div className="w-full overflow-x-auto scrollbar-thin mt-6 pb-2">
-                  <div 
-                    style={{ width: `${zoomScale * 100}%`, minWidth: '100%', transition: 'width 0.25s ease-in-out' }} 
+                  <div
+                    style={{ width: `${zoomScale * 100}%`, minWidth: '100%', transition: 'width 0.25s ease-in-out' }}
                     className="flex flex-col justify-end"
                   >
                     {/* SVG Curve */}
@@ -1220,7 +1216,7 @@ export default function ReportsDashboard() {
                     </div>
                   </div>
                 </div>
-                
+
                 {/* Scroll reminder instructions (Only shows when zoomed) */}
                 {zoomScale > 1 && (
                   <p className="text-center text-[9px] font-bold text-slate-450 uppercase tracking-wider mt-3.5 select-none animate-pulse">
@@ -1233,7 +1229,7 @@ export default function ReportsDashboard() {
 
           </div>
         </div>
-      , document.body)}
+        , document.body)}
 
     </div>
   );

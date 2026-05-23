@@ -13,7 +13,7 @@ export default function DashboardLayout({ children }) {
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
-  
+
   // Real-time badge telemetry, category collapse, sidebar customizations and settings toggle states
   const [pendingQrCount, setPendingQrCount] = useState(0);
   const [activeKdsCount, setActiveKdsCount] = useState(0);
@@ -25,6 +25,7 @@ export default function DashboardLayout({ children }) {
   const [subscriptionPlan, setSubscriptionPlan] = useState('trial');
   const [subscriptionStatus, setSubscriptionStatus] = useState('active');
   const [trialEndsAt, setTrialEndsAt] = useState(null);
+  const [enabledFeatures, setEnabledFeatures] = useState({});
 
   // Custom Sidebar Configuration States
   const [sidebarTheme, setSidebarTheme] = useState('light');
@@ -32,7 +33,7 @@ export default function DashboardLayout({ children }) {
   const [sidebarStoreSwitch, setSidebarStoreSwitch] = useState(true);
   const [sidebarCollapsible, setSidebarCollapsible] = useState(true);
   const [sidebarHiddenItems, setSidebarHiddenItems] = useState([]);
-  
+
   const pathname = usePathname();
   const BACKEND_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000");
   const fetchTimeoutRef = useRef(null);
@@ -48,7 +49,7 @@ export default function DashboardLayout({ children }) {
       if (storedCollapsed) {
         setCollapsedGroups(JSON.parse(storedCollapsed));
       }
-    } catch (e) {}
+    } catch (e) { }
   }, []);
 
   const toggleSidebarCollapse = () => {
@@ -97,6 +98,7 @@ export default function DashboardLayout({ children }) {
         setSubscriptionPlan(data.subscriptionPlan || 'trial');
         setSubscriptionStatus(data.subscriptionStatus || 'active');
         setTrialEndsAt(data.trialEndsAt || null);
+        setEnabledFeatures(data.enabledFeatures || {});
       }
     } catch (err) {
       console.error("Failed to sync sidebar telemetry:", err);
@@ -188,17 +190,17 @@ export default function DashboardLayout({ children }) {
           if (userObj.restaurantId) {
             socket.emit("join_restaurant", userObj.restaurantId);
           }
-        } catch (e) {}
+        } catch (e) { }
       }
     });
 
     // We can keep these for other syncs if needed, but remove telemetry fetch overhead
-    socket.on("new_order_placed", () => {}); 
-    socket.on("new_qr_order_placed", () => {}); 
-    socket.on("order_status_updated", () => {}); 
-    socket.on("order_deleted", () => {}); 
+    socket.on("new_order_placed", () => { });
+    socket.on("new_qr_order_placed", () => { });
+    socket.on("order_status_updated", () => { });
+    socket.on("order_deleted", () => { });
     socket.on("table_updated", () => triggerTelemetrySync());
-    
+
     // Direct Realtime Telemetry Push (Zero Polling)
     socket.on("sidebar_telemetry_updated", (data) => {
       if (data) {
@@ -246,7 +248,7 @@ export default function DashboardLayout({ children }) {
 
     setUser(JSON.parse(storedUser));
     setRestaurant(JSON.parse(storedRestaurant));
-    
+
     // Silent Session Health check to recover from database seeding drift
     fetch(`${process.env.NEXT_PUBLIC_API_URL || (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000")}/api/menu/categories`, {
       headers: { "Authorization": `Bearer ${token}` }
@@ -390,7 +392,7 @@ export default function DashboardLayout({ children }) {
       items: [
         { name: "POS Billing", path: "/dashboard/pos", icon: "POS Billing", allowed: user?.role === "owner" || user?.role === "waiter", badge: "FAST" },
         { name: "Orders Manager", path: "/dashboard/orders", icon: "Orders Manager", allowed: user?.role === "owner" || user?.role === "waiter" },
-        { name: "QR Code Approvals", path: "/dashboard/qr", icon: "QR Code Order Management", allowed: user?.role === "owner" || user?.role === "waiter", badge: subscriptionPlan === "basic" ? "PRO" : null },
+        { name: "QR Code Approvals", path: "/dashboard/qr", icon: "QR Code Order Management", allowed: user?.role === "owner" || user?.role === "waiter", badge: enabledFeatures.qrOrdering === false ? "LOCKED" : null },
         { name: "Kitchen Display (KDS)", path: "/dashboard/kds", icon: "Kitchen", allowed: user?.role === "owner" || user?.role === "kitchen" }
       ]
     },
@@ -398,7 +400,7 @@ export default function DashboardLayout({ children }) {
       title: "REPORTS",
       activeGradient: "from-[#ff5722] to-[#ff7a47]",
       items: [
-        { name: "Analytics & Reports", path: "/dashboard/reports", icon: "Analytics & Reports", allowed: user?.role === "owner" }
+        { name: "Analytics & Reports", path: "/dashboard/reports", icon: "Analytics & Reports", allowed: user?.role === "owner", badge: enabledFeatures.analytics === false ? "LOCKED" : null }
       ]
     },
     {
@@ -408,15 +410,15 @@ export default function DashboardLayout({ children }) {
         { name: "Menu Catalog", path: "/dashboard/menu", icon: "Menu", allowed: user?.role === "owner" },
         { name: "Menu Stock Control", path: "/dashboard/menu/stock", icon: "StockControl", allowed: user?.role === "owner" },
         { name: "Table Settings", path: "/dashboard/tables", icon: "Table Manager", allowed: user?.role === "owner" },
-        { name: "Inventory Stock", path: "/dashboard/inventory", icon: "Inventory", allowed: user?.role === "owner" },
-        { name: "Expenses Tracker", path: "/dashboard/expenses", icon: "Expenses", allowed: user?.role === "owner" }
+        { name: "Inventory Stock", path: "/dashboard/inventory", icon: "Inventory", allowed: user?.role === "owner", badge: enabledFeatures.inventory === false ? "LOCKED" : null },
+        { name: "Expenses Tracker", path: "/dashboard/expenses", icon: "Expenses", allowed: user?.role === "owner", badge: enabledFeatures.analytics === false ? "LOCKED" : null }
       ]
     },
     {
       title: "SYSTEM SETTINGS",
       activeGradient: "from-[#ff5722] to-[#ff7a47]",
       items: [
-        { name: "Staff & Security", path: "/dashboard/staff", icon: "Staff", allowed: user?.role === "owner", badge: subscriptionPlan === "basic" ? "PRO" : null },
+        { name: "Staff & Security", path: "/dashboard/staff", icon: "Staff", allowed: user?.role === "owner", badge: enabledFeatures.staffManagement === false ? "LOCKED" : null },
         { name: "Settings Console", path: "/dashboard/settings", icon: "Security", allowed: user?.role === "owner" }
       ]
     }
@@ -569,16 +571,15 @@ export default function DashboardLayout({ children }) {
 
   return (
     <div className="h-screen w-full bg-[#f8fafc] flex text-slate-800 overflow-hidden font-sans relative">
-      
+
       {/* Sidebar Panel - Matches RestroServe styling perfectly */}
       <aside className={`fixed inset-y-0 left-0 z-30 ${isCollapsed ? 'w-[76px]' : 'w-[240px]'} h-full transition-all duration-300 transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 md:relative md:flex-shrink-0 flex flex-col justify-between ${themeClasses.aside}`}>
-        
+
         {/* Desktop Collapse Toggle Button */}
-        <button 
+        <button
           onClick={toggleSidebarCollapse}
-          className={`hidden md:flex absolute top-20 -right-3.5 w-7 h-7 rounded-full bg-white border shadow-md text-slate-400 hover:scale-110 items-center justify-center transition-all duration-300 z-40 cursor-pointer ${
-            sidebarTheme === 'midnight' ? 'border-slate-800 hover:text-amber-500' : 'border-slate-100 hover:text-[#ff5722]'
-          }`}
+          className={`hidden md:flex absolute top-20 -right-3.5 w-7 h-7 rounded-full bg-white border shadow-md text-slate-400 hover:scale-110 items-center justify-center transition-all duration-300 z-40 cursor-pointer ${sidebarTheme === 'midnight' ? 'border-slate-800 hover:text-amber-500' : 'border-slate-100 hover:text-[#ff5722]'
+            }`}
           title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
           <svg className={`w-3 h-3 transform transition-transform duration-300 ${isCollapsed ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="4">
@@ -603,8 +604,8 @@ export default function DashboardLayout({ children }) {
               </div>
             </div>
             {!isCollapsed && (
-              <button 
-                className="md:hidden flex items-center justify-center w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 transition active:scale-95" 
+              <button
+                className="md:hidden flex items-center justify-center w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 transition active:scale-95"
                 onClick={() => setSidebarOpen(false)}
                 aria-label="Close sidebar"
               >
@@ -619,18 +620,17 @@ export default function DashboardLayout({ children }) {
           {isCollapsed ? (
             <div className="flex flex-col items-center gap-3 mt-1">
               <div className={`w-2 h-2 rounded-full animate-pulse ${themeClasses.dotBg}`} title="Owner Workspace Live" />
-              
+
               {/* Collapsed Store Status Indicator */}
               {sidebarStoreSwitch && (
                 <button
                   onClick={handleToggleStoreStatus}
                   disabled={updatingStoreStatus}
                   title={qrOrderingEnabled ? "Accepting Orders (Click to Pause)" : "Ordering Paused (Click to Accept)"}
-                  className={`w-6 h-6 rounded-full flex items-center justify-center border transition-all cursor-pointer ${
-                    qrOrderingEnabled
+                  className={`w-6 h-6 rounded-full flex items-center justify-center border transition-all cursor-pointer ${qrOrderingEnabled
                       ? "bg-emerald-50 border-emerald-100 text-emerald-600 hover:bg-emerald-100"
                       : "bg-amber-50 border-amber-100 text-amber-600 hover:bg-amber-100"
-                  }`}
+                    }`}
                 >
                   <span className={`w-2 h-2 rounded-full ${qrOrderingEnabled ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500 animate-ping'}`} />
                 </button>
@@ -644,7 +644,7 @@ export default function DashboardLayout({ children }) {
                     title="Quick Actions"
                     className="w-7 h-7 rounded-lg bg-slate-900 hover:bg-slate-800 text-white flex items-center justify-center transition shadow-md cursor-pointer text-xs font-bold"
                   >
-                    
+
                   </button>
                   {isQuickActionOpen && (
                     <>
@@ -692,11 +692,10 @@ export default function DashboardLayout({ children }) {
                 <button
                   onClick={handleToggleStoreStatus}
                   disabled={updatingStoreStatus}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl border text-[9px] font-black uppercase tracking-wider transition-all duration-300 shadow-sm cursor-pointer ${
-                    qrOrderingEnabled
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl border text-[9px] font-black uppercase tracking-wider transition-all duration-300 shadow-sm cursor-pointer ${qrOrderingEnabled
                       ? "bg-emerald-50/70 border-emerald-100 text-emerald-700 hover:bg-emerald-100/60"
                       : "bg-amber-50/70 border-amber-100 text-amber-700 hover:bg-amber-100/60"
-                  }`}
+                    }`}
                 >
                   <span className="flex items-center gap-1.5">
                     <span className={`w-2 h-2 rounded-full ${qrOrderingEnabled ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500 animate-ping'} shrink-0`} />
@@ -772,18 +771,16 @@ export default function DashboardLayout({ children }) {
                     disabled={!sidebarCollapsible}
                     className={`w-full flex items-center justify-between px-3 py-1 text-left select-none group/hdr ${sidebarCollapsible ? 'cursor-pointer' : ''}`}
                   >
-                    <h4 className={`text-[9px] font-black uppercase tracking-widest transition-colors ${
-                      sidebarTheme === 'midnight' 
-                        ? 'text-slate-500 group-hover/hdr:text-slate-300' 
+                    <h4 className={`text-[9px] font-black uppercase tracking-widest transition-colors ${sidebarTheme === 'midnight'
+                        ? 'text-slate-500 group-hover/hdr:text-slate-300'
                         : 'text-slate-400 group-hover/hdr:text-slate-600'
-                    }`}>
+                      }`}>
                       {group.title}
                     </h4>
                     {sidebarCollapsible && (
                       <svg
-                        className={`w-2.5 h-2.5 transition-transform duration-300 ${
-                          sidebarTheme === 'midnight' ? 'text-slate-500' : 'text-slate-400'
-                        } ${isGroupCollapsed ? "-rotate-90" : ""}`}
+                        className={`w-2.5 h-2.5 transition-transform duration-300 ${sidebarTheme === 'midnight' ? 'text-slate-500' : 'text-slate-400'
+                          } ${isGroupCollapsed ? "-rotate-90" : ""}`}
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -794,7 +791,7 @@ export default function DashboardLayout({ children }) {
                     )}
                   </button>
                 )}
-                
+
                 <div className={`space-y-0.5 transition-all duration-300 overflow-hidden ${isGroupCollapsed && !isCollapsed ? 'max-h-0 opacity-0 hidden' : 'max-h-[500px] opacity-100'}`}>
                   {group.items.map((item, idx) => {
                     const isActive = pathname === item.path;
@@ -804,13 +801,11 @@ export default function DashboardLayout({ children }) {
                         href={item.path}
                         onClick={() => setSidebarOpen(false)}
                         title={isCollapsed ? item.name : ""}
-                        className={`relative flex items-center justify-between px-4 py-2.5 rounded-xl text-xs font-black tracking-wide border transition-all duration-300 ${
-                          isCollapsed ? 'justify-center px-2 py-3' : ''
-                        } ${
-                          isActive
+                        className={`relative flex items-center justify-between px-4 py-2.5 rounded-xl text-xs font-black tracking-wide border transition-all duration-300 ${isCollapsed ? 'justify-center px-2 py-3' : ''
+                          } ${isActive
                             ? themeClasses.activeLink
                             : themeClasses.inactiveLink
-                        }`}
+                          }`}
                       >
                         <div className="flex items-center gap-3">
                           <span className="flex items-center justify-center shrink-0">
@@ -823,29 +818,26 @@ export default function DashboardLayout({ children }) {
 
                         {/* Telemetry dynamic badges */}
                         {item.name === "QR Code Approvals" && pendingQrCount > 0 && (
-                          <span className={`bg-rose-500 text-white rounded-full text-[8.5px] font-black tracking-wide animate-pulse flex items-center justify-center ${
-                            isCollapsed 
-                              ? 'absolute top-1.5 right-1.5 w-4 h-4 shadow-sm shadow-rose-500/20' 
+                          <span className={`bg-rose-500 text-white rounded-full text-[8.5px] font-black tracking-wide animate-pulse flex items-center justify-center ${isCollapsed
+                              ? 'absolute top-1.5 right-1.5 w-4 h-4 shadow-sm shadow-rose-500/20'
                               : 'px-2 py-0.5'
-                          }`}>
+                            }`}>
                             {pendingQrCount}
                           </span>
                         )}
 
                         {item.name === "Kitchen Display (KDS)" && activeKdsCount > 0 && (
-                          <span className={`bg-amber-500 text-slate-950 rounded-full text-[8px] font-black tracking-wide flex items-center justify-center ${
-                            isCollapsed 
-                              ? 'absolute top-1.5 right-1.5 w-4 h-4' 
+                          <span className={`bg-amber-500 text-slate-950 rounded-full text-[8px] font-black tracking-wide flex items-center justify-center ${isCollapsed
+                              ? 'absolute top-1.5 right-1.5 w-4 h-4'
                               : 'px-1.5 py-0.5'
-                          }`}>
+                            }`}>
                             {activeKdsCount}
                           </span>
                         )}
 
                         {item.badge && !isCollapsed && (
-                          <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest scale-90 ${
-                            sidebarTheme === 'midnight' ? 'bg-amber-500/20 text-amber-300' : 'bg-orange-500 text-white'
-                          }`}>
+                          <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest scale-90 ${sidebarTheme === 'midnight' ? 'bg-amber-500/20 text-amber-300' : 'bg-orange-500 text-white'
+                            }`}>
                             {item.badge}
                           </span>
                         )}
@@ -876,9 +868,8 @@ export default function DashboardLayout({ children }) {
               </button>
             </div>
           ) : (
-            <div className={`flex items-center justify-between p-2.5 rounded-2xl shadow-sm hover:shadow-md transition-shadow duration-300 ${
-              sidebarTheme === 'midnight' ? 'bg-[#131926] border border-slate-900' : 'bg-white border border-slate-100'
-            }`}>
+            <div className={`flex items-center justify-between p-2.5 rounded-2xl shadow-sm hover:shadow-md transition-shadow duration-300 ${sidebarTheme === 'midnight' ? 'bg-[#131926] border border-slate-900' : 'bg-white border border-slate-100'
+              }`}>
               <div className="flex items-center gap-2.5 min-w-0">
                 <div className={`w-8 h-8 rounded-full text-white flex items-center justify-center font-black text-sm shadow-md ${themeClasses.dotBg}`}>
                   {user?.name?.charAt(0) || "A"}
@@ -891,7 +882,7 @@ export default function DashboardLayout({ children }) {
                   </div>
                 </div>
               </div>
-              
+
               {/* Logout action */}
               <button
                 onClick={handleLogout}
@@ -907,23 +898,23 @@ export default function DashboardLayout({ children }) {
         </div>
 
       </aside>
- 
+
       {/* Main Workspace Frame */}
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto overflow-x-hidden relative z-10">
-        
+
         {/* Mobile Sidebar Backdrop Overlay */}
         {sidebarOpen && (
-          <div 
+          <div
             className="fixed inset-0 z-20 bg-slate-900/50 backdrop-blur-sm md:hidden"
             onClick={() => setSidebarOpen(false)}
           />
         )}
-        
+
         {/* Top Header Navigation with Dynamic Title & Subtitle */}
         <header className="w-full h-16 md:h-24 border-b border-slate-100 bg-white/95 backdrop-blur-md px-4 md:px-8 flex items-center justify-between sticky top-0 z-20 shadow-sm shadow-slate-100/5 shrink-0 text-left">
           <div className="flex items-center gap-4 min-w-0">
-            <button 
-              className="md:hidden flex items-center justify-center w-10 h-10 text-slate-700 hover:text-slate-900 rounded-xl hover:bg-slate-100 transition border border-slate-200 shrink-0 active:scale-95" 
+            <button
+              className="md:hidden flex items-center justify-center w-10 h-10 text-slate-700 hover:text-slate-900 rounded-xl hover:bg-slate-100 transition border border-slate-200 shrink-0 active:scale-95"
               onClick={() => setSidebarOpen(true)}
               aria-label="Open sidebar"
             >
@@ -931,7 +922,7 @@ export default function DashboardLayout({ children }) {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
-            
+
             <div className="space-y-0.5 min-w-0">
               <div className="flex items-center gap-2">
                 <span className="inline-block w-2 h-2 rounded-full bg-[#ff5722] animate-pulse" />
@@ -972,13 +963,28 @@ export default function DashboardLayout({ children }) {
           {(() => {
             const isExpired = subscriptionStatus === "expired" || (subscriptionPlan === "trial" && trialEndsAt && new Date(trialEndsAt).getTime() - Date.now() <= 0);
             const isBillingPage = pathname === "/dashboard/settings/billing";
-            const isProRoute = pathname === "/dashboard/staff" || pathname === "/dashboard/qr";
+            let isRouteLocked = false;
+            let lockedFeatureName = "";
+
+            if (pathname === "/dashboard/staff" && enabledFeatures.staffManagement === false) {
+              isRouteLocked = true;
+              lockedFeatureName = "Staff Management & Terminals";
+            } else if (pathname === "/dashboard/qr" && enabledFeatures.qrOrdering === false) {
+              isRouteLocked = true;
+              lockedFeatureName = "Customer QR Self-Ordering";
+            } else if (pathname === "/dashboard/inventory" && enabledFeatures.inventory === false) {
+              isRouteLocked = true;
+              lockedFeatureName = "Inventory Stock & Recipe Control";
+            } else if ((pathname === "/dashboard/expenses" || pathname === "/dashboard/reports") && enabledFeatures.analytics === false) {
+              isRouteLocked = true;
+              lockedFeatureName = "Expenses & Analytics Reports";
+            }
 
             if (isExpired && !isBillingPage) {
               return (
                 <div className="flex flex-col items-center justify-center min-h-[50vh] text-center p-6 bg-white border border-slate-200/80 rounded-[2rem] shadow-xl max-w-2xl mx-auto my-12 space-y-6 animate-fade-in text-slate-800">
                   <div className="w-16 h-16 rounded-full bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-600 animate-bounce shadow-md">
-                    <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                    <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>
                   </div>
@@ -995,7 +1001,7 @@ export default function DashboardLayout({ children }) {
                       className="inline-flex py-3.5 px-8 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-black uppercase tracking-wider rounded-2xl shadow-lg shadow-orange-500/20 text-xs items-center gap-2 transition duration-200 active:scale-95 cursor-pointer"
                     >
                       Choose a Subscription Plan
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
                       </svg>
                     </Link>
@@ -1004,31 +1010,31 @@ export default function DashboardLayout({ children }) {
               );
             }
 
-            if (subscriptionPlan === "basic" && isProRoute) {
+            if (isRouteLocked) {
               return (
                 <div className="flex flex-col items-center justify-center min-h-[50vh] text-center p-6 bg-white border border-slate-200/80 rounded-[2rem] shadow-xl max-w-2xl mx-auto my-12 space-y-6 animate-fade-in text-slate-800">
                   <div className="w-16 h-16 rounded-full bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600 animate-pulse shadow-md">
-                    <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>
                   </div>
                   <div className="space-y-2">
-                    <span className="text-[10px] font-black uppercase tracking-widest px-3.5 py-1 rounded-full bg-amber-100 border border-amber-200 text-amber-700">Pro Feature</span>
-                    <h3 className="text-2xl font-black text-slate-900 tracking-tight mt-2">Pro Plan Required</h3>
+                    <span className="text-[10px] font-black uppercase tracking-widest px-3.5 py-1 rounded-full bg-amber-100 border border-amber-200 text-amber-700">Module Locked</span>
+                    <h3 className="text-2xl font-black text-slate-900 tracking-tight mt-2">{lockedFeatureName} is Locked</h3>
                     <p className="text-xs text-slate-500 font-semibold leading-relaxed max-w-md mx-auto">
-                      Staff management terminals, custom waiter permissions, and customer QR self-ordering portals are Pro-exclusive features. Upgrade your plan to unlock.
+                      This operational module is not enabled for your restaurant account. Please contact support/administration to activate it.
                     </p>
                   </div>
                   <div className="pt-2">
-                    <Link
-                      href="/dashboard/settings/billing"
+                    <a
+                      href="mailto:support@restuvexo.shop?subject=Unlock Module Request"
                       className="inline-flex py-3.5 px-8 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-black uppercase tracking-wider rounded-2xl shadow-lg shadow-orange-500/20 text-xs items-center gap-2 transition duration-200 active:scale-95 cursor-pointer"
                     >
-                      Upgrade to Pro Plan
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      Contact Administration
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
                       </svg>
-                    </Link>
+                    </a>
                   </div>
                 </div>
               );

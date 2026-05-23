@@ -39,7 +39,21 @@ async function getRestaurantSettings(restaurantId) {
         vexoAiApiLimit: 5,
         subscriptionPlan: 'trial',
         subscriptionStatus: 'active',
-        trialEndsAt: trialEndsAt
+        trialEndsAt: trialEndsAt,
+        enabledFeatures: {
+          posBilling: true,
+          qrOrdering: true,
+          kds: true,
+          inventory: true,
+          vexoAI: true,
+          whatsappAPI: true,
+          staffManagement: true,
+          multiBranch: true,
+          analytics: true,
+          thermalPrinter: true
+        },
+        customPrice: 0.00,
+        customNotes: ""
       }
     });
   } else if (!settings.trialEndsAt && settings.subscriptionPlan === 'trial') {
@@ -80,7 +94,10 @@ async function updateRestaurantSettings(restaurantId, updateData) {
       vexoAiApiLimit: updateData.vexoAiApiLimit !== undefined ? parseInt(updateData.vexoAiApiLimit, 10) : undefined,
       subscriptionPlan: updateData.subscriptionPlan || undefined,
       subscriptionStatus: updateData.subscriptionStatus || undefined,
-      trialEndsAt: updateData.trialEndsAt !== undefined ? (updateData.trialEndsAt ? new Date(updateData.trialEndsAt) : null) : undefined
+      trialEndsAt: updateData.trialEndsAt !== undefined ? (updateData.trialEndsAt ? new Date(updateData.trialEndsAt) : null) : undefined,
+      enabledFeatures: updateData.enabledFeatures !== undefined ? updateData.enabledFeatures : undefined,
+      customPrice: updateData.customPrice !== undefined ? updateData.customPrice : undefined,
+      customNotes: updateData.customNotes !== undefined ? updateData.customNotes : undefined
     },
     create: {
       restaurantId,
@@ -96,7 +113,21 @@ async function updateRestaurantSettings(restaurantId, updateData) {
       vexoAiApiLimit: updateData.vexoAiApiLimit !== undefined ? parseInt(updateData.vexoAiApiLimit, 10) : 5,
       subscriptionPlan: updateData.subscriptionPlan || 'trial',
       subscriptionStatus: updateData.subscriptionStatus || 'active',
-      trialEndsAt: updateData.trialEndsAt ? new Date(updateData.trialEndsAt) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+      trialEndsAt: updateData.trialEndsAt ? new Date(updateData.trialEndsAt) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      enabledFeatures: updateData.enabledFeatures || {
+        posBilling: true,
+        qrOrdering: true,
+        kds: true,
+        inventory: true,
+        vexoAI: true,
+        whatsappAPI: true,
+        staffManagement: true,
+        multiBranch: true,
+        analytics: true,
+        thermalPrinter: true
+      },
+      customPrice: updateData.customPrice !== undefined ? updateData.customPrice : 0.00,
+      customNotes: updateData.customNotes || ""
     }
   });
 

@@ -10,7 +10,7 @@ export default function PreferencesSettings() {
   const [enableVexoAi, setEnableVexoAi] = useState(true);
   const [vexoAiNormalLimit, setVexoAiNormalLimit] = useState(15);
   const [vexoAiApiLimit, setVexoAiApiLimit] = useState(5);
-  const [subscriptionPlan, setSubscriptionPlan] = useState("trial");
+  const [enabledFeatures, setEnabledFeatures] = useState({});
   const [isSaved, setIsSaved] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -25,13 +25,14 @@ export default function PreferencesSettings() {
         });
         if (res.ok) {
           const data = await res.json();
-          setEnableQrOrdering(data.subscriptionPlan === "basic" ? false : (data.qrOrderingEnabled !== false));
+          const features = data.enabledFeatures || {};
+          setEnabledFeatures(features);
+          setEnableQrOrdering(features.qrOrdering === false ? false : (data.qrOrderingEnabled !== false));
           setSidebarQuickActions(data.sidebarQuickActions !== false);
           setSidebarStoreSwitch(data.sidebarStoreSwitch !== false);
-          setEnableVexoAi(data.subscriptionPlan === "basic" ? false : (data.vexoAiEnabled !== false));
+          setEnableVexoAi(features.vexoAI === false ? false : (data.vexoAiEnabled !== false));
           setVexoAiNormalLimit(data.vexoAiNormalLimit !== undefined ? data.vexoAiNormalLimit : 15);
           setVexoAiApiLimit(data.vexoAiApiLimit !== undefined ? data.vexoAiApiLimit : 5);
-          setSubscriptionPlan(data.subscriptionPlan || "trial");
         }
       } catch (e) {
         console.error("Failed to load settings from server:", e);
@@ -67,7 +68,6 @@ export default function PreferencesSettings() {
     }
   };
 
-
   const handleToggleQrOrdering = () => {
     setEnableQrOrdering(prev => {
       const next = !prev;
@@ -80,6 +80,9 @@ export default function PreferencesSettings() {
     return <LoadingScreen message="Loading dashboard preferences..." minHeight="50vh" />;
   }
 
+  const isQrOrderingLocked = enabledFeatures?.qrOrdering === false;
+  const isVexoAiLocked = enabledFeatures?.vexoAI === false;
+
   return (
     <div className="space-y-8 animate-fade-in text-slate-800 font-sans pb-16">
       
@@ -87,7 +90,6 @@ export default function PreferencesSettings() {
       {isSaved && (
         <div className="fixed top-6 right-6 z-[100] animate-slide-in-right">
           <div className="bg-emerald-500/10 border border-emerald-500/25 px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-3 text-emerald-600 backdrop-blur-xl">
-            <span className="text-xs"></span>
             <p className="text-[11px] font-black tracking-wide uppercase">Preferences updated live!</p>
           </div>
         </div>
@@ -124,8 +126,8 @@ export default function PreferencesSettings() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
                 </svg>
                 Customer QR Self-Ordering Portal
-                {subscriptionPlan === "basic" && (
-                  <span className="bg-orange-100 border border-orange-200 text-orange-600 px-2 py-0.5 rounded text-[8px] font-black tracking-widest uppercase shrink-0">PRO</span>
+                {isQrOrderingLocked && (
+                  <span className="bg-slate-100 border border-slate-200 text-slate-500 px-2 py-0.5 rounded text-[8px] font-black tracking-widest uppercase shrink-0">LOCKED</span>
                 )}
               </p>
               <p className="text-[10px] text-slate-455 font-semibold leading-relaxed">
@@ -135,14 +137,14 @@ export default function PreferencesSettings() {
             
             <button
               type="button"
-              onClick={subscriptionPlan === "basic" ? null : handleToggleQrOrdering}
-              disabled={subscriptionPlan === "basic"}
-              className={`relative inline-flex h-7 w-13 items-center rounded-full transition-colors duration-300 focus:outline-none shrink-0 ${
-                subscriptionPlan === "basic" ? "bg-slate-100 border border-slate-200 cursor-not-allowed" : (enableQrOrdering ? "bg-[#ff5722]" : "bg-slate-200")
+              onClick={isQrOrderingLocked ? null : handleToggleQrOrdering}
+              disabled={isQrOrderingLocked}
+              className={`relative inline-flex h-7 w-13 items-center rounded-full transition-colors duration-350 focus:outline-none shrink-0 cursor-pointer ${
+                isQrOrderingLocked ? "bg-slate-100 border border-slate-200 cursor-not-allowed" : (enableQrOrdering ? "bg-[#ff5722]" : "bg-slate-200")
               }`}
             >
               <span className={`inline-block h-5.5 w-5.5 transform rounded-full bg-white transition-transform duration-300 ${
-                subscriptionPlan === "basic" ? "translate-x-1" : (enableQrOrdering ? "translate-x-6.5" : "translate-x-1")
+                isQrOrderingLocked ? "translate-x-1" : (enableQrOrdering ? "translate-x-6.5" : "translate-x-1")
               }`} />
             </button>
           </div>
@@ -168,7 +170,7 @@ export default function PreferencesSettings() {
                 setSidebarStoreSwitch(next);
                 saveSetting("sidebarStoreSwitch", next);
               }}
-              className={`relative inline-flex h-7 w-13 items-center rounded-full transition-colors duration-300 focus:outline-none shrink-0 ${sidebarStoreSwitch ? "bg-[#ff5722]" : "bg-slate-200"}`}
+              className={`relative inline-flex h-7 w-13 items-center rounded-full transition-colors duration-300 focus:outline-none shrink-0 cursor-pointer ${sidebarStoreSwitch ? "bg-[#ff5722]" : "bg-slate-200"}`}
             >
               <span className={`inline-block h-5.5 w-5.5 transform rounded-full bg-white transition-transform duration-300 ${sidebarStoreSwitch ? "translate-x-6.5" : "translate-x-1"}`} />
             </button>
@@ -181,10 +183,10 @@ export default function PreferencesSettings() {
                 <svg className="w-4 h-4 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
-                Show Quick Actions () Panel on Sidebar
+                Show Quick Actions Panel on Sidebar
               </p>
               <p className="text-[10px] text-slate-455 font-semibold leading-relaxed">
-                When ENABLED, the black " Quick Action" dropdown button is rendered under the owner workspace header. If DISABLED, this button is hidden.
+                When ENABLED, the black "Quick Action" dropdown button is rendered under the owner workspace header. If DISABLED, this button is hidden.
               </p>
             </div>
             
@@ -195,7 +197,7 @@ export default function PreferencesSettings() {
                 setSidebarQuickActions(next);
                 saveSetting("sidebarQuickActions", next);
               }}
-              className={`relative inline-flex h-7 w-13 items-center rounded-full transition-colors duration-300 focus:outline-none shrink-0 ${sidebarQuickActions ? "bg-[#ff5722]" : "bg-slate-200"}`}
+              className={`relative inline-flex h-7 w-13 items-center rounded-full transition-colors duration-300 focus:outline-none shrink-0 cursor-pointer ${sidebarQuickActions ? "bg-[#ff5722]" : "bg-slate-200"}`}
             >
               <span className={`inline-block h-5.5 w-5.5 transform rounded-full bg-white transition-transform duration-300 ${sidebarQuickActions ? "translate-x-6.5" : "translate-x-1"}`} />
             </button>
@@ -209,8 +211,8 @@ export default function PreferencesSettings() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
                 </svg>
                 Enable VexoAI Chatbot Assistant
-                {subscriptionPlan === "basic" && (
-                  <span className="bg-orange-100 border border-orange-200 text-orange-600 px-2 py-0.5 rounded text-[8px] font-black tracking-widest uppercase shrink-0">PRO</span>
+                {isVexoAiLocked && (
+                  <span className="bg-slate-100 border border-slate-200 text-slate-500 px-2 py-0.5 rounded text-[8px] font-black tracking-widest uppercase shrink-0">LOCKED</span>
                 )}
               </p>
               <p className="text-[10px] text-slate-455 font-semibold leading-relaxed">
@@ -220,24 +222,24 @@ export default function PreferencesSettings() {
             
             <button
               type="button"
-              onClick={subscriptionPlan === "basic" ? null : () => {
+              onClick={isVexoAiLocked ? null : () => {
                 const next = !enableVexoAi;
                 setEnableVexoAi(next);
                 saveSetting("vexoAiEnabled", next);
               }}
-              disabled={subscriptionPlan === "basic"}
-              className={`relative inline-flex h-7 w-13 items-center rounded-full transition-colors duration-300 focus:outline-none shrink-0 ${
-                subscriptionPlan === "basic" ? "bg-slate-100 border border-slate-200 cursor-not-allowed" : (enableVexoAi ? "bg-[#ff5722]" : "bg-slate-200")
+              disabled={isVexoAiLocked}
+              className={`relative inline-flex h-7 w-13 items-center rounded-full transition-colors duration-300 focus:outline-none shrink-0 cursor-pointer ${
+                isVexoAiLocked ? "bg-slate-100 border border-slate-200 cursor-not-allowed" : (enableVexoAi ? "bg-[#ff5722]" : "bg-slate-200")
               }`}
             >
               <span className={`inline-block h-5.5 w-5.5 transform rounded-full bg-white transition-transform duration-300 ${
-                subscriptionPlan === "basic" ? "translate-x-1" : (enableVexoAi ? "translate-x-6.5" : "translate-x-1")
+                isVexoAiLocked ? "translate-x-1" : (enableVexoAi ? "translate-x-6.5" : "translate-x-1")
               }`} />
             </button>
           </div>
 
           {/* Preference Config Row 6: VexoAI Message Daily Limits */}
-          {enableVexoAi && (
+          {enableVexoAi && !isVexoAiLocked && (
             <div className="p-4 rounded-2xl bg-slate-50/60 border border-slate-100 space-y-4 text-left mt-2">
               <p className="text-xs font-black text-slate-900 flex items-center gap-2">
                 <svg className="w-4 h-4 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">

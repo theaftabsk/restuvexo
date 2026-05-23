@@ -1694,6 +1694,10 @@ export default function Home() {
                     <Check className="w-4 h-4 text-emerald-500 shrink-0" />
                     <span>Granular staff roles & PIN security</span>
                   </li>
+                  <li className="flex items-center gap-2.5">
+                    <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                    <span>VexoAI Chatbot Assistant</span>
+                  </li>
                 </ul>
               </div>
 

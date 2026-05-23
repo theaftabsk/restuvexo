@@ -341,7 +341,10 @@ exports.getSidebarTelemetry = async (req, res) => {
       vexoAiEnabled: restSettings.vexoAiEnabled,
       subscriptionPlan: restSettings.subscriptionPlan,
       subscriptionStatus: restSettings.subscriptionStatus,
-      trialEndsAt: restSettings.trialEndsAt
+      trialEndsAt: restSettings.trialEndsAt,
+      enabledFeatures: restSettings.enabledFeatures,
+      customPrice: restSettings.customPrice,
+      customNotes: restSettings.customNotes
     });
   } catch (error) {
     console.error('Error fetching sidebar telemetry:', error);
@@ -391,7 +394,10 @@ exports.broadcastSidebarTelemetry = async (io, restaurantId) => {
       vexoAiEnabled: restSettings.vexoAiEnabled,
       subscriptionPlan: restSettings.subscriptionPlan,
       subscriptionStatus: restSettings.subscriptionStatus,
-      trialEndsAt: restSettings.trialEndsAt
+      trialEndsAt: restSettings.trialEndsAt,
+      enabledFeatures: restSettings.enabledFeatures,
+      customPrice: restSettings.customPrice,
+      customNotes: restSettings.customNotes
     });
   } catch (error) {
     console.error('Error broadcasting sidebar telemetry:', error);

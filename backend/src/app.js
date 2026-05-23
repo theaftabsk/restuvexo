@@ -99,6 +99,7 @@ app.use('/api/expenses', apiLimiter, require('./routes/expenseRoutes'));
 app.use('/api/upload', apiLimiter, require('./routes/uploadRoutes'));
 app.use('/api/demo', apiLimiter, require('./routes/demoRoutes'));
 app.use('/api/chatbot', apiLimiter, require('./routes/chatbotRoutes'));
+app.use('/api/super-admin', apiLimiter, require('./routes/superAdminRoutes'));
 
 // Global Error Handler
 app.use((err, req, res, next) => {

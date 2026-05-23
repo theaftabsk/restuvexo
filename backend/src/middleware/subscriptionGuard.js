@@ -25,6 +25,11 @@ const subscriptionGuard = async (req, res, next) => {
     return next();
   }
 
+  // Bypass Super Admin APIs
+  if (originalUrl.startsWith('/api/super-admin')) {
+    return next();
+  }
+
   // 4. Resolve Restaurant ID
   let restaurantId = req.user ? req.user.restaurantId : null;
 
@@ -75,31 +80,55 @@ const subscriptionGuard = async (req, res, next) => {
       });
     }
 
-    // 6. Basic Plan Features Restricting
-    if (settings.subscriptionPlan === 'basic') {
-      // Basic Plan Block: Customer QR Self-Ordering
-      if (originalUrl.startsWith('/api/orders/qr-place')) {
-        return res.status(403).json({
-          subscriptionError: "pro_required",
-          message: "Customer QR Self-Ordering is a Pro Plan feature. Upgrade to enable."
-        });
-      }
+    // 6. Enforce Granular Custom Feature Locking
+    const features = settings.enabledFeatures || {};
 
-      // Basic Plan Block: Staff Dashboard APIs
-      if (originalUrl.startsWith('/api/auth/staff')) {
-        return res.status(403).json({
-          subscriptionError: "pro_required",
-          message: "Staff management and multiple terminals require a Pro Plan."
-        });
-      }
+    // POS Billing
+    if (features.posBilling === false && (originalUrl.startsWith('/api/orders') && !originalUrl.startsWith('/api/orders/qr-place') && !originalUrl.startsWith('/api/orders/qr-menu/'))) {
+      return res.status(403).json({
+        subscriptionError: "feature_locked",
+        message: "POS Billing module is not enabled for your account. Please contact support."
+      });
+    }
 
-      // Basic Plan Block: Chatbot requests
-      if (originalUrl.startsWith('/api/chatbot')) {
-        return res.status(403).json({
-          subscriptionError: "pro_required",
-          message: "VexoAI Chatbot Assistant requires a Pro Plan."
-        });
-      }
+    // Customer QR Self-Ordering
+    if (features.qrOrdering === false && originalUrl.startsWith('/api/orders/qr-place')) {
+      return res.status(403).json({
+        subscriptionError: "feature_locked",
+        message: "Customer QR Self-Ordering is not enabled for your account. Please contact support."
+      });
+    }
+
+    // Staff Management
+    if (features.staffManagement === false && originalUrl.startsWith('/api/auth/staff')) {
+      return res.status(403).json({
+        subscriptionError: "feature_locked",
+        message: "Staff management and multiple terminals are not enabled for your account. Please contact support."
+      });
+    }
+
+    // VexoAI Chatbot Assistant
+    if (features.vexoAI === false && originalUrl.startsWith('/api/chatbot')) {
+      return res.status(403).json({
+        subscriptionError: "feature_locked",
+        message: "VexoAI Chatbot Assistant is not enabled for your account. Please contact support."
+      });
+    }
+
+    // Inventory & Recipe Control
+    if (features.inventory === false && originalUrl.startsWith('/api/inventory')) {
+      return res.status(403).json({
+        subscriptionError: "feature_locked",
+        message: "Inventory and Recipe Stock Control are not enabled for your account. Please contact support."
+      });
+    }
+
+    // Expenses & Analytics Reports
+    if (features.analytics === false && originalUrl.startsWith('/api/expenses')) {
+      return res.status(403).json({
+        subscriptionError: "feature_locked",
+        message: "Operating Expenses (OPEX) Tracker and Ledger are not enabled for your account. Please contact support."
+      });
     }
 
     next();
