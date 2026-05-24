@@ -446,7 +446,7 @@ export default function Home() {
           __html: JSON.stringify({
             "@context": "https://schema.org",
             "@type": "SoftwareApplication",
-            "name": "RESTUVEXO AI-Powered Restaurant Operating System",
+            "name": "RESTUVEXO Restaurant Management System & Software",
             "operatingSystem": "All (Cloud & local PWA)",
             "applicationCategory": "BusinessApplication",
             "offers": {
@@ -531,14 +531,14 @@ export default function Home() {
             </div>
             
             <h1 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight text-slate-900 leading-tight">
-              AI-Powered <br />
+              The Ultimate <br />
               <span className="bg-gradient-to-r from-orange-500 via-orange-600 to-orange-700 bg-clip-text text-transparent">
-                Restaurant OS
+                Restaurant Management System
               </span>
             </h1>
             
             <p className="text-slate-500 text-base md:text-lg leading-relaxed max-w-xl">
-              Elevate hospitality and speed up order operations. RESTUVEXO is an AI-powered system integrating ultra-high-speed POS, real-time Kitchen Displays, automated recipe inventory depletion, and smart QR code table ordering.
+              Elevate hospitality and speed up operations with RESTUVEXO, the leading AI-powered restaurant management software. Our system integrates an ultra-high-speed POS, real-time Kitchen Displays, automated recipe inventory, and smart QR code ordering into one complete restaurant management system.
             </p>
 
             <div className="flex flex-wrap gap-4 pt-2">

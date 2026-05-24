@@ -16,11 +16,37 @@ export const viewport = {
 };
 
 export const metadata = {
-  title: "RESTUVEXO AI-Powered Restaurant Operating System — POS, KDS & QR Menu",
-  description: "Enterprise-grade decoupled AI-powered Restaurant Operating System for tables, order queues, POS checkout, and real-time inventory management.",
+  metadataBase: new URL('https://restuvexo.shop'),
+  title: "RESTUVEXO | Top Restaurant Management System & Software",
+  description: "RESTUVEXO is the ultimate restaurant management system and restaurant management software. Streamline operations with our AI-powered POS, KDS, and QR ordering features.",
   generator: "Next.js",
   manifest: "/manifest.json",
-  keywords: ["restaurant os", "pos", "kds", "qr ordering", "restaurant software", "restuvexo"],
+  keywords: ["restuvexo", "restaurant management system", "restaurant management software", "restaurant os", "pos", "kds", "qr ordering", "best restaurant software"],
+  authors: [{ name: "ITVEXO" }],
+  creator: "ITVEXO",
+  publisher: "ITVEXO",
+  openGraph: {
+    title: "RESTUVEXO | Top Restaurant Management System & Software",
+    description: "RESTUVEXO is the ultimate restaurant management system and restaurant management software. Streamline operations with our AI-powered POS, KDS, and QR ordering features.",
+    url: 'https://restuvexo.shop',
+    siteName: 'RESTUVEXO',
+    images: [
+      {
+        url: '/restuvexo_logo.png',
+        width: 800,
+        height: 600,
+        alt: 'RESTUVEXO Restaurant Management Software Logo',
+      },
+    ],
+    locale: 'en_US',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'RESTUVEXO | Top Restaurant Management System & Software',
+    description: 'RESTUVEXO is the ultimate restaurant management system and restaurant management software. Streamline operations with our AI-powered POS, KDS, and QR ordering.',
+    images: ['/restuvexo_logo.png'],
+  },
   icons: {
     icon: "/favicon.png",
     shortcut: "/favicon.png",
@@ -29,7 +55,7 @@ export const metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "RESTUVEXO AI-powered ROS"
+    title: "RESTUVEXO Restaurant System"
   },
   formatDetection: {
     telephone: false
