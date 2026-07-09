@@ -13,4 +13,12 @@ export declare class OrderController {
     approveQrOrder(req: Request, res: Response): Promise<any>;
     settleOrder(req: Request, res: Response): Promise<any>;
     deleteOrder(req: Request, res: Response): Promise<any>;
+    mergeOrders(req: Request, res: Response): Promise<any>;
+    splitOrder(req: Request, res: Response): Promise<any>;
+    moveTable(req: Request, res: Response): Promise<any>;
+    reprintOrder(req: Request, res: Response): Promise<any>;
+    applyDiscount(req: Request, res: Response): Promise<any>;
+    assignWaiter(req: Request, res: Response): Promise<any>;
+    voidOrder(req: Request, res: Response): Promise<any>;
+    getOrderLogs(req: Request, res: Response): Promise<any>;
 }

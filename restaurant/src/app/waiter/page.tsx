@@ -2,12 +2,20 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Plus, Bell, ChevronLeft, ChevronRight, CheckCircle, RefreshCw, AlertTriangle, Users } from "lucide-react";
+import LoadingScreen from "@/components/LoadingScreen";
 
 export default function WaiterFloorSeating() {
   const router = useRouter();
-  const [tables, setTables] = useState([]);
-  const [allOrders, setAllOrders] = useState([]);
+  const [tables, setTables] = useState<any[]>([]);
+  const [allOrders, setAllOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
+
+  // Relocate table dialog
+  const [showMoveDialog, setShowMoveDialog] = useState(false);
+  const [movingOrder, setMovingOrder] = useState<any | null>(null);
+  const [targetTableId, setTargetTableId] = useState("");
 
   const BACKEND_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000");
 
@@ -24,7 +32,7 @@ export default function WaiterFloorSeating() {
         setTables(tablesData);
       }
 
-      const orderRes = await fetch(`${BACKEND_URL}/api/orders?limit=100`, {
+      const orderRes = await fetch(`${BACKEND_URL}/api/order`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
       if (orderRes.ok) {
@@ -40,98 +48,241 @@ export default function WaiterFloorSeating() {
 
   useEffect(() => {
     fetchFloorSeating();
-    
-    // Minor automatic update every 12 seconds to capture offline updates silently
     const interval = setInterval(fetchFloorSeating, 12000);
     return () => clearInterval(interval);
   }, []);
 
-  const selectActiveTable = (table) => {
-    router.push(`/waiter/order?tableId=${table.id}`);
+  const handleEditItems = (order: any) => {
+    localStorage.setItem("editOrderId", order.id.toString());
+    localStorage.setItem("editOrderTable", order.tableId?.toString() || "");
+    localStorage.setItem("editOrderType", order.orderType);
+    localStorage.setItem("editOrderItems", JSON.stringify(order.orderItems));
+    router.push("/dashboard/orders/create");
   };
 
-  const occupiedTablesCount = tables.filter(t => allOrders.some(o => o.tableId === t.id && ["pending", "cooking", "ready"].includes(o.status))).length;
-  const freeTablesCount = Math.max(0, tables.length - occupiedTablesCount);
+  const handleMoveTableClick = (order: any) => {
+    setMovingOrder(order);
+    setTargetTableId("");
+    setShowMoveDialog(true);
+  };
+
+  const executeMoveTable = async () => {
+    if (!movingOrder || !targetTableId) return;
+    setActionLoading(true);
+    const token = localStorage.getItem("authToken");
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/order/${movingOrder.id}/move-table`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({ targetTableId })
+      });
+      if (res.ok) {
+        setShowMoveDialog(false);
+        setMovingOrder(null);
+        fetchFloorSeating();
+      } else {
+        alert("Failed to relocate table. Verify target is free.");
+      }
+    } catch (err) {
+      console.error("Move table failed:", err);
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[50vh]">
-        <div className="text-center space-y-4">
-          <div className="w-10 h-10 rounded-full border-4 border-[#ff5722] border-t-transparent animate-spin mx-auto" />
-          <p className="text-slate-500 text-xs font-black uppercase tracking-wider">Syncing Seating Grid...</p>
-        </div>
-      </div>
-    );
+    return <LoadingScreen message="Syncing Captain Station..." minHeight="60vh" />;
   }
 
+  // Get active floor occupied tables (any table that has unpaid orders)
+  const activeOrdersMap = allOrders.filter(o => o.paymentStatus === "unpaid" && !o.isMerged);
+
   return (
-    <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-8 animate-fade-in">
+    <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-8 animate-fade-in text-slate-800">
       
-      {/* Seating Stats widget */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="bg-white border border-slate-100 p-4 rounded-[2rem] shadow-sm text-center">
-          <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Total Tables</span>
-          <span className="text-xl md:text-2xl font-black text-slate-900 block mt-1">{tables.length}</span>
+      {/* Header Info Banner */}
+      <div className="bg-[#fff9f6] border border-orange-100 p-4 rounded-2xl flex flex-wrap items-center justify-between gap-4">
+        <p className="text-xs font-semibold text-orange-850">
+          Free plan — unlock POS, Kitchen & customer ordering. First month @ ₹1!
+        </p>
+        <button className="bg-[#ff5722] hover:bg-[#e64a19] text-white text-xs font-black uppercase tracking-wider px-4 py-2 rounded-xl transition shadow-md shadow-orange-500/10">
+          Upgrade
+        </button>
+      </div>
+
+      {/* Main Title Section */}
+      <div className="flex flex-wrap items-center justify-between gap-6 pb-2 border-b border-slate-100">
+        <div>
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Captain's Station</h1>
+          <p className="text-slate-500 text-xs font-semibold mt-0.5">Approve orders and manage floor service.</p>
         </div>
-        <div className="bg-rose-50 border border-rose-100/50 p-4 rounded-[2rem] shadow-sm text-center">
-          <span className="text-[8px] font-black text-rose-450 uppercase tracking-widest block">Active Guests</span>
-          <span className="text-xl md:text-2xl font-black text-rose-600 block mt-1">{occupiedTablesCount}</span>
-        </div>
-        <div className="bg-emerald-50 border border-emerald-100/50 p-4 rounded-[2rem] shadow-sm text-center">
-          <span className="text-[8px] font-black text-emerald-450 uppercase tracking-widest block">Empty Tables</span>
-          <span className="text-xl md:text-2xl font-black text-emerald-600 block mt-1">{freeTablesCount}</span>
+
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => router.push("/dashboard/orders/create")}
+            className="bg-[#0f172a] hover:bg-slate-800 text-white text-xs font-black uppercase tracking-widest px-5 py-3.5 rounded-xl flex items-center gap-2 transition shadow-lg active:scale-95"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Take Order</span>
+          </button>
+          <button className="px-5 py-3.5 border border-slate-200 hover:bg-slate-50 rounded-xl text-slate-500 text-xs font-bold flex items-center gap-2 transition">
+            <Bell className="w-4 h-4" />
+            <span>0 Alerts</span>
+          </button>
         </div>
       </div>
 
-      {/* Grid of Tables */}
-      <div className="bg-white border border-slate-150 p-6 md:p-8 rounded-[2.5rem] shadow-xl shadow-slate-100/40 space-y-6">
-        <div className="text-left border-b border-slate-50 pb-4">
-          <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider"> Select Seating Floor Plan</h3>
-          <p className="text-[10px] text-slate-400 font-semibold mt-0.5">Tap on a table below to immediately take orders or view its ongoing cart</p>
-        </div>
+      {/* ACTIVE FLOOR STATUS Table Slider Cards */}
+      <div className="space-y-4">
+        <h2 className="text-slate-900 font-black text-xs uppercase tracking-wider">Active Floor Status</h2>
+        
+        <div className="flex items-center gap-3">
+          <button className="w-9 h-9 rounded-full bg-white hover:bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-500 shrink-0">
+            <ChevronLeft className="w-4 h-4" />
+          </button>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-          {tables.map(t => {
-            const activeOrder = allOrders.find(o => o.tableId === t.id && ["pending", "cooking", "ready"].includes(o.status));
-            const isOccupied = !!activeOrder;
+          {/* Table Cards Slider */}
+          <div className="flex-1 flex gap-4 overflow-x-auto py-2 scrollbar-none">
+            {tables.map(table => {
+              const activeOrder = activeOrdersMap.find(o => o.tableId === table.id);
+              return (
+                <div 
+                  key={table.id}
+                  className="bg-white border border-slate-200 p-5 rounded-[1.75rem] w-[210px] shrink-0 space-y-4 flex flex-col justify-between hover:shadow-md transition duration-200"
+                >
+                  <div className="text-center space-y-1">
+                    <h3 className="text-slate-900 font-black text-sm">{table.tableNo}</h3>
+                    <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider">
+                      {activeOrder ? "1 ORDERS" : "FREE TABLE"}
+                    </p>
+                  </div>
 
-            return (
-              <button
-                key={t.id}
-                onClick={() => selectActiveTable(t)}
-                className={`p-5 rounded-[2.2rem] border-2 transition-all duration-300 flex flex-col items-center justify-between text-center min-h-[145px] relative group hover:scale-[1.03] ${
-                  isOccupied 
-                    ? 'bg-rose-50/40 border-rose-200 occupied-glow' 
-                    : 'bg-white border-slate-200 hover:border-slate-350 hover:bg-slate-50'
-                }`}
-              >
-                <span className="text-2xl"></span>
-                
-                <div>
-                  <span className="text-xs font-black text-slate-900 block">Table {t.tableNo}</span>
-                  <span className="text-[9px] font-bold text-slate-400 block mt-0.5">Cap: {t.capacity || 4} Guests</span>
-                </div>
+                  <div className="space-y-2">
+                    {activeOrder ? (
+                      <>
+                        <button
+                          onClick={() => handleEditItems(activeOrder)}
+                          className="w-full text-center py-2 border border-slate-200 bg-white hover:bg-slate-50 text-[#ff5722] rounded-xl text-[10px] font-black uppercase tracking-wider transition-all"
+                        >
+                          + Edit / Add Items
+                        </button>
+                        <button
+                          onClick={() => handleMoveTableClick(activeOrder)}
+                          className="w-full text-center py-2 border border-slate-200 bg-white hover:bg-slate-50 text-[#2563eb] rounded-xl text-[10px] font-black uppercase tracking-wider transition-all"
+                        >
+                          Change Table
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          localStorage.setItem("editOrderTable", table.id.toString());
+                          router.push("/dashboard/orders/create");
+                        }}
+                        className="w-full text-center py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all"
+                      >
+                        Assign Seating
+                      </button>
+                    )}
+                  </div>
 
-                <div className="mt-3">
-                  {isOccupied ? (
-                    <span className="px-3 py-1 bg-rose-500 text-white rounded-full text-[8px] font-black uppercase tracking-wider animate-pulse">
-                      Active KOT
+                  <div className="flex justify-center">
+                    <span className="bg-slate-100 text-slate-500 px-3 py-1 rounded-full text-[8px] uppercase tracking-widest font-black">
+                      {activeOrder ? "Occupied" : "Guest"}
                     </span>
-                  ) : (
-                    <span className="px-3 py-1 bg-slate-100 group-hover:bg-slate-900 group-hover:text-white text-slate-600 rounded-full text-[8px] font-black uppercase tracking-wider transition">
-                      Free Table
-                    </span>
-                  )}
+                  </div>
                 </div>
+              );
+            })}
+          </div>
 
-                {isOccupied && (
-                  <span className="absolute top-3.5 right-3.5 w-2 h-2 rounded-full bg-rose-500 animate-ping" />
-                )}
-              </button>
-            );
-          })}
+          <button className="w-9 h-9 rounded-full bg-white hover:bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-500 shrink-0">
+            <ChevronRight className="w-4 h-4" />
+          </button>
         </div>
       </div>
+
+      {/* Grid for Incoming Approvals & Floor Alerts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 pt-4">
+        
+        {/* INCOMING APPROVALS */}
+        <div className="bg-white border border-slate-200 p-6 sm:p-8 rounded-[2rem] shadow-sm flex flex-col justify-between min-h-[220px]">
+          <h3 className="text-slate-900 font-black text-xs uppercase tracking-wider pb-4 border-b border-slate-50 flex items-center gap-2">
+            <Users className="w-4 h-4 text-orange-500" />
+            <span>Incoming Approvals</span>
+          </h3>
+
+          <div className="flex-1 flex flex-col items-center justify-center py-6 text-center">
+            <CheckCircle className="w-12 h-12 text-[#ff5722] opacity-20 mb-2" />
+            <p className="text-slate-900 font-bold text-xs">No pending customer approvals.</p>
+            <p className="text-[10px] text-slate-400 font-semibold mt-0.5">Table self-orders will request authentication here.</p>
+          </div>
+        </div>
+
+        {/* FLOOR ALERTS */}
+        <div className="bg-white border border-slate-200 p-6 sm:p-8 rounded-[2rem] shadow-sm flex flex-col justify-between min-h-[220px]">
+          <h3 className="text-slate-900 font-black text-xs uppercase tracking-wider pb-4 border-b border-slate-50 flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-orange-500" />
+            <span>Floor Alerts</span>
+          </h3>
+
+          <div className="flex-1 flex flex-col items-center justify-center py-6 text-center">
+            <CheckCircle className="w-12 h-12 text-emerald-500 opacity-20 mb-2" />
+            <p className="text-slate-900 font-bold text-xs">All tables are happy.</p>
+            <p className="text-[10px] text-slate-400 font-semibold mt-0.5">No pending assistance or bill request callouts.</p>
+          </div>
+        </div>
+
+      </div>
+
+      {/* Move Table Dialog */}
+      {showMoveDialog && movingOrder && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white border border-slate-250 p-6.5 rounded-[2.5rem] w-full max-w-sm space-y-4 shadow-2xl animate-scale-up text-slate-900">
+            <div className="text-center space-y-1">
+              <h4 className="font-black text-slate-900 text-lg">Change Table</h4>
+              <p className="text-slate-500 text-xs font-semibold leading-relaxed">Select destination table to relocate ongoing active order.</p>
+            </div>
+
+            <div className="space-y-4 text-xs font-bold text-slate-700">
+              <div className="space-y-1">
+                <label className="text-slate-400 uppercase text-[9px] tracking-wider font-extrabold">Destination Dining Table</label>
+                <select
+                  value={targetTableId}
+                  onChange={(e) => setTargetTableId(e.target.value)}
+                  className="w-full px-4 py-3 border border-slate-200 bg-slate-50 font-bold focus:outline-none text-slate-950 rounded-xl"
+                >
+                  <option value="">Choose Table...</option>
+                  {tables.map(t => (
+                    <option key={t.id} value={t.id.toString()}>
+                      {t.tableNo} ({t.status})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => { setShowMoveDialog(false); setMovingOrder(null); }}
+                  className="flex-1 py-3 border border-slate-200 hover:bg-slate-50 text-slate-600 font-extrabold rounded-xl text-xs transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={executeMoveTable}
+                  className="flex-1 bg-slate-900 hover:bg-slate-800 text-white font-extrabold py-3 rounded-xl text-xs transition"
+                >
+                  Relocate
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

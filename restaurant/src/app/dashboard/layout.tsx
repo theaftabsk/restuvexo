@@ -391,6 +391,7 @@ export default function DashboardLayout({ children }) {
       activeGradient: "from-[#ff5722] to-[#ff7a47]",
       items: [
         { name: "POS Billing", path: "/dashboard/pos", icon: "POS Billing", allowed: user?.role === "owner" || user?.role === "waiter", badge: "FAST" },
+        { name: "Order Create", path: "/dashboard/orders/create", icon: "POS Billing", allowed: user?.role === "owner" || user?.role === "waiter" },
         { name: "Orders Manager", path: "/dashboard/orders", icon: "Orders Manager", allowed: user?.role === "owner" || user?.role === "waiter" },
         { name: "QR Code Approvals", path: "/dashboard/qr", icon: "QR Code Order Management", allowed: user?.role === "owner" || user?.role === "waiter", badge: enabledFeatures.qrOrdering === false ? "LOCKED" : null },
         { name: "Kitchen Display (KDS)", path: "/dashboard/kds", icon: "Kitchen", allowed: user?.role === "owner" || user?.role === "kitchen" }
@@ -449,6 +450,12 @@ export default function DashboardLayout({ children }) {
           group: "Live Terminals",
           title: "Point of Sale Billing",
           subtitle: "Create walk-in order bills, process instant cash receipts, and direct KOTs"
+        };
+      case "/dashboard/orders/create":
+        return {
+          group: "Live Terminals",
+          title: "Create Food Order",
+          subtitle: "Select dining table, browse menu items, and dispatch kitchen order tickets (KOT)"
         };
       case "/dashboard/orders":
         return {

@@ -505,7 +505,7 @@ export default function Home() {
           
           <div className="flex items-center gap-3">
             <a 
-              href="https://app.restuvexo.shop"
+              href="/auth/login"
               className="hidden sm:inline-flex px-5 py-2.5 rounded-xl text-sm font-bold border border-slate-200 hover:bg-slate-50 text-slate-700 transition duration-200"
             >
               Staff Terminal
@@ -2008,8 +2008,8 @@ export default function Home() {
           <div className="space-y-3">
             <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest">Quick links</h4>
             <ul className="space-y-2 text-[11px] font-bold text-slate-500">
-              <li><a href="https://app.restuvexo.shop" className="hover:text-orange-500">Staff Terminal</a></li>
-              <li><a href="https://app.restuvexo.shop/auth/signup" className="hover:text-orange-500">Register Shop</a></li>
+              <li><a href="/auth/login" className="hover:text-orange-500">Staff Terminal</a></li>
+              <li><a href="/auth/signup" className="hover:text-orange-500">Register Shop</a></li>
               <li><a href="#book-demo" className="hover:text-orange-500">Book Free Demo</a></li>
             </ul>
           </div>

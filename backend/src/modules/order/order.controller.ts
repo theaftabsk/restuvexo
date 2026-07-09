@@ -67,4 +67,52 @@ export class OrderController {
     return this.orderService.deleteOrder(req, res);
   }
 
+  @UseGuards(AuthGuard)
+  @Post('merge')
+  async mergeOrders(@Req() req: Request, @Res() res: Response) {
+    return this.orderService.mergeOrders(req, res);
+  }
+
+  @UseGuards(AuthGuard)
+  @Post(':id/split')
+  async splitOrder(@Req() req: Request, @Res() res: Response) {
+    return this.orderService.splitOrder(req, res);
+  }
+
+  @UseGuards(AuthGuard)
+  @Patch(':id/move-table')
+  async moveTable(@Req() req: Request, @Res() res: Response) {
+    return this.orderService.moveTable(req, res);
+  }
+
+  @UseGuards(AuthGuard)
+  @Post(':id/reprint')
+  async reprintOrder(@Req() req: Request, @Res() res: Response) {
+    return this.orderService.reprintOrder(req, res);
+  }
+
+  @UseGuards(AuthGuard)
+  @Patch(':id/discount')
+  async applyDiscount(@Req() req: Request, @Res() res: Response) {
+    return this.orderService.applyDiscount(req, res);
+  }
+
+  @UseGuards(AuthGuard)
+  @Patch(':id/assign-waiter')
+  async assignWaiter(@Req() req: Request, @Res() res: Response) {
+    return this.orderService.assignWaiter(req, res);
+  }
+
+  @UseGuards(AuthGuard)
+  @Patch(':id/void')
+  async voidOrder(@Req() req: Request, @Res() res: Response) {
+    return this.orderService.voidOrder(req, res);
+  }
+
+  @UseGuards(AuthGuard)
+  @Get(':id/logs')
+  async getOrderLogs(@Req() req: Request, @Res() res: Response) {
+    return this.orderService.getOrderLogs(req, res);
+  }
+
 }

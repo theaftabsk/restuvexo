@@ -18,4 +18,12 @@ export declare class OrderService {
     approveQrOrder(req: any, res: any): Promise<any>;
     settleOrder(req: any, res: any): Promise<any>;
     deleteOrder(req: any, res: any): Promise<any>;
+    mergeOrders(req: any, res: any): Promise<any>;
+    splitOrder(req: any, res: any): Promise<any>;
+    moveTable(req: any, res: any): Promise<any>;
+    reprintOrder(req: any, res: any): Promise<any>;
+    applyDiscount(req: any, res: any): Promise<any>;
+    assignWaiter(req: any, res: any): Promise<any>;
+    voidOrder(req: any, res: any): Promise<any>;
+    getOrderLogs(req: any, res: any): Promise<any>;
 }

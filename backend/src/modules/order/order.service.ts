@@ -187,13 +187,47 @@ async createOrder(req, res: any) {
         }
       });
 
-      // If table is linked, update table status to occupied
+      // If table is linked, update table status to occupied and manage sessions
       if (tableId) {
         await tx.table.update({
           where: { id: parseInt(tableId) },
           data: { status: "occupied" }
         });
+
+        const activeSession = await tx.tableSession.findFirst({
+          where: { tableId: parseInt(tableId), closedAt: null }
+        });
+        if (!activeSession) {
+          await tx.tableSession.create({
+            data: { tableId: parseInt(tableId) }
+          });
+        }
       }
+
+      // Create Order Log entry
+      await tx.orderLog.create({
+        data: {
+          orderId: newOrder.id,
+          action: "created",
+          newValue: `Order created via POS/Waiter by user ID ${createdBy} with subtotal ₹${subtotal}`,
+          userId: createdBy
+        }
+      });
+
+      // Create initial Kitchen Ticket (KOT-1)
+      await tx.kitchenTicket.create({
+        data: {
+          orderId: newOrder.id,
+          ticketNo: "KOT-1",
+          status: "pending",
+          items: {
+            create: orderItemsToCreate.map(item => ({
+              menuItemId: item.menuItemId,
+              qty: item.qty
+            }))
+          }
+        }
+      });
 
       return newOrder;
     });
@@ -249,6 +283,22 @@ async updateOrder(req, res: any) {
 
     if (!existingOrder || existingOrder.restaurantId !== restaurantId) {
       return res.status(404).json({ error: "Order not found." });
+    }
+
+    const isEditingRestricted = existingOrder.status !== "pending";
+    if (isEditingRestricted) {
+      let isItemRemoved = false;
+      for (const oldItem of existingOrder.orderItems) {
+        const newItem = items.find(i => parseInt(i.menuItemId) === oldItem.menuItemId);
+        if (!newItem || newItem.qty < oldItem.qty) {
+          isItemRemoved = true;
+          break;
+        }
+      }
+
+      if (isItemRemoved && !req.body.managerApproved) {
+        return res.status(400).json({ error: "Removing items from preparing/ready orders requires Manager PIN authorization." });
+      }
     }
 
     const updatedOrder = await this.prisma.$transaction(async (tx) => {
@@ -339,6 +389,50 @@ async updateOrder(req, res: any) {
           }
         }
       });
+
+      // 5. Add Order Log entry
+      await tx.orderLog.create({
+        data: {
+          orderId: existingOrder.id,
+          action: "updated",
+          oldValue: `Subtotal: ₹${existingOrder.subtotal}, Discount: ₹${existingOrder.discountApplied}`,
+          newValue: `Subtotal: ₹${subtotal}, Discount: ₹${discountAmount}${req.body.managerApproved ? ' (Manager PIN Override Applied)' : ''}`,
+          userId: req.user.id
+        }
+      });
+
+      // 6. Calculate delta for Kitchen Ticket (KOT)
+      const kotItemsToCreate = [];
+      for (const newItem of items) {
+        const oldItem = existingOrder.orderItems.find(oi => oi.menuItemId === parseInt(newItem.menuItemId));
+        if (!oldItem) {
+          kotItemsToCreate.push({
+            menuItemId: parseInt(newItem.menuItemId),
+            qty: newItem.qty
+          });
+        } else if (newItem.qty > oldItem.qty) {
+          kotItemsToCreate.push({
+            menuItemId: parseInt(newItem.menuItemId),
+            qty: newItem.qty - oldItem.qty
+          });
+        }
+      }
+
+      if (kotItemsToCreate.length > 0) {
+        const ticketCount = await tx.kitchenTicket.count({
+          where: { orderId: existingOrder.id }
+        });
+        await tx.kitchenTicket.create({
+          data: {
+            orderId: existingOrder.id,
+            ticketNo: `KOT-${ticketCount + 1}`,
+            status: "pending",
+            items: {
+              create: kotItemsToCreate
+            }
+          }
+        });
+      }
 
       return order;
     });
@@ -872,10 +966,44 @@ async createQrOrder(req, res: any) {
         }
       });
 
-      // Update table to occupied
+      // Update table to occupied and manage table session
       await tx.table.update({
         where: { id: table.id },
         data: { status: "occupied" }
+      });
+
+      const activeSession = await tx.tableSession.findFirst({
+        where: { tableId: table.id, closedAt: null }
+      });
+      if (!activeSession) {
+        await tx.tableSession.create({
+          data: { tableId: table.id }
+        });
+      }
+
+      // Create Order Log entry
+      await tx.orderLog.create({
+        data: {
+          orderId: newOrder.id,
+          action: "created",
+          newValue: `Order submitted by QR Customer on table ${table.tableNo} with subtotal ₹${subtotal}`,
+          userId: qrUser.id
+        }
+      });
+
+      // Create initial Kitchen Ticket (KOT-1)
+      await tx.kitchenTicket.create({
+        data: {
+          orderId: newOrder.id,
+          ticketNo: "KOT-1",
+          status: "pending",
+          items: {
+            create: orderItemsToCreate.map(item => ({
+              menuItemId: item.menuItemId,
+              qty: item.qty
+            }))
+          }
+        }
       });
 
       return newOrder;
@@ -1012,12 +1140,8 @@ async approveQrOrder(req, res: any) {
 // 7. Settle payment for Unpaid orders
 async settleOrder(req, res: any) {
   const { id } = req.params;
-  const { paymentMethod } = req.body; // 'cash' | 'card' | 'upi'
+  const { paymentMethod, payments } = req.body; // paymentMethod is cash/card/upi. payments is array of { method: string, amount: number }
   const restaurantId = req.user.restaurantId;
-
-  if (!['cash', 'card', 'upi'].includes(paymentMethod)) {
-    return res.status(400).json({ error: "Invalid payment method. Choose cash, card, or upi." });
-  }
 
   try {
     const order = await this.prisma.order.findUnique({
@@ -1028,23 +1152,105 @@ async settleOrder(req, res: any) {
       return res.status(404).json({ error: "Order not found." });
     }
 
-    const updatedOrder = await this.prisma.order.update({
-      where: { id: order.id },
-      data: {
+    if (order.paymentStatus === 'paid') {
+      return res.status(400).json({ error: "Order is already paid/settled." });
+    }
+
+    const todayStart = new Date();
+    todayStart.setHours(0,0,0,0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23,59,59,999);
+     
+    const countPaidToday = await this.prisma.order.count({
+      where: {
+        restaurantId,
         paymentStatus: "paid",
-        paymentMethod: paymentMethod
-      },
-      include: {
-        orderItems: {
-          include: {
-            menuItem: true
+        createdAt: { gte: todayStart, lte: todayEnd }
+      }
+    });
+     
+    const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, ""); // YYYYMMDD
+    const seqStr = String(countPaidToday + 1).padStart(5, "0"); // XXXXX
+    const receiptNo = `INV-${dateStr}-${seqStr}`;
+
+    const paymentsToCreate = [];
+    if (payments && Array.isArray(payments) && payments.length > 0) {
+      for (const p of payments) {
+        paymentsToCreate.push({
+          method: p.method, // cash, upi, card
+          amount: parseFloat(p.amount)
+        });
+      }
+    } else {
+      if (!['cash', 'card', 'upi'].includes(paymentMethod)) {
+        return res.status(400).json({ error: "Invalid payment method. Choose cash, card, or upi." });
+      }
+      paymentsToCreate.push({
+        method: paymentMethod,
+        amount: parseFloat(order.totalAmount.toString())
+      });
+    }
+
+    const updatedOrder = await this.prisma.$transaction(async (tx) => {
+      // 1. Create payment records
+      for (const pay of paymentsToCreate) {
+        await tx.payment.create({
+          data: {
+            orderId: order.id,
+            method: pay.method as any,
+            amount: pay.amount,
+            status: "completed"
           }
-        },
-        table: true,
-        creator: {
-          select: { name: true, role: true, loginId: true }
+        });
+      }
+
+      // 2. Log Action
+      await tx.orderLog.create({
+        data: {
+          orderId: order.id,
+          action: "payment",
+          newValue: `Payment settled for ₹${order.totalAmount} using methods: ${paymentsToCreate.map(p => `${p.method} (₹${p.amount})`).join(', ')}. Invoice: ${receiptNo}`,
+          userId: req.user.id
+        }
+      });
+
+      // 3. Close table session if no other active orders remain on table
+      if (order.tableId) {
+        const otherActiveOrders = await tx.order.findMany({
+          where: {
+            tableId: order.tableId,
+            paymentStatus: "unpaid",
+            id: { not: order.id }
+          }
+        });
+        if (otherActiveOrders.length === 0) {
+          await tx.table.update({
+            where: { id: order.tableId },
+            data: { status: 'free' }
+          });
+          await tx.tableSession.updateMany({
+            where: { tableId: order.tableId, closedAt: null },
+            data: { closedAt: new Date() }
+          });
         }
       }
+
+      // 4. Update the order paid status
+      return await tx.order.update({
+        where: { id: order.id },
+        data: {
+          paymentStatus: "paid",
+          paymentMethod: paymentsToCreate[0].method as any, // Set primary method
+          receiptNo: receiptNo,
+          printCount: 1,
+          status: "completed" // complete order
+        },
+        include: {
+          orderItems: { include: { menuItem: true } },
+          table: true,
+          creator: { select: { name: true, role: true, loginId: true } }
+        }
+      });
     });
 
     const formattedOrder = {
@@ -1061,10 +1267,13 @@ async settleOrder(req, res: any) {
       totalProfit: parseFloat(updatedOrder.totalProfit.toString())
     };
 
-    // Realtime Broadcast payment status update
-    
-    const io = this.websocketGateway?.server; if (io) {
+    // Realtime Broadcast payment status update and sidebar metrics
+    const io = this.websocketGateway?.server; 
+    if (io) {
       this.websocketGateway.server.to(`restaurant_${restaurantId}`).emit('order_payment_settled', formattedOrder);
+      this.websocketGateway.server.to(`restaurant_${restaurantId}`).emit('order_updated');
+      this.websocketGateway.server.to(`restaurant_${restaurantId}`).emit('table_updated');
+      await this.dashboardService.broadcastSidebarTelemetry(restaurantId);
     }
 
     res.json({
@@ -1117,4 +1326,695 @@ async deleteOrder(req, res: any) {
   }
 };
 
+// 9. Merge multiple unpaid orders together (Audit compliant)
+async mergeOrders(req, res: any) {
+  const { orderIds } = req.body;
+  const restaurantId = req.user.restaurantId;
+  const createdBy = req.user.id;
+
+  if (!orderIds || orderIds.length < 2) {
+    return res.status(400).json({ error: "Select at least two orders to merge." });
+  }
+
+  try {
+    const parsedIds = orderIds.map((id: any) => parseInt(id));
+    const orders = await this.prisma.order.findMany({
+      where: { id: { in: parsedIds }, restaurantId },
+      include: { orderItems: { include: { menuItem: true } } }
+    });
+
+    if (orders.length !== parsedIds.length) {
+      return res.status(400).json({ error: "One or more orders not found or unauthorized." });
+    }
+
+    if (orders.some(o => o.paymentStatus === 'paid' || o.isMerged)) {
+      return res.status(400).json({ error: "Cannot merge already settled or previously merged orders." });
+    }
+
+    const mergedOrder = await this.prisma.$transaction(async (tx) => {
+      const itemMap: { [key: number]: { qty: number, price: any, costPrice: any, note: string } } = {};
+      let firstTableId = null;
+      let firstOrderType = 'dine_in';
+
+      for (const order of orders) {
+        if (order.tableId && !firstTableId) firstTableId = order.tableId;
+        if (order.orderType) firstOrderType = order.orderType;
+
+        for (const item of order.orderItems) {
+          if (itemMap[item.menuItemId]) {
+            itemMap[item.menuItemId].qty += item.qty;
+            if (item.note) {
+              itemMap[item.menuItemId].note = itemMap[item.menuItemId].note 
+                ? `${itemMap[item.menuItemId].note}, ${item.note}` 
+                : item.note;
+            }
+          } else {
+            itemMap[item.menuItemId] = {
+              qty: item.qty,
+              price: item.price,
+              costPrice: item.costPrice,
+              note: item.note || ""
+            };
+          }
+        }
+      }
+
+      const orderItemsToCreate = [];
+      let subtotal = 0;
+
+      for (const [menuItemId, data] of Object.entries(itemMap)) {
+        const priceNum = parseFloat(data.price.toString());
+        subtotal += priceNum * data.qty;
+
+        orderItemsToCreate.push({
+          menuItemId: parseInt(menuItemId),
+          qty: data.qty,
+          price: data.price,
+          costPrice: data.costPrice,
+          note: data.note
+        });
+      }
+
+      const totalAmount = subtotal;
+      const totalCost = orderItemsToCreate.reduce((sum, item) => sum + (parseFloat(item.costPrice.toString()) * item.qty), 0);
+      const totalProfit = totalAmount - totalCost;
+
+      // Create new merged order
+      const newOrder = await tx.order.create({
+        data: {
+          restaurantId,
+          createdBy,
+          tableId: firstTableId,
+          orderType: firstOrderType as any,
+          paymentStatus: "unpaid",
+          status: "pending",
+          subtotal,
+          discountApplied: 0,
+          totalAmount,
+          totalCost,
+          totalProfit,
+          approvedBy: `Merged order of IDs: ${parsedIds.join(', ')}`,
+          orderItems: {
+            create: orderItemsToCreate
+          }
+        },
+        include: {
+          orderItems: { include: { menuItem: true } },
+          table: true,
+          creator: { select: { name: true, role: true, loginId: true } }
+        }
+      });
+
+      // Update original orders as merged and complete/settled in DB at 0.00 total for audit compliance
+      await tx.order.updateMany({
+        where: { id: { in: parsedIds } },
+        data: {
+          isMerged: true,
+          mergedIntoId: newOrder.id,
+          status: "completed",
+          paymentStatus: "paid",
+          totalAmount: 0,
+          subtotal: 0
+        }
+      });
+
+      // Create logs for audit trail
+      for (const orderId of parsedIds) {
+        await tx.orderLog.create({
+          data: {
+            orderId: orderId,
+            action: "merge",
+            newValue: `Order merged into parent Order #${newOrder.id}`,
+            userId: createdBy
+          }
+        });
+      }
+
+      await tx.orderLog.create({
+        data: {
+          orderId: newOrder.id,
+          action: "created",
+          newValue: `Merged order created from original orders: ${parsedIds.join(', ')}`,
+          userId: createdBy
+        }
+      });
+
+      return newOrder;
+    });
+
+    const formattedOrder = {
+      ...mergedOrder,
+      creator: mergedOrder.creator ? {
+        name: mergedOrder.creator.name,
+        role: mergedOrder.creator.role,
+        phone: mergedOrder.creator.loginId
+      } : null,
+      total: parseFloat(mergedOrder.totalAmount.toString()),
+      discount: parseFloat(mergedOrder.discountApplied.toString()),
+      subtotal: parseFloat(mergedOrder.subtotal.toString()),
+      totalCost: parseFloat(mergedOrder.totalCost.toString()),
+      totalProfit: parseFloat(mergedOrder.totalProfit.toString())
+    };
+
+    const io = this.websocketGateway?.server;
+    if (io) {
+      this.websocketGateway.server.to(`restaurant_${restaurantId}`).emit('new_order_placed', formattedOrder);
+      this.websocketGateway.server.to(`restaurant_${restaurantId}`).emit('order_updated');
+      await this.dashboardService.broadcastSidebarTelemetry(restaurantId);
+    }
+
+    res.status(201).json({
+      message: "Orders merged successfully!",
+      order: formattedOrder
+    });
+
+  } catch (e: any) {
+    console.error('[Merge Failed]', e);
+    res.status(400).json({ error: e.message || "Failed to merge orders." });
+  }
 }
+
+// 10. Split unpaid order items off into a new child order (Audit compliant)
+async splitOrder(req, res: any) {
+  const { id } = req.params;
+  const { items } = req.body; // array of { menuItemId: number, qty: number }
+  const restaurantId = req.user.restaurantId;
+  const createdBy = req.user.id;
+
+  if (!items || items.length === 0) {
+    return res.status(400).json({ error: "Select items to split off." });
+  }
+
+  try {
+    const existingOrder = await this.prisma.order.findUnique({
+      where: { id: parseInt(id) },
+      include: { orderItems: { include: { menuItem: true } } }
+    });
+
+    if (!existingOrder || existingOrder.restaurantId !== restaurantId) {
+      return res.status(404).json({ error: "Order not found." });
+    }
+
+    if (existingOrder.paymentStatus === 'paid') {
+      return res.status(400).json({ error: "Cannot split settled orders." });
+    }
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      const splitItemsToCreate = [];
+
+      for (const item of items) {
+        const originalItem = existingOrder.orderItems.find(oi => oi.menuItemId === parseInt(item.menuItemId));
+        if (!originalItem) {
+          throw new Error(`Item ${item.menuItemId} is not in the original order.`);
+        }
+
+        if (originalItem.qty < item.qty) {
+          throw new Error(`Cannot split ${item.qty} qty. Original only has ${originalItem.qty}.`);
+        }
+
+        splitItemsToCreate.push({
+          menuItemId: originalItem.menuItemId,
+          qty: item.qty,
+          price: originalItem.price,
+          costPrice: originalItem.costPrice,
+          note: originalItem.note || ""
+        });
+
+        const remainingQty = originalItem.qty - item.qty;
+        if (remainingQty === 0) {
+          await tx.orderItem.delete({ where: { id: originalItem.id } });
+        } else {
+          await tx.orderItem.update({
+            where: { id: originalItem.id },
+            data: { qty: remainingQty }
+          });
+        }
+      }
+
+      let splitSubtotal = 0;
+      for (const item of splitItemsToCreate) {
+        splitSubtotal += parseFloat(item.price.toString()) * item.qty;
+      }
+
+      const splitTotal = splitSubtotal;
+      const splitCost = splitItemsToCreate.reduce((sum, item) => sum + (parseFloat(item.costPrice.toString()) * item.qty), 0);
+      const splitProfit = splitTotal - splitCost;
+
+      // Create new child order
+      const childOrder = await tx.order.create({
+        data: {
+          restaurantId,
+          createdBy,
+          tableId: existingOrder.tableId,
+          orderType: existingOrder.orderType,
+          paymentStatus: "unpaid",
+          status: "pending",
+          subtotal: splitSubtotal,
+          discountApplied: 0,
+          totalAmount: splitTotal,
+          totalCost: splitCost,
+          totalProfit: splitProfit,
+          approvedBy: `Split off Order #${id}`,
+          parentOrderId: existingOrder.id,
+          orderItems: {
+            create: splitItemsToCreate
+          }
+        },
+        include: {
+          orderItems: { include: { menuItem: true } },
+          table: true,
+          creator: { select: { name: true, role: true, loginId: true } }
+        }
+      });
+
+      // Recalculate original parent order
+      const remainingItems = await tx.orderItem.findMany({
+        where: { orderId: existingOrder.id }
+      });
+
+      if (remainingItems.length === 0) {
+        await tx.order.update({
+          where: { id: existingOrder.id },
+          data: {
+            subtotal: 0,
+            totalAmount: 0,
+            totalCost: 0,
+            totalProfit: 0,
+            status: "completed",
+            paymentStatus: "paid"
+          }
+        });
+      } else {
+        const newSubtotal = remainingItems.reduce((sum, item) => sum + (parseFloat(item.price.toString()) * item.qty), 0);
+        const newTotal = newSubtotal - parseFloat(existingOrder.discountApplied.toString());
+        const newCost = remainingItems.reduce((sum, item) => sum + (parseFloat(item.costPrice.toString()) * item.qty), 0);
+        const newProfit = newTotal - newCost;
+
+        await tx.order.update({
+          where: { id: existingOrder.id },
+          data: {
+            subtotal: newSubtotal,
+            totalAmount: Math.max(0, newTotal),
+            totalCost: newCost,
+            totalProfit: newProfit
+          }
+        });
+      }
+
+      // Logs
+      await tx.orderLog.create({
+        data: {
+          orderId: existingOrder.id,
+          action: "split",
+          newValue: `Split items to new child Order #${childOrder.id}: ${items.map((i: any) => `item:${i.menuItemId} qty:${i.qty}`).join(', ')}`,
+          userId: createdBy
+        }
+      });
+
+      await tx.orderLog.create({
+        data: {
+          orderId: childOrder.id,
+          action: "created",
+          newValue: `Child order split off from parent Order #${existingOrder.id}`,
+          userId: createdBy
+        }
+      });
+
+      return childOrder;
+    });
+
+    const formattedOrder = {
+      ...result,
+      creator: result.creator ? {
+        name: result.creator.name,
+        role: result.creator.role,
+        phone: result.creator.loginId
+      } : null,
+      total: parseFloat(result.totalAmount.toString()),
+      discount: parseFloat(result.discountApplied.toString()),
+      subtotal: parseFloat(result.subtotal.toString()),
+      totalCost: parseFloat(result.totalCost.toString()),
+      totalProfit: parseFloat(result.totalProfit.toString())
+    };
+
+    const io = this.websocketGateway?.server;
+    if (io) {
+      this.websocketGateway.server.to(`restaurant_${restaurantId}`).emit('new_order_placed', formattedOrder);
+      this.websocketGateway.server.to(`restaurant_${restaurantId}`).emit('order_updated');
+      await this.dashboardService.broadcastSidebarTelemetry(restaurantId);
+    }
+
+    res.status(201).json({
+      message: "Order split successfully!",
+      order: formattedOrder
+    });
+
+  } catch (e: any) {
+    console.error('[Split Failed]', e);
+    res.status(400).json({ error: e.message || "Failed to split order." });
+  }
+}
+
+// 11. Relocate table (Move table)
+async moveTable(req, res: any) {
+  const { id } = req.params;
+  const { targetTableId } = req.body;
+  const restaurantId = req.user.restaurantId;
+  const userId = req.user.id;
+
+  try {
+    const order = await this.prisma.order.findUnique({
+      where: { id: parseInt(id) },
+      include: { table: true }
+    });
+
+    if (!order || order.restaurantId !== restaurantId) {
+      return res.status(404).json({ error: "Order not found." });
+    }
+
+    const previousTableId = order.tableId;
+    const targetTable = await this.prisma.table.findUnique({
+      where: { id: parseInt(targetTableId) }
+    });
+
+    if (!targetTable || targetTable.restaurantId !== restaurantId) {
+      return res.status(404).json({ error: "Destination table not found." });
+    }
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.order.update({
+        where: { id: order.id },
+        data: { tableId: targetTable.id },
+        include: { table: true }
+      });
+
+      // Log action
+      await tx.orderLog.create({
+        data: {
+          orderId: order.id,
+          action: "table_move",
+          oldValue: order.table ? `Table: ${order.table.tableNo}` : "None",
+          newValue: `Table: ${targetTable.tableNo}`,
+          userId
+        }
+      });
+
+      // Free previous table if no other active orders remain on it
+      if (previousTableId) {
+        const otherOrders = await tx.order.findMany({
+          where: {
+            tableId: previousTableId,
+            paymentStatus: "unpaid"
+          }
+        });
+        if (otherOrders.length === 0) {
+          await tx.table.update({
+            where: { id: previousTableId },
+            data: { status: 'free' }
+          });
+        }
+      }
+
+      // Set destination table to occupied
+      await tx.table.update({
+        where: { id: targetTable.id },
+        data: { status: 'occupied' }
+      });
+
+      return updated;
+    });
+
+    const io = this.websocketGateway?.server;
+    if (io) {
+      this.websocketGateway.server.to(`restaurant_${restaurantId}`).emit('order_updated');
+      this.websocketGateway.server.to(`restaurant_${restaurantId}`).emit('table_updated');
+      await this.dashboardService.broadcastSidebarTelemetry(restaurantId);
+    }
+
+    res.json({
+      message: "Order successfully relocated!",
+      order: result
+    });
+
+  } catch (e: any) {
+    console.error('[Move Table Failed]', e);
+    res.status(400).json({ error: e.message || "Failed to relocate order." });
+  }
+}
+
+// 12. Log reprint counts (Reprint Audit)
+async reprintOrder(req, res: any) {
+  const { id } = req.params;
+  const restaurantId = req.user.restaurantId;
+
+  try {
+    const order = await this.prisma.order.findUnique({
+      where: { id: parseInt(id) }
+    });
+
+    if (!order || order.restaurantId !== restaurantId) {
+      return res.status(404).json({ error: "Order not found." });
+    }
+
+    const updated = await this.prisma.order.update({
+      where: { id: order.id },
+      data: { printCount: order.printCount + 1 }
+    });
+
+    await this.prisma.orderLog.create({
+      data: {
+        orderId: order.id,
+        action: "reprint",
+        newValue: `Receipt reprinted. Reprint count: ${updated.printCount}`,
+        userId: req.user.id
+      }
+    });
+
+    res.json({ message: "Reprint logged.", printCount: updated.printCount });
+  } catch (e: any) {
+    res.status(400).json({ error: e.message || "Failed to reprint." });
+  }
+}
+
+// 13. Apply custom manager PIN discount (Saves records in discounts table)
+async applyDiscount(req, res: any) {
+  const { id } = req.params;
+  const { percentage, approvedBy, reason } = req.body;
+  const restaurantId = req.user.restaurantId;
+
+  try {
+    const order = await this.prisma.order.findUnique({
+      where: { id: parseInt(id) }
+    });
+
+    if (!order || order.restaurantId !== restaurantId) {
+      return res.status(404).json({ error: "Order not found." });
+    }
+
+    const percent = parseFloat(percentage);
+    const discountAmount = parseFloat((parseFloat(order.subtotal.toString()) * (percent / 100)).toFixed(2));
+    const newTotal = parseFloat((parseFloat(order.subtotal.toString()) - discountAmount).toFixed(2));
+    const profit = newTotal - parseFloat(order.totalCost.toString());
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      await tx.discount.upsert({
+        where: { orderId: order.id },
+        create: {
+          orderId: order.id,
+          percentage: percent,
+          amount: discountAmount,
+          approvedBy: approvedBy || "Manager",
+          reason: reason || "General Discount"
+        },
+        update: {
+          percentage: percent,
+          amount: discountAmount,
+          approvedBy: approvedBy || "Manager",
+          reason: reason || "General Discount"
+        }
+      });
+
+      const updated = await tx.order.update({
+        where: { id: order.id },
+        data: {
+          discountApplied: discountAmount,
+          totalAmount: newTotal,
+          totalProfit: profit
+        }
+      });
+
+      await tx.orderLog.create({
+        data: {
+          orderId: order.id,
+          action: "discount",
+          newValue: `Discount of ${percent}% (₹${discountAmount}) applied. Approved by: ${approvedBy || "Manager"}`,
+          userId: req.user.id
+        }
+      });
+
+      return updated;
+    });
+
+    const io = this.websocketGateway?.server;
+    if (io) {
+      this.websocketGateway.server.to(`restaurant_${restaurantId}`).emit('order_updated');
+    }
+
+    res.json({ message: "Discount applied successfully.", order: result });
+  } catch (e: any) {
+    res.status(400).json({ error: e.message || "Failed to apply discount." });
+  }
+}
+
+// 14. Assign Order Waiter
+async assignWaiter(req, res: any) {
+  const { id } = req.params;
+  const { waiterId } = req.body;
+  const restaurantId = req.user.restaurantId;
+
+  try {
+    const order = await this.prisma.order.findUnique({
+      where: { id: parseInt(id) }
+    });
+
+    if (!order || order.restaurantId !== restaurantId) {
+      return res.status(404).json({ error: "Order not found." });
+    }
+
+    const waiter = await this.prisma.user.findUnique({
+      where: { id: parseInt(waiterId) }
+    });
+
+    if (!waiter || waiter.restaurantId !== restaurantId) {
+      return res.status(400).json({ error: "Waiter not found." });
+    }
+
+    const updated = await this.prisma.order.update({
+      where: { id: order.id },
+      data: { createdBy: waiter.id }
+    });
+
+    await this.prisma.orderLog.create({
+      data: {
+        orderId: order.id,
+        action: "waiter_change",
+        newValue: `Assigned waiter changed to: ${waiter.name}`,
+        userId: req.user.id
+      }
+    });
+
+    const io = this.websocketGateway?.server;
+    if (io) {
+      this.websocketGateway.server.to(`restaurant_${restaurantId}`).emit('order_updated');
+    }
+
+    res.json({ message: "Waiter assigned successfully.", order: updated });
+  } catch (e: any) {
+    res.status(400).json({ error: e.message || "Failed to assign waiter." });
+  }
+}
+
+// 15. Void/Cancel Order Audit compliance
+async voidOrder(req, res: any) {
+  const { id } = req.params;
+  const { reason, approvedBy } = req.body;
+  const restaurantId = req.user.restaurantId;
+
+  try {
+    const order = await this.prisma.order.findUnique({
+      where: { id: parseInt(id) }
+    });
+
+    if (!order || order.restaurantId !== restaurantId) {
+      return res.status(404).json({ error: "Order not found." });
+    }
+
+    if (order.paymentStatus === 'paid') {
+      return res.status(400).json({ error: "Paid orders cannot be voided." });
+    }
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.order.update({
+        where: { id: order.id },
+        data: {
+          status: "completed",
+          paymentStatus: "paid",
+          totalAmount: 0,
+          subtotal: 0,
+          discountApplied: 0,
+          totalProfit: 0
+        }
+      });
+
+      await tx.orderLog.create({
+        data: {
+          orderId: order.id,
+          action: "void",
+          newValue: `Order voided/cancelled. Reason: ${reason || "None"}. Approved by: ${approvedBy || "Manager"}`,
+          userId: req.user.id
+        }
+      });
+
+      if (order.tableId) {
+        const otherActiveOrders = await tx.order.findMany({
+          where: {
+            tableId: order.tableId,
+            paymentStatus: "unpaid",
+            id: { not: order.id }
+          }
+        });
+        if (otherActiveOrders.length === 0) {
+          await tx.table.update({
+            where: { id: order.tableId },
+            data: { status: 'free' }
+          });
+          await tx.tableSession.updateMany({
+            where: { tableId: order.tableId, closedAt: null },
+            data: { closedAt: new Date() }
+          });
+        }
+      }
+
+      return updated;
+    });
+
+    const io = this.websocketGateway?.server;
+    if (io) {
+      this.websocketGateway.server.to(`restaurant_${restaurantId}`).emit('order_updated');
+      this.websocketGateway.server.to(`restaurant_${restaurantId}`).emit('table_updated');
+      await this.dashboardService.broadcastSidebarTelemetry(restaurantId);
+    }
+
+    res.json({ message: "Order voided successfully.", order: result });
+  } catch (e: any) {
+    res.status(400).json({ error: e.message || "Failed to void order." });
+  }
+}
+
+// 16. Get Order Timeline Logs
+async getOrderLogs(req, res: any) {
+  const { id } = req.params;
+  const restaurantId = req.user.restaurantId;
+
+  try {
+    const order = await this.prisma.order.findUnique({
+      where: { id: parseInt(id) }
+    });
+
+    if (!order || order.restaurantId !== restaurantId) {
+      return res.status(404).json({ error: "Order not found." });
+    }
+
+    const logs = await this.prisma.orderLog.findMany({
+      where: { orderId: order.id },
+      orderBy: { createdAt: "asc" }
+    });
+
+    res.json({ logs });
+  } catch (e: any) {
+    res.status(400).json({ error: e.message || "Failed to retrieve logs." });
+  }
+}
+
+};
+

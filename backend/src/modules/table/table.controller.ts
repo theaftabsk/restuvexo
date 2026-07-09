@@ -5,7 +5,7 @@ import { TableService } from './table.service';
 import { AuthGuard } from '../../shared/auth.guard';
 
 
-@Controller('api/table')
+@Controller('api/tables')
 export class TableController {
   constructor(private tableService: TableService) {}
 

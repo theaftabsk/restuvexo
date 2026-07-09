@@ -155,7 +155,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], TableController.prototype, "unblockDevice", null);
 exports.TableController = TableController = __decorate([
-    (0, common_1.Controller)('api/table'),
+    (0, common_1.Controller)('api/tables'),
     __metadata("design:paramtypes", [table_service_1.TableService])
 ], TableController);
 //# sourceMappingURL=table.controller.js.map
