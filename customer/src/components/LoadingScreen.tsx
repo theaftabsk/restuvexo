@@ -9,7 +9,19 @@ import React, { useState, useEffect } from "react";
  * @param {string} minHeight - CSS min-height to apply for inline container layouts
  * @param {boolean} fullScreen - Renders as a full viewport glassmorphic overlay
  */
-export default function LoadingScreen({ message = "Connecting to Restuvexo Engine...", minHeight = "50vh", fullScreen = true }) {
+export default function LoadingScreen({
+  message = "Connecting to Restuvexo Engine...",
+  minHeight = "50vh",
+  fullScreen = true,
+  theme = "sunset",
+  restaurantName = "RESTUVEXO"
+}: {
+  message?: string;
+  minHeight?: string;
+  fullScreen?: boolean;
+  theme?: string;
+  restaurantName?: string;
+}) {
   const [shouldRender, setShouldRender] = useState(false);
 
   useEffect(() => {

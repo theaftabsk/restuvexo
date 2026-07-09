@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
-export default function QrScannerGateway() {
+export default function QrScannerGateway(): any {
   const params = useParams();
   const router = useRouter();
   const qrCode = params.qrCode;

@@ -5,10 +5,10 @@ import { useParams, useSearchParams } from "next/navigation";
 import { io } from "socket.io-client";
 import { CUSTOMER_THEMES } from "@/config/customerThemes";
 
-export default function QrCustomerMenu() {
+export default function QrCustomerMenu(): any {
   const params = useParams();
   const searchParams = useSearchParams();
-  const tableId = params.tableId;
+  const tableId = Array.isArray(params.tableId) ? params.tableId[0] : (params.tableId || "");
   const token = searchParams.get("token");
 
   // Restaurant & Menu States
@@ -233,7 +233,7 @@ export default function QrCustomerMenu() {
     }
   };
 
-  const addToCart = (item) => {
+  const addToCart = (item: any) => {
     const existing = cart.find(i => i.menuItemId === item.id);
     const currentQty = existing ? existing.qty : 0;
 
@@ -533,7 +533,7 @@ export default function QrCustomerMenu() {
             type="text"
             placeholder="Search favorite curries, naan, rolls..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e: any) => setSearchQuery(e.target.value)}
             className={`w-full pl-10 text-xs px-4 py-3 rounded-2xl border focus:outline-none transition-all duration-300 ${theme.inputBg}`}
           />
         </div>
@@ -752,7 +752,7 @@ export default function QrCustomerMenu() {
                     type="text"
                     placeholder="E.g. Less spicy, sugar-free..."
                     value={item.note}
-                    onChange={(e) => updateItemNote(item.menuItemId, e.target.value)}
+                    onChange={(e: any) => updateItemNote(item.menuItemId, e.target.value)}
                     className="text-[9px] bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-slate-650 focus:outline-none flex-1 placeholder:text-slate-300 font-bold focus:border-[#ff5722]/30"
                   />
                   
@@ -777,7 +777,7 @@ export default function QrCustomerMenu() {
                   type="text"
                   placeholder="Enter your name"
                   value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
+                  onChange={(e: any) => setCustomerName(e.target.value)}
                   className="w-full text-[10px] bg-white border border-slate-200 rounded-lg px-2.5 py-2 font-bold placeholder:text-slate-350 focus:outline-none text-slate-850"
                 />
               </div>
@@ -791,7 +791,7 @@ export default function QrCustomerMenu() {
                       type="tel"
                       maxLength={4}
                       value={customerPhoneCode}
-                      onChange={(e) => setCustomerPhoneCode(e.target.value.replace(/\D/g, ""))}
+                      onChange={(e: any) => setCustomerPhoneCode(e.target.value.replace(/\D/g, ""))}
                       className="bg-transparent text-slate-850 text-[10px] pl-0.5 pr-2 py-2 w-full font-bold focus:outline-none text-center"
                       required
                     />
@@ -800,7 +800,7 @@ export default function QrCustomerMenu() {
                     type="tel"
                     placeholder="Phone number"
                     value={customerPhoneBody}
-                    onChange={(e) => setCustomerPhoneBody(e.target.value.replace(/\D/g, ""))}
+                    onChange={(e: any) => setCustomerPhoneBody(e.target.value.replace(/\D/g, ""))}
                     className="flex-1 min-w-0 text-[10px] bg-white border border-slate-200 rounded-lg px-2.5 py-2 font-bold placeholder:text-slate-350 focus:outline-none text-slate-850"
                   />
                 </div>

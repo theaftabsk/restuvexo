@@ -1,4 +1,4 @@
-export default function manifest() {
+export default function manifest(): any {
   return {
     name: 'RESTUVEXO Restaurant Operating System',
     short_name: 'RESTUVEXO ROS',
