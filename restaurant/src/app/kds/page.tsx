@@ -157,7 +157,7 @@ export default function StandaloneKitchenDisplaySystem() {
       const params = new URLSearchParams({
         status: "pending,cooking,ready",
         dateFilter: "all",
-        limit: 150
+        limit: "150"
       });
       const res = await fetch(`${BACKEND_URL}/api/orders?${params}`, {
         headers: { "Authorization": `Bearer ${token}` }
@@ -183,7 +183,7 @@ export default function StandaloneKitchenDisplaySystem() {
   // Synthesize a beautiful, premium metallic restaurant service bell "Ding!" sound using Web Audio API
   const triggerKitchenAlerts = () => {
     try {
-      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
       const now = audioCtx.currentTime;
       
       // Tone 1: Fundamental strike pitch
@@ -502,7 +502,7 @@ export default function StandaloneKitchenDisplaySystem() {
         <div className={getGridColsClass()}>
           {filteredOrders.map((order) => {
             const styles = getStatusCardStyles(order.status);
-            const minutesAgo = Math.floor((new Date() - new Date(order.createdAt)) / 60000);
+            const minutesAgo = Math.floor((new Date().getTime() - new Date(order.createdAt).getTime()) / 60000);
             const isUrgent = minutesAgo >= 15 && order.status !== "ready";
 
             return (

@@ -51,8 +51,8 @@ export default function OrdersManager() {
   // ─── Build server-side API URL with all active filters ───────────────────
   const buildOrdersUrl = (page = currentPage) => {
     const params = new URLSearchParams();
-    params.set('page', page);
-    params.set('limit', itemsPerPage);
+    params.set('page', String(page));
+    params.set('limit', String(itemsPerPage));
     params.set('dateFilter', dateFilter);
     if (dateFilter === 'custom' && customDate) params.set('customDate', customDate);
     if (activeTab !== 'all') params.set('paymentStatus', activeTab);

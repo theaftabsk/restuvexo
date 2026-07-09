@@ -141,7 +141,7 @@ export default function PosTerminal() {
     if (!token) return;
     setMenuLoading(true);
     try {
-      const params = new URLSearchParams({ limit: 200 });
+      const params = new URLSearchParams({ limit: "200" });
       if (search)   params.set('search', search);
       if (category && category !== 'All') params.set('category', category);
       const res = await fetch(`${BACKEND_URL}/api/menu/menu-items?${params}`, {

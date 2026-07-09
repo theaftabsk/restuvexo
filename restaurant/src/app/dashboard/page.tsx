@@ -271,8 +271,7 @@ export default function DashboardHome() {
   const showOnboardingWizard = user.role === "owner" && (!categories.length || !hasItems);
 
   // Dynamic Date string matching RestroServe format
-  const dateOptions = { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' };
-  const formattedDate = new Date().toLocaleDateString("en-US", dateOptions);
+  const formattedDate = new Date().toLocaleDateString("en-US", { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
 
   return (
     <div className="space-y-8 animate-fade-in-up relative text-slate-800">

@@ -10,7 +10,7 @@ export default function PreferencesSettings() {
   const [enableVexoAi, setEnableVexoAi] = useState(true);
   const [vexoAiNormalLimit, setVexoAiNormalLimit] = useState(15);
   const [vexoAiApiLimit, setVexoAiApiLimit] = useState(5);
-  const [enabledFeatures, setEnabledFeatures] = useState({});
+  const [enabledFeatures, setEnabledFeatures] = useState<any>({});
   const [isSaved, setIsSaved] = useState(false);
   const [loading, setLoading] = useState(true);
 

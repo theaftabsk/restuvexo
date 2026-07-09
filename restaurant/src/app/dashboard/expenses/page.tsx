@@ -217,11 +217,11 @@ export default function ExpensesManager() {
             <tbody className="divide-y divide-slate-50">
               {loading ? (
                 <tr>
-                  <td colSpan="5" className="p-10 text-center text-slate-400 text-sm font-semibold">Loading records...</td>
+                  <td colSpan={5} className="p-10 text-center text-slate-400 text-sm font-semibold">Loading records...</td>
                 </tr>
               ) : expenses.length === 0 ? (
                 <tr>
-                  <td colSpan="5" className="p-10 text-center text-slate-400 text-sm font-semibold">No expenses recorded yet.</td>
+                  <td colSpan={5} className="p-10 text-center text-slate-400 text-sm font-semibold">No expenses recorded yet.</td>
                 </tr>
               ) : (
                 expenses.map((exp) => (

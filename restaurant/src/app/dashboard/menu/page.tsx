@@ -93,7 +93,9 @@ export default function MenuManagement() {
       fetchMenuItems(currentPage, searchQuery, selectedCategoryFilter, true);
     });
 
-    return () => socket.disconnect();
+    return () => {
+      socket.disconnect();
+    };
   }, []);
 
   useEffect(() => {

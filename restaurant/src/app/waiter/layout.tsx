@@ -36,7 +36,7 @@ export default function WaiterLayout({ children }) {
   // High Fidelity Sound Generator
   const playChime = (frequency = 987.77, duration = 0.4) => {
     try {
-      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
       const now = audioCtx.currentTime;
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();

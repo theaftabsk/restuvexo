@@ -192,7 +192,7 @@ export default function ReportsDashboard() {
     // Filter Orders by range
     const filteredOrders = orders.filter(order => {
       const oDate = new Date(order.createdAt);
-      const diffTime = Math.abs(now - oDate);
+      const diffTime = Math.abs(now.getTime() - oDate.getTime());
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
       if (dateRange === "today") {
@@ -212,7 +212,7 @@ export default function ReportsDashboard() {
     // Filter Expenses by range
     const filteredExpenses = expenses.filter(exp => {
       const eDate = new Date(exp.date);
-      const diffTime = Math.abs(now - eDate);
+      const diffTime = Math.abs(now.getTime() - eDate.getTime());
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
       if (dateRange === "today") {
@@ -267,7 +267,7 @@ export default function ReportsDashboard() {
   };
 
   const weeklyTrend = getWeeklyTrend();
-  const maxWeeklySales = Math.max(...weeklyTrend.map(t => t.sales), 100);
+  const maxWeeklySales = Math.max(...weeklyTrend.map(t => Number(t.sales)), 100);
 
   // Group 14 days trend for maximized view
   const get14DayTrend = () => {
@@ -291,8 +291,8 @@ export default function ReportsDashboard() {
   };
 
   const trend14Days = get14DayTrend();
-  const max14DaySales = Math.max(...trend14Days.map(t => t.sales), 100);
-  const total14DaySales = trend14Days.reduce((sum, t) => sum + t.sales, 0);
+  const max14DaySales = Math.max(...trend14Days.map(t => Number(t.sales)), 100);
+  const total14DaySales = trend14Days.reduce((sum, t) => sum + Number(t.sales), 0);
   const avg14DaySales = total14DaySales / 14;
 
   // Construct dynamic Category Breakdown based on menu item categories from database
@@ -329,7 +329,7 @@ export default function ReportsDashboard() {
     });
 
     // Fallback: If no order item details mapped, distribute dynamic revenue proportionally among categories to avoid empty ₹0
-    const totalAssigned = Object.values(catMap).reduce((a, b) => a + b, 0);
+    const totalAssigned = Object.values(catMap).reduce((a: number, b: any) => a + Number(b), 0);
     if (totalAssigned === 0 && totalRevenue > 0 && dbCategories.length > 0) {
       const activeCats = dbCategories.map(c => c.name);
       const share = totalRevenue / activeCats.length;
@@ -342,7 +342,7 @@ export default function ReportsDashboard() {
   };
 
   const categoryBreakdown = getCategoryBreakdown();
-  const maxCatSales = Math.max(...categoryBreakdown.map(c => c.amount), 100);
+  const maxCatSales = Math.max(...categoryBreakdown.map(c => Number(c.amount)), 100);
 
   // --- LEDGER SPECIFIC FILTERING ---
   const getLedgerData = () => {
@@ -384,7 +384,7 @@ export default function ReportsDashboard() {
         category: e.category,
         amount: parseFloat(e.amount || 0)
       }))
-    ].sort((a, b) => b.date - a.date);
+    ].sort((a, b) => b.date.getTime() - a.date.getTime());
 
     return { lOrders, lExpenses, lRevenue, lExpAmount, allLedgerItems };
   };
@@ -667,7 +667,7 @@ export default function ReportsDashboard() {
               <path
                 d={weeklyTrend.map((t, idx) => {
                   const x = (idx / 6) * 500;
-                  const y = 150 - (t.sales / maxWeeklySales) * 110 - 20;
+                  const y = 150 - (Number(t.sales) / maxWeeklySales) * 110 - 20;
                   return `${idx === 0 ? "M" : "L"} ${x} ${y}`;
                 }).join(" ")}
                 fill="none"
@@ -681,7 +681,7 @@ export default function ReportsDashboard() {
               {/* Data points */}
               {weeklyTrend.map((t, idx) => {
                 const x = (idx / 6) * 500;
-                const y = 150 - (t.sales / maxWeeklySales) * 110 - 20;
+                const y = 150 - (Number(t.sales) / maxWeeklySales) * 110 - 20;
                 return (
                   <circle
                     key={idx}
@@ -693,7 +693,7 @@ export default function ReportsDashboard() {
                     strokeWidth="2.5"
                     className="hover:scale-125 transition cursor-pointer"
                   >
-                    <title>{t.day}: ₹{t.sales.toFixed(0)}</title>
+                    <title>{t.day}: ₹{Number(t.sales).toFixed(0)}</title>
                   </circle>
                 );
               })}
@@ -797,12 +797,12 @@ export default function ReportsDashboard() {
               <div key={idx} className="space-y-1.5">
                 <div className="flex justify-between text-[9px] font-black uppercase tracking-wider text-slate-500">
                   <span>{item.category}</span>
-                  <span className="text-slate-800">₹{item.amount.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                  <span className="text-slate-800">₹{Number(item.amount).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
                 </div>
                 <div className="w-full h-2.5 bg-slate-50 border border-slate-100 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-gradient-to-r from-orange-500 to-[#ff7a47] rounded-full transition-all duration-500"
-                    style={{ width: `${(item.amount / maxCatSales) * 100}%` }}
+                    style={{ width: `${(Number(item.amount) / maxCatSales) * 100}%` }}
                   />
                 </div>
               </div>
@@ -997,7 +997,7 @@ export default function ReportsDashboard() {
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-xs font-bold text-slate-700">
                     {allLedgerItems.length === 0 && (
-                      <tr><td colSpan="6" className="py-12 text-center text-slate-400 font-semibold">No ledger entries found for this period.</td></tr>
+                      <tr><td colSpan={6} className="py-12 text-center text-slate-400 font-semibold">No ledger entries found for this period.</td></tr>
                     )}
                     {allLedgerItems.map((item) => (
                       <tr key={item.id} className={`transition ${item.type === 'inflow' ? 'hover:bg-emerald-50/50' : 'hover:bg-rose-50/50'}`}>
@@ -1166,7 +1166,7 @@ export default function ReportsDashboard() {
                         <path
                           d={`M 0 240 ${trend14Days.map((t, idx) => {
                             const x = (idx / 13) * 1000;
-                            const y = 240 - (t.sales / max14DaySales) * 180 - 20;
+                            const y = 240 - (Number(t.sales) / max14DaySales) * 180 - 20;
                             return `L ${x} ${y}`;
                           }).join(" ")} L 1000 240 Z`}
                           fill="url(#chart-area)"
@@ -1176,7 +1176,7 @@ export default function ReportsDashboard() {
                         <path
                           d={trend14Days.map((t, idx) => {
                             const x = (idx / 13) * 1000;
-                            const y = 240 - (t.sales / max14DaySales) * 180 - 20;
+                            const y = 240 - (Number(t.sales) / max14DaySales) * 180 - 20;
                             return `${idx === 0 ? "M" : "L"} ${x} ${y}`;
                           }).join(" ")}
                           fill="none"
@@ -1189,7 +1189,7 @@ export default function ReportsDashboard() {
                         {/* Circles on peak / data points */}
                         {trend14Days.map((t, idx) => {
                           const x = (idx / 13) * 1000;
-                          const y = 240 - (t.sales / max14DaySales) * 180 - 20;
+                          const y = 240 - (Number(t.sales) / max14DaySales) * 180 - 20;
                           return (
                             <g key={idx} className="group/dot cursor-pointer">
                               <circle
@@ -1201,7 +1201,7 @@ export default function ReportsDashboard() {
                                 strokeWidth="3"
                                 className="transition transform duration-200 hover:scale-150"
                               />
-                              <title>{t.day}: ₹{t.sales.toLocaleString('en-IN')}</title>
+                              <title>{t.day}: ₹{Number(t.sales).toLocaleString('en-IN')}</title>
                             </g>
                           );
                         })}

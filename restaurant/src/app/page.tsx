@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
@@ -1914,7 +1914,7 @@ export default function Home() {
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Additional Message (Optional)</label>
                     <textarea 
                       name="message"
-                      rows="3"
+                      rows={3}
                       value={formData.message}
                       onChange={handleInputChange}
                       placeholder="Tell us about your kitchen, thermal printer setup or ordering needs..."

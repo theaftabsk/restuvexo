@@ -14,7 +14,7 @@ export default function KitchenDisplaySystem() {
   // Synthesize a beautiful, premium metallic restaurant service bell "Ding!" sound using Web Audio API
   const triggerKitchenAlerts = () => {
     try {
-      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
       const now = audioCtx.currentTime;
       
       // Tone 1: Fundamental strike pitch
@@ -175,7 +175,7 @@ export default function KitchenDisplaySystem() {
       const params = new URLSearchParams({
         status: "pending,cooking,ready",
         dateFilter: "all",
-        limit: 100
+        limit: "100"
       });
       const res = await fetch(`${BACKEND_URL}/api/orders?${params}&_=${Date.now()}`, {
         headers: { "Authorization": `Bearer ${token}` },
@@ -363,7 +363,7 @@ export default function KitchenDisplaySystem() {
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 text-left">
           {filteredOrders.map((order) => {
             const styles = getStatusCardStyles(order.status);
-            const minutesAgo = Math.floor((new Date() - new Date(order.createdAt)) / 60000);
+            const minutesAgo = Math.floor((new Date().getTime() - new Date(order.createdAt).getTime()) / 60000);
             const isUrgent = minutesAgo >= 15 && order.status !== "ready";
 
             return (

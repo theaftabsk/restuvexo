@@ -71,7 +71,9 @@ export default function InventoryManagement() {
       fetchInventory(currentPage, true);
     });
 
-    return () => socket.disconnect();
+    return () => {
+      socket.disconnect();
+    };
   }, []);
 
   useEffect(() => {

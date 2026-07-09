@@ -109,7 +109,7 @@ export default function StaffManagement() {
     }
     setEditLoading(true);
     const token = localStorage.getItem("authToken");
-    const payload = {
+    const payload: any = {
       name: editData.name,
       role: editData.role
     };

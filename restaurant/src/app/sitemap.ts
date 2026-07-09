@@ -1,4 +1,4 @@
-export default function sitemap() {
+export default function sitemap(): any {
   return [
     {
       url: 'https://restuvexo.shop',

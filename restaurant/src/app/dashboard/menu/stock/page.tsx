@@ -59,7 +59,9 @@ export default function MenuStockManagement() {
       } catch (e) {}
     });
     socket.on("menu_updated", () => fetchAllMenuItems(true));
-    return () => socket.disconnect();
+    return () => {
+      socket.disconnect();
+    };
   }, []);
 
   // Toggle trackStock for one item immediately
@@ -294,7 +296,7 @@ export default function MenuStockManagement() {
                   const costNum = parseFloat(currentCost) || 0;
                   const sellNum = item.price;
                   const profit = sellNum - costNum;
-                  const margin = sellNum > 0 ? ((profit / sellNum) * 100).toFixed(1) : 0;
+                  const margin = sellNum > 0 ? ((profit / sellNum) * 100).toFixed(1) : "0";
                   const isGoodMargin = parseFloat(margin) >= 40;
                   const isZeroMargin = costNum === 0;
 

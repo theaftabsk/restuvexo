@@ -25,7 +25,7 @@ export default function DashboardLayout({ children }) {
   const [subscriptionPlan, setSubscriptionPlan] = useState('trial');
   const [subscriptionStatus, setSubscriptionStatus] = useState('active');
   const [trialEndsAt, setTrialEndsAt] = useState(null);
-  const [enabledFeatures, setEnabledFeatures] = useState({});
+  const [enabledFeatures, setEnabledFeatures] = useState<any>({});
 
   // Custom Sidebar Configuration States
   const [sidebarTheme, setSidebarTheme] = useState('light');
