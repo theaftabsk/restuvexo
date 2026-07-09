@@ -1,0 +1,270 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f8fafc; /* Clean Light Slate */
+  --foreground: #0f172a; /* Deep Slate Text */
+  --accent-primary: #ff5722; /* Premium Orange */
+  --accent-success: #10b981; /* Emerald Green */
+  --accent-danger: #f43f5e; /* Rose Red */
+  --card-bg: rgba(255, 255, 255, 0.95);
+  --border-color: rgba(15, 23, 42, 0.05);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-accent-primary: var(--accent-primary);
+  --color-accent-success: var(--accent-success);
+  --color-accent-danger: var(--accent-danger);
+  --color-card-bg: var(--card-bg);
+  --color-border-custom: var(--border-color);
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  min-height: 100vh;
+  overflow-x: hidden;
+  font-family: var(--font-sans), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  letter-spacing: -0.015em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ========================================================
+   WORLD-CLASS PREMIUM INTERACTIVE MICRO-ANIMATIONS
+   ======================================================== */
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
+  }
+}
+
+@keyframes pulseGlowOrange {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(255, 87, 34, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(255, 87, 34, 0);
+  }
+}
+
+/* Smooth Page Load Animation Utility */
+.animate-fade-in-up {
+  animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Neon Breathing Beacons for Active Badges */
+.animate-pulse-glow {
+  animation: pulseGlow 2.5s infinite ease-in-out;
+}
+
+.animate-pulse-glow-orange {
+  animation: pulseGlowOrange 2.5s infinite ease-in-out;
+}
+
+/* Premium Card Levitation on Hover */
+.premium-card-hover {
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.premium-card-hover:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 40px -15px rgba(15, 23, 42, 0.08);
+}
+
+/* General Universal Transition Easing */
+.smooth-transition {
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Premium Light Glassmorphism Overlays */
+.glass-panel {
+  background: var(--card-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 10px 30px -10px rgba(15, 23, 42, 0.04);
+}
+
+/* Custom Slate Premium Input Fields */
+.premium-input {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  color: #0f172a;
+  padding: 12px 16px;
+  outline: none;
+  font-family: inherit;
+  font-weight: 600;
+  transition: all 0.25s ease-in-out;
+}
+
+.premium-input:focus {
+  border-color: var(--accent-primary);
+  background: #ffffff;
+  box-shadow: 0 0 0 4px rgba(255, 87, 34, 0.12);
+}
+
+/* Smooth Webkit Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.01);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(15, 23, 42, 0.08);
+  border-radius: 20px;
+  transition: background 0.3s;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 87, 34, 0.3);
+}
+
+/* Additions for Premium Themes and Loaders */
+@keyframes shimmerGold {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes floatLeaf {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 0.7;
+  }
+  50% {
+    transform: translateY(-15px) rotate(15deg);
+    opacity: 0.95;
+  }
+}
+
+@keyframes spinSlow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes glowRing {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.3;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.6;
+  }
+}
+
+.animate-gold-shimmer {
+  background: linear-gradient(90deg, #1e293b 25%, #d97706 50%, #1e293b 75%);
+  background-size: 200% 100%;
+  animation: shimmerGold 2.5s infinite linear;
+}
+
+.animate-gold-text-shimmer {
+  background: linear-gradient(90deg, #f59e0b 0%, #ffffff 50%, #f59e0b 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shimmerGold 3s infinite linear;
+}
+
+.animate-float-leaf-1 {
+  animation: floatLeaf 4s ease-in-out infinite;
+}
+
+.animate-float-leaf-2 {
+  animation: floatLeaf 5s ease-in-out infinite 1s;
+}
+
+.animate-float-leaf-3 {
+  animation: floatLeaf 6s ease-in-out infinite 2s;
+}
+
+.animate-spin-slow {
+  animation: spinSlow 8s linear infinite;
+}
+
+.animate-glow-ring {
+  animation: glowRing 3s ease-in-out infinite;
+}
+
+/* ========================================================
+   PREMIUM LOADER COMPONENT ANIMATIONS
+   ======================================================== */
+
+@keyframes pulseScale {
+  0%, 100% {
+    transform: scale(0.95);
+    opacity: 0.9;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 1;
+  }
+}
+
+@keyframes ringGlow {
+  0%, 100% {
+    box-shadow: 0 0 20px 2px rgba(255, 87, 34, 0.15), inset 0 0 10px rgba(255, 87, 34, 0.05);
+    border-color: rgba(255, 87, 34, 0.25);
+  }
+  50% {
+    box-shadow: 0 0 35px 8px rgba(255, 87, 34, 0.4), inset 0 0 20px rgba(255, 87, 34, 0.15);
+    border-color: rgba(255, 87, 34, 0.6);
+  }
+}
+
+@keyframes shimmerLoaderText {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.animate-pulse-scale {
+  animation: pulseScale 2.5s ease-in-out infinite;
+}
+
+.animate-ring-glow {
+  animation: ringGlow 2.5s ease-in-out infinite;
+}
+
+.animate-shimmer-loader-text {
+  background: linear-gradient(90deg, #475569 0%, #ff5722 50%, #475569 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shimmerLoaderText 2s infinite linear;
+}
+
+
