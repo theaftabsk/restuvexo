@@ -10,11 +10,13 @@ exports.PhonePeModule = void 0;
 const common_1 = require("@nestjs/common");
 const phonepe_service_1 = require("./phonepe.service");
 const phonepe_controller_1 = require("./phonepe.controller");
+const websocket_module_1 = require("../../websocket/websocket.module");
 let PhonePeModule = class PhonePeModule {
 };
 exports.PhonePeModule = PhonePeModule;
 exports.PhonePeModule = PhonePeModule = __decorate([
     (0, common_1.Module)({
+        imports: [websocket_module_1.WebsocketModule],
         providers: [phonepe_service_1.PhonePeService],
         controllers: [phonepe_controller_1.PhonePeController],
         exports: [phonepe_service_1.PhonePeService]
