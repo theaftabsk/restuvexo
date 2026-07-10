@@ -117,19 +117,31 @@ export default function PosTerminal() {
   };
 
   useEffect(() => {
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) setUser(JSON.parse(storedUser));
+    try {
+      const storedUser = localStorage.getItem("user");
+      if (storedUser) setUser(JSON.parse(storedUser));
+    } catch (e) {
+      console.error("Error parsing user profile:", e);
+    }
 
     fetchPosParameters();
 
     // Register WebSockets for real-time synchronization
     const socket = io(BACKEND_URL);
-    const restStr = localStorage.getItem("restaurant");
-    if (storedUser) {
-      const parsed = JSON.parse(storedUser);
-      let restaurantId = parsed.restaurantId;
-      if (!restaurantId && restStr) restaurantId = JSON.parse(restStr).id;
-      if (restaurantId) socket.emit("join_restaurant", restaurantId);
+    try {
+      const storedUser = localStorage.getItem("user");
+      const restStr = localStorage.getItem("restaurant");
+      if (storedUser) {
+        const parsed = JSON.parse(storedUser);
+        let restaurantId = parsed.restaurantId;
+        if (!restaurantId && restStr) {
+          const rest = JSON.parse(restStr);
+          if (rest) restaurantId = rest.id;
+        }
+        if (restaurantId) socket.emit("join_restaurant", restaurantId);
+      }
+    } catch (e) {
+      console.error("Error parsing restaurant config for socket registration:", e);
     }
 
     socket.on("new_order_placed", () => fetchActiveOrders());

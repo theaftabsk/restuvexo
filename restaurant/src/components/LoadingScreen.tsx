@@ -27,12 +27,12 @@ export default function LoadingScreen({
   useEffect(() => {
     const timer = setTimeout(() => {
       setShouldRender(true);
-    }, 500); // 500ms delay to prevent flashing unless server is slow
+    }, 250); // 250ms delay to prevent flashing unless server is slow
     return () => clearTimeout(timer);
   }, []);
 
   const containerClass = fullScreen 
-    ? "fixed inset-0 z-[9999] bg-white flex flex-col items-center justify-center min-h-screen w-screen" 
+    ? "fixed inset-0 z-[9999] bg-white/70 backdrop-blur-md flex flex-col items-center justify-center min-h-screen w-screen" 
     : `flex flex-col items-center justify-center w-full py-12 rounded-[2rem] bg-white/60 backdrop-blur-sm border border-slate-100/50 shadow-sm`;
 
   if (!shouldRender) {
