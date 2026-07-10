@@ -25,6 +25,8 @@ model Restaurant {
   orders     Order[]
   expenses   Expense[]
   settings   RestaurantSetting?
+  subscription RestaurantSubscription?
+  usageMetrics UsageMetric[]
 
   @@map("restaurants")
 }
@@ -360,4 +362,202 @@ model TableSession {
   table     Table     @relation(fields: [tableId], references: [id], onDelete: Cascade)
 
   @@map("table_sessions")
+}
+
+// ==========================================
+// ENTERPRISE SUBSCRIPTION MODELLING
+// ==========================================
+
+model Feature {
+  id          Int           @id @default(autoincrement())
+  code        String        @unique @db.VarChar(50)
+  name        String        @db.VarChar(100)
+  description String?       @db.Text
+  createdAt   DateTime      @default(now()) @map("created_at")
+
+  planFeatures PlanFeature[]
+  addons       Addon[]
+
+  @@map("features")
+}
+
+model SubscriptionPlan {
+  id           Int           @id @default(autoincrement())
+  name         String        @unique @db.VarChar(50)
+  priceMonthly Decimal       @map("price_monthly") @db.Decimal(10, 2)
+  priceYearly  Decimal       @map("price_yearly") @db.Decimal(10, 2)
+  currency     String        @default("INR") @db.VarChar(10)
+  
+  maxTables    Int           @map("max_tables")
+  maxStaff     Int           @map("max_staff")
+  maxKds       Int           @map("max_kds")
+  maxDailyOrders Int         @map("max_daily_orders") @default(30)
+  
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+
+  features     PlanFeature[]
+  subscriptions RestaurantSubscription[]
+
+  @@map("subscription_plans")
+}
+
+model PlanFeature {
+  planId    Int              @map("plan_id")
+  featureId Int              @map("feature_id")
+  enabled   Boolean          @default(true)
+  
+  plan      SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  feature   Feature          @relation(fields: [featureId], references: [id], onDelete: Cascade)
+
+  @@id([planId, featureId])
+  @@map("plan_features")
+}
+
+model RestaurantSubscription {
+  id                Int                     @id @default(autoincrement())
+  restaurantId      Int                     @unique @map("restaurant_id")
+  planId            Int                     @map("plan_id")
+  
+  status            String                  @default("trialing") @db.VarChar(30)
+  billingPeriod     String                  @default("monthly") @map("billing_period")
+  
+  startDate         DateTime                @default(now()) @map("start_date")
+  endDate           DateTime                @map("end_date")
+  
+  trialStart        DateTime?               @map("trial_start")
+  trialEnd          DateTime?               @map("trial_end")
+  convertedAt       DateTime?               @map("converted_at")
+  
+  extraTablesCount  Int                     @default(0) @map("extra_tables_count")
+  extraStaffCount   Int                     @default(0) @map("extra_staff_count")
+  
+  createdAt         DateTime                @default(now()) @map("created_at")
+  updatedAt         DateTime                @updatedAt @map("updated_at")
+
+  restaurant        Restaurant              @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  plan              SubscriptionPlan        @relation(fields: [planId], references: [id])
+  paymentProfiles   PaymentProfile[]
+  addons            SubscriptionAddon[]
+  invoices          Invoice[]
+  history           SubscriptionHistory[]
+
+  @@map("restaurant_subscriptions")
+}
+
+model PaymentProfile {
+  id             Int                    @id @default(autoincrement())
+  subscriptionId Int                    @map("subscription_id")
+  provider       String                 @db.VarChar(50)
+  customerId     String                 @map("customer_id") @db.VarChar(150)
+  externalSubId  String?                @map("external_sub_id") @db.VarChar(150)
+  isActive       Boolean                @default(true) @map("is_active")
+  createdAt      DateTime               @default(now()) @map("created_at")
+
+  subscription   RestaurantSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, customerId])
+  @@map("payment_profiles")
+}
+
+model Addon {
+  id          Int                 @id @default(autoincrement())
+  code        String              @unique @db.VarChar(50)
+  name        String              @db.VarChar(100)
+  price       Decimal             @db.Decimal(10, 2)
+  unitType    String              @map("unit_type") @db.VarChar(20)
+  featureId   Int?                @map("feature_id")
+  
+  feature     Feature?            @relation(fields: [featureId], references: [id], onDelete: SetNull)
+  subscriptions SubscriptionAddon[]
+
+  @@map("addons")
+}
+
+model SubscriptionAddon {
+  id             Int                    @id @default(autoincrement())
+  subscriptionId Int                    @map("subscription_id")
+  addonId        Int                    @map("addon_id")
+  quantity       Int                    @default(1)
+  purchasedAt    DateTime               @default(now()) @map("purchased_at")
+
+  subscription   RestaurantSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  addon          Addon                  @relation(fields: [addonId], references: [id])
+
+  @@map("subscription_addons")
+}
+
+model UsageMetric {
+  id           Int        @id @default(autoincrement())
+  restaurantId Int        @map("restaurant_id")
+  metric       String     @db.VarChar(50)
+  currentValue Int        @default(0) @map("current_value")
+  period       String     @db.VarChar(20)
+  lastSyncedAt DateTime   @default(now()) @map("last_synced_at")
+
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@unique([restaurantId, metric, period])
+  @@map("usage_metrics")
+}
+
+model Coupon {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique @db.VarChar(50)
+  discountPct Decimal  @map("discount_pct") @db.Decimal(5, 2)
+  activeFrom  DateTime @map("active_from")
+  activeUntil DateTime @map("active_until")
+  maxUses     Int      @default(100) @map("max_uses")
+  usedCount   Int      @default(0) @map("used_count")
+
+  invoices    Invoice[]
+
+  @@map("coupons")
+}
+
+model Invoice {
+  id             Int                    @id @default(autoincrement())
+  subscriptionId Int                    @map("subscription_id")
+  invoiceNo      String                 @unique @map("invoice_no") @db.VarChar(50)
+  subtotal       Decimal                @db.Decimal(10, 2)
+  discount       Decimal                @default(0.00) @db.Decimal(10, 2)
+  tax            Decimal                @db.Decimal(10, 2)
+  total          Decimal                @db.Decimal(10, 2)
+  status         String                 @default("unpaid") @db.VarChar(25)
+  couponId       Int?                   @map("coupon_id")
+  createdAt      DateTime               @default(now()) @map("created_at")
+  paidAt         DateTime?              @map("paid_at")
+
+  subscription   RestaurantSubscription @relation(fields: [subscriptionId], references: [id])
+  coupon         Coupon?                @relation(fields: [couponId], references: [id])
+  items          InvoiceItem[]
+
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id          Int     @id @default(autoincrement())
+  invoiceId   Int     @map("invoice_id")
+  description String  @db.VarChar(250)
+  quantity    Int
+  unitPrice   Decimal @map("unit_price") @db.Decimal(10, 2)
+  totalAmount Decimal @map("total_amount") @db.Decimal(10, 2)
+
+  invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@map("invoice_items")
+}
+
+model SubscriptionHistory {
+  id             Int                    @id @default(autoincrement())
+  subscriptionId Int                    @map("subscription_id")
+  oldPlanName    String                 @map("old_plan_name") @db.VarChar(50)
+  newPlanName    String                 @map("new_plan_name") @db.VarChar(50)
+  changedAt      DateTime               @default(now()) @map("changed_at")
+  reason         String                 @db.Text
+  invoiceId      Int?                   @map("invoice_id")
+
+  subscription   RestaurantSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@map("subscription_histories")
 }

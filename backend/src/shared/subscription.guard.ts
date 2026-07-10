@@ -76,84 +76,93 @@ export class SubscriptionGuard implements CanActivate {
     }
 
     try {
-      const settings = await this.settingsService.getRestaurantSettings(restaurantId);
-
-      // 5. Expired Subscription Check (Trial End Date Check)
-      let isExpired = settings.subscriptionStatus === 'expired';
-
-      if (settings.subscriptionPlan === 'trial' && settings.trialEndsAt) {
-        const trialEnd = new Date(settings.trialEndsAt).getTime();
-        if (Date.now() > trialEnd) {
-          isExpired = true;
-          if (settings.subscriptionStatus !== 'expired') {
-            await this.settingsService.updateRestaurantSettings(restaurantId, { subscriptionStatus: 'expired' });
+      // 5. Query Active Tenant Subscription with Features & Addons Catalog
+      const sub = await this.prisma.restaurantSubscription.findUnique({
+        where: { restaurantId },
+        include: {
+          plan: {
+            include: {
+              features: {
+                include: { feature: true }
+              }
+            }
+          },
+          addons: {
+            include: { addon: { include: { feature: true } } }
           }
+        }
+      });
+
+      // 6. Expired Subscription Check (Trial End / Base End Date Check)
+      let isExpired = !sub || ['canceled', 'unpaid'].includes(sub.status);
+
+      if (sub && sub.status === 'trialing' && sub.trialEnd) {
+        if (Date.now() > new Date(sub.trialEnd).getTime()) {
+          isExpired = true;
+          await this.prisma.restaurantSubscription.update({
+            where: { id: sub.id },
+            data: { status: 'canceled' }
+          });
+        }
+      }
+
+      if (sub && sub.status === 'active' && sub.endDate) {
+        if (Date.now() > new Date(sub.endDate).getTime()) {
+          isExpired = true;
+          await this.prisma.restaurantSubscription.update({
+            where: { id: sub.id },
+            data: { status: 'canceled' }
+          });
         }
       }
 
       if (isExpired) {
         throw new HttpException({
           subscriptionError: "expired",
-          message: "Your 7-Day Free Trial or subscription has expired. Please select a plan in Settings to restore access."
+          message: "Your subscription or free trial has expired. Please select a plan in Settings to restore access."
         }, HttpStatus.PAYMENT_REQUIRED);
       }
 
-      // 6. Enforce Granular Custom Feature Locking
-      const features = settings.enabledFeatures || {};
-
-      // POS Billing
-      if (features.posBilling === false && (originalUrl.startsWith('/api/orders') && !originalUrl.startsWith('/api/orders/qr-place') && !originalUrl.startsWith('/api/orders/qr-menu/'))) {
-        throw new HttpException({
-          subscriptionError: "feature_locked",
-          message: "POS Billing module is not enabled for your account. Please contact support."
-        }, HttpStatus.FORBIDDEN);
-      }
+      // Helper function to check catalog features
+      const hasFeature = (code: string) => {
+        if (!sub) return false;
+        // Enterprise plan bypasses all feature locks
+        if (sub.plan.name === 'Enterprise') return true;
+        
+        const hasBase = sub.plan.features.some(f => f.feature.code === code && f.enabled);
+        const hasAddon = sub.addons.some(a => a.addon.feature?.code === code);
+        return hasBase || hasAddon;
+      };
 
       // Customer QR Self-Ordering
-      if (features.qrOrdering === false && originalUrl.startsWith('/api/orders/qr-place')) {
+      if (originalUrl.startsWith('/api/orders/qr-place') && !hasFeature('qr_ordering')) {
         throw new HttpException({
           subscriptionError: "feature_locked",
-          message: "Customer QR Self-Ordering is not enabled for your account. Please contact support."
+          message: "Customer QR Self-Ordering module is not enabled for your plan. Please upgrade."
         }, HttpStatus.FORBIDDEN);
       }
 
       // Kitchen Display System (KDS)
-      if (features.kds === false && originalUrl.startsWith('/api/orders/kds')) {
+      if (originalUrl.startsWith('/api/orders/kds') && !hasFeature('kds')) {
         throw new HttpException({
           subscriptionError: "feature_locked",
-          message: "Kitchen Display System (KDS) module is not enabled for your account. Please contact support."
+          message: "Kitchen Display System (KDS) module is not enabled for your plan. Please upgrade."
         }, HttpStatus.FORBIDDEN);
       }
 
       // Inventory Management
-      if (features.inventory === false && originalUrl.startsWith('/api/inventory')) {
+      if (originalUrl.startsWith('/api/inventory') && !hasFeature('inventory')) {
         throw new HttpException({
           subscriptionError: "feature_locked",
-          message: "Inventory Management module is not enabled for your account. Please contact support."
-        }, HttpStatus.FORBIDDEN);
-      }
-
-      // VexoAI Virtual Assistant
-      if (features.vexoAI === false && originalUrl.startsWith('/api/chatbot')) {
-        throw new HttpException({
-          subscriptionError: "feature_locked",
-          message: "VexoAI Virtual Assistant module is not enabled for your account. Please contact support."
-        }, HttpStatus.FORBIDDEN);
-      }
-
-      // Staff Management (PINs / Accounts)
-      if (features.staffManagement === false && originalUrl.startsWith('/api/auth/staff')) {
-        throw new HttpException({
-          subscriptionError: "feature_locked",
-          message: "Staff Management module is not enabled for your account. Please contact support."
+          message: "Inventory Management module is not enabled for your plan. Please upgrade."
         }, HttpStatus.FORBIDDEN);
       }
 
       // Analytics & Dynamic Report Generator
-      if (features.analytics === false && originalUrl.startsWith('/api/dashboard/telemetry')) {
+      if (originalUrl.startsWith('/api/dashboard/telemetry') && !hasFeature('advanced_analytics')) {
         throw new HttpException({
           subscriptionError: "feature_locked",
-          message: "Analytics & Dynamic Report Generator module is not enabled for your account. Please contact support."
+          message: "Analytics & Dynamic Report Generator is not enabled for your plan. Please upgrade."
         }, HttpStatus.FORBIDDEN);
       }
 

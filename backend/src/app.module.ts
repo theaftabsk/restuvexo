@@ -15,6 +15,7 @@ import { ChatbotModule } from './modules/chatbot/chatbot.module';
 import { SuperAdminModule } from './modules/superAdmin/superAdmin.module';
 import { UploadModule } from './modules/upload/upload.module';
 import { DemoModule } from './modules/demo/demo.module';
+import { SubscriptionModule } from './modules/subscription/subscription.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { DemoModule } from './modules/demo/demo.module';
     SuperAdminModule,
     UploadModule,
     DemoModule,
+    SubscriptionModule,
   ],
   providers: [
     {

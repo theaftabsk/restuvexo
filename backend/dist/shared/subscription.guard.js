@@ -70,64 +70,77 @@ let SubscriptionGuard = class SubscriptionGuard {
             return true;
         }
         try {
-            const settings = await this.settingsService.getRestaurantSettings(restaurantId);
-            let isExpired = settings.subscriptionStatus === 'expired';
-            if (settings.subscriptionPlan === 'trial' && settings.trialEndsAt) {
-                const trialEnd = new Date(settings.trialEndsAt).getTime();
-                if (Date.now() > trialEnd) {
-                    isExpired = true;
-                    if (settings.subscriptionStatus !== 'expired') {
-                        await this.settingsService.updateRestaurantSettings(restaurantId, { subscriptionStatus: 'expired' });
+            const sub = await this.prisma.restaurantSubscription.findUnique({
+                where: { restaurantId },
+                include: {
+                    plan: {
+                        include: {
+                            features: {
+                                include: { feature: true }
+                            }
+                        }
+                    },
+                    addons: {
+                        include: { addon: { include: { feature: true } } }
                     }
+                }
+            });
+            let isExpired = !sub || ['canceled', 'unpaid'].includes(sub.status);
+            if (sub && sub.status === 'trialing' && sub.trialEnd) {
+                if (Date.now() > new Date(sub.trialEnd).getTime()) {
+                    isExpired = true;
+                    await this.prisma.restaurantSubscription.update({
+                        where: { id: sub.id },
+                        data: { status: 'canceled' }
+                    });
+                }
+            }
+            if (sub && sub.status === 'active' && sub.endDate) {
+                if (Date.now() > new Date(sub.endDate).getTime()) {
+                    isExpired = true;
+                    await this.prisma.restaurantSubscription.update({
+                        where: { id: sub.id },
+                        data: { status: 'canceled' }
+                    });
                 }
             }
             if (isExpired) {
                 throw new common_1.HttpException({
                     subscriptionError: "expired",
-                    message: "Your 7-Day Free Trial or subscription has expired. Please select a plan in Settings to restore access."
+                    message: "Your subscription or free trial has expired. Please select a plan in Settings to restore access."
                 }, common_1.HttpStatus.PAYMENT_REQUIRED);
             }
-            const features = settings.enabledFeatures || {};
-            if (features.posBilling === false && (originalUrl.startsWith('/api/orders') && !originalUrl.startsWith('/api/orders/qr-place') && !originalUrl.startsWith('/api/orders/qr-menu/'))) {
+            const hasFeature = (code) => {
+                if (!sub)
+                    return false;
+                if (sub.plan.name === 'Enterprise')
+                    return true;
+                const hasBase = sub.plan.features.some(f => f.feature.code === code && f.enabled);
+                const hasAddon = sub.addons.some(a => a.addon.feature?.code === code);
+                return hasBase || hasAddon;
+            };
+            if (originalUrl.startsWith('/api/orders/qr-place') && !hasFeature('qr_ordering')) {
                 throw new common_1.HttpException({
                     subscriptionError: "feature_locked",
-                    message: "POS Billing module is not enabled for your account. Please contact support."
+                    message: "Customer QR Self-Ordering module is not enabled for your plan. Please upgrade."
                 }, common_1.HttpStatus.FORBIDDEN);
             }
-            if (features.qrOrdering === false && originalUrl.startsWith('/api/orders/qr-place')) {
+            if (originalUrl.startsWith('/api/orders/kds') && !hasFeature('kds')) {
                 throw new common_1.HttpException({
                     subscriptionError: "feature_locked",
-                    message: "Customer QR Self-Ordering is not enabled for your account. Please contact support."
+                    message: "Kitchen Display System (KDS) module is not enabled for your plan. Please upgrade."
                 }, common_1.HttpStatus.FORBIDDEN);
             }
-            if (features.kds === false && originalUrl.startsWith('/api/orders/kds')) {
+            if (originalUrl.startsWith('/api/inventory') && !hasFeature('inventory')) {
                 throw new common_1.HttpException({
                     subscriptionError: "feature_locked",
-                    message: "Kitchen Display System (KDS) module is not enabled for your account. Please contact support."
+                    message: "Inventory Management module is not enabled for your plan. Please upgrade."
                 }, common_1.HttpStatus.FORBIDDEN);
             }
-            if (features.inventory === false && originalUrl.startsWith('/api/inventory')) {
+            if (originalUrl.startsWith('/api/dashboard/telemetry') && !hasFeature('advanced_analytics')) {
                 throw new common_1.HttpException({
                     subscriptionError: "feature_locked",
-                    message: "Inventory Management module is not enabled for your account. Please contact support."
-                }, common_1.HttpStatus.FORBIDDEN);
-            }
-            if (features.vexoAI === false && originalUrl.startsWith('/api/chatbot')) {
-                throw new common_1.HttpException({
-                    subscriptionError: "feature_locked",
-                    message: "VexoAI Virtual Assistant module is not enabled for your account. Please contact support."
-                }, common_1.HttpStatus.FORBIDDEN);
-            }
-            if (features.staffManagement === false && originalUrl.startsWith('/api/auth/staff')) {
-                throw new common_1.HttpException({
-                    subscriptionError: "feature_locked",
-                    message: "Staff Management module is not enabled for your account. Please contact support."
-                }, common_1.HttpStatus.FORBIDDEN);
-            }
-            if (features.analytics === false && originalUrl.startsWith('/api/dashboard/telemetry')) {
-                throw new common_1.HttpException({
-                    subscriptionError: "feature_locked",
-                    message: "Analytics & Dynamic Report Generator module is not enabled for your account. Please contact support."
+                    message: "Analytics & Dynamic Report Generator is not enabled for your plan. Please upgrade."
                 }, common_1.HttpStatus.FORBIDDEN);
             }
             return true;

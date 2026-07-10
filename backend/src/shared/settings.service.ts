@@ -75,6 +75,32 @@ export class SettingsService {
       });
     }
 
+    // Sync new RestaurantSubscription state to settings flat fields for backwards compatibility
+    try {
+      const sub = await this.prisma.restaurantSubscription.findUnique({
+        where: { restaurantId },
+        include: { plan: true }
+      });
+      if (sub) {
+        const dbPlan = sub.plan.name.toLowerCase();
+        const mappedPlan = sub.status === 'trialing' ? 'trial' : dbPlan;
+        const mappedStatus = ['canceled', 'unpaid'].includes(sub.status) ? 'expired' : 'active';
+        
+        if (settings.subscriptionPlan !== mappedPlan || settings.subscriptionStatus !== mappedStatus) {
+          settings = await this.prisma.restaurantSetting.update({
+            where: { restaurantId },
+            data: {
+              subscriptionPlan: mappedPlan,
+              subscriptionStatus: mappedStatus,
+              trialEndsAt: sub.trialEnd
+            }
+          });
+        }
+      }
+    } catch (e) {
+      console.error('[Settings Subscription Sync Error]', e);
+    }
+
     this.cache.set(restaurantId, settings);
     return settings;
   }

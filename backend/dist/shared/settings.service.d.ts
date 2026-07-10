@@ -5,6 +5,7 @@ export declare class SettingsService {
     constructor(prisma: PrismaService);
     getRestaurantSettings(restaurantId: number): Promise<any>;
     updateRestaurantSettings(restaurantId: number, updateData: any): Promise<{
+        subscriptionPlan: string;
         id: number;
         restaurantId: number;
         qrOrderingEnabled: boolean;
@@ -17,7 +18,6 @@ export declare class SettingsService {
         vexoAiEnabled: boolean;
         vexoAiNormalLimit: number;
         vexoAiApiLimit: number;
-        subscriptionPlan: string;
         subscriptionStatus: string;
         trialEndsAt: Date | null;
         enabledFeatures: import("@prisma/client/runtime/library").JsonValue | null;
