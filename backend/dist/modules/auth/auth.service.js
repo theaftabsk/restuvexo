@@ -202,10 +202,11 @@ let AuthService = class AuthService {
             if (user.role === 'other') {
                 return res.status(403).json({ error: "Access Denied. Other staff are not permitted to log in." });
             }
-            const isMatch = await bcrypt.compare(credential, user.passwordHash);
+            const hashToCompare = user.role === 'owner' ? user.passwordHash : user.pinHash;
+            const isMatch = await bcrypt.compare(credential, hashToCompare);
             if (!isMatch) {
                 console.log(`[Security Alert] Unsuccessful login - invalid credentials for: ${phoneOrEmail} (IP: ${req.ip})`);
-                return res.status(401).json({ error: "Invalid password. Please try again." });
+                return res.status(401).json({ error: user.role === 'owner' ? "Invalid password. Please try again." : "Invalid PIN. Please try again." });
             }
             const restaurant = await this.prisma.restaurant.findUnique({
                 where: { id: user.restaurantId }
