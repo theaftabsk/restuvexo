@@ -3,4 +3,5 @@ class ApiEndpoints {
   static const String tables = '/api/tables';
   static const String categories = '/api/menu/categories';
   static const String orders = '/api/orders';
+  static const String dashboardStats = '/api/dashboard/stats';
 }
