@@ -24,14 +24,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     
     // Check if server URL configured
     String? serverUrl = prefs.getString('server_url');
-    if (serverUrl != null && serverUrl.contains('restuvexo.shop')) {
-      await prefs.setString('server_url', 'http://localhost:5000');
-      serverUrl = 'http://localhost:5000';
-    }
-
-    if (serverUrl == null || serverUrl.isEmpty) {
-      if (mounted) context.go('/server');
-      return;
+    if (serverUrl == null || serverUrl.isEmpty || serverUrl.contains('restuvexo.shop') || serverUrl.contains('localhost')) {
+      await prefs.setString('server_url', 'http://10.41.137.126:5000');
+      serverUrl = 'http://10.41.137.126:5000';
     }
 
     // Check Auth State redirect

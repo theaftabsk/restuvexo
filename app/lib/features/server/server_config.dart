@@ -15,7 +15,7 @@ class _ServerConfigScreenState extends State<ServerConfigScreen> {
   @override
   void initState() {
     super.initState();
-    _urlController.text = "http://localhost:5000";
+    _urlController.text = "http://10.41.137.126:5000";
   }
 
   void _saveAndConnect() async {

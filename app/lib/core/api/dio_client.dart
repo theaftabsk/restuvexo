@@ -30,7 +30,7 @@ class DioClient {
           if (savedBaseUrl != null && savedBaseUrl.isNotEmpty) {
             options.baseUrl = savedBaseUrl;
           } else {
-            options.baseUrl = 'http://localhost:5000';
+            options.baseUrl = 'http://10.41.137.126:5000';
           }
 
           // Inject Auth Token
