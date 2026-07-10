@@ -15,7 +15,7 @@ class _ServerConfigScreenState extends State<ServerConfigScreen> {
   @override
   void initState() {
     super.initState();
-    _urlController.text = "https://api.restuvexo.shop";
+    _urlController.text = "http://localhost:5000";
   }
 
   void _saveAndConnect() async {
