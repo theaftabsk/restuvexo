@@ -132,11 +132,13 @@ let SubscriptionService = class SubscriptionService {
             enabled: f.enabled
         }));
         sub.addons.forEach(a => {
-            featuresCatalog.push({
-                code: a.addon.code,
-                name: a.addon.name,
-                enabled: true
-            });
+            if (!featuresCatalog.some(f => f.code === a.addon.code)) {
+                featuresCatalog.push({
+                    code: a.addon.code,
+                    name: a.addon.name,
+                    enabled: true
+                });
+            }
         });
         return {
             planName: sub.plan.name,
