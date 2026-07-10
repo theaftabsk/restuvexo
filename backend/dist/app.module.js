@@ -25,6 +25,7 @@ const superAdmin_module_1 = require("./modules/superAdmin/superAdmin.module");
 const upload_module_1 = require("./modules/upload/upload.module");
 const demo_module_1 = require("./modules/demo/demo.module");
 const subscription_module_1 = require("./modules/subscription/subscription.module");
+const phonepe_module_1 = require("./modules/payment/phonepe.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -46,6 +47,7 @@ exports.AppModule = AppModule = __decorate([
             upload_module_1.UploadModule,
             demo_module_1.DemoModule,
             subscription_module_1.SubscriptionModule,
+            phonepe_module_1.PhonePeModule,
         ],
         providers: [
             {

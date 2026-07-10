@@ -20,7 +20,8 @@ export class SubscriptionGuard implements CanActivate {
       originalUrl.startsWith('/api/auth/login') ||
       originalUrl.startsWith('/api/auth/forgot-password') ||
       originalUrl.startsWith('/api/auth/reset-password') ||
-      originalUrl.startsWith('/api/demo')
+      originalUrl.startsWith('/api/demo') ||
+      originalUrl.startsWith('/api/payment/phonepe/callback')
     ) {
       return true;
     }
