@@ -23,7 +23,12 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     final prefs = await SharedPreferences.getInstance();
     
     // Check if server URL configured
-    final serverUrl = prefs.getString('server_url');
+    let serverUrl = prefs.getString('server_url');
+    if (serverUrl != null && serverUrl.contains('restuvexo.shop')) {
+      await prefs.setString('server_url', 'http://localhost:5000');
+      serverUrl = 'http://localhost:5000';
+    }
+
     if (serverUrl == null || serverUrl.isEmpty) {
       if (mounted) context.go('/server');
       return;
