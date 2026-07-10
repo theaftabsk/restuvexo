@@ -29,19 +29,29 @@ async createCategory(req, res: any) {
   }
 };
 
-// 2. Get All Categories — lightweight: no menuItems embedded, just item count
+// 2. Get All Categories — embeds menuItems for mobile client compatibility
 async getCategories(req, res: any) {
   const restaurantId = req.user.restaurantId;
   try {
     const categories = await this.prisma.category.findMany({
       where: { restaurantId },
-      select: { id: true, name: true, _count: { select: { menuItems: true } } },
+      include: {
+        menuItems: {
+          where: { isAvailable: true },
+          orderBy: { name: 'asc' }
+        }
+      },
       orderBy: { id: 'asc' }
     });
     res.json(categories.map(cat => ({
       id: cat.id,
       name: cat.name,
-      itemCount: cat._count.menuItems
+      itemCount: cat.menuItems.length,
+      menuItems: cat.menuItems.map(item => ({
+        ...item,
+        price: parseFloat(item.price.toString()),
+        costPrice: parseFloat(item.costPrice.toString())
+      }))
     })));
   } catch (error) {
     console.error('[Get Categories Error]', error);

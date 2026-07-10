@@ -40,13 +40,23 @@ let MenuService = class MenuService {
         try {
             const categories = await this.prisma.category.findMany({
                 where: { restaurantId },
-                select: { id: true, name: true, _count: { select: { menuItems: true } } },
+                include: {
+                    menuItems: {
+                        where: { isAvailable: true },
+                        orderBy: { name: 'asc' }
+                    }
+                },
                 orderBy: { id: 'asc' }
             });
             res.json(categories.map(cat => ({
                 id: cat.id,
                 name: cat.name,
-                itemCount: cat._count.menuItems
+                itemCount: cat.menuItems.length,
+                menuItems: cat.menuItems.map(item => ({
+                    ...item,
+                    price: parseFloat(item.price.toString()),
+                    costPrice: parseFloat(item.costPrice.toString())
+                }))
             })));
         }
         catch (error) {
