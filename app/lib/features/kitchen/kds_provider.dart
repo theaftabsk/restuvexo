@@ -43,9 +43,11 @@ class KdsNotifier extends StateNotifier<KdsState> {
     try {
       final res = await _orderApi.getOrders();
       if (res.statusCode == 200) {
-        state = KdsState(orders: res.data, loading: false);
+        final ordersList = res.data['data'] as List<dynamic>;
+        state = KdsState(orders: ordersList, loading: false);
       }
     } catch (e) {
+      print('❌ [KDS Error] $e');
       state = state.copyWith(loading: false, error: 'Failed to load KDS queue.');
     }
   }
