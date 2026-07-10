@@ -110,7 +110,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 children: [
                   // Secure Pill badge
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, py: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     decoration: BoxDecoration(
                       color: const Color(0xFFFF5722).withOpacity(0.1),
                       border: Border.all(color: const Color(0xFFFF5722).withOpacity(0.2)),
@@ -126,7 +126,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           style: TextStyle(
                             color: Color(0xFFFF5722),
                             fontSize: 9,
-                            fontWeight: FontWeight.black,
+                            fontWeight: FontWeight.w900,
                             letterSpacing: 1.0,
                           ),
                         ),
@@ -270,7 +270,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       style: TextStyle(
                         color: Color(0xFF475569),
                         fontSize: 9,
-                        fontWeight: FontWeight.w955,
+                        fontWeight: FontWeight.w800,
                         letterSpacing: 1.0,
                       ),
                     ),
@@ -307,7 +307,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       style: TextStyle(
                         color: Color(0xFF475569),
                         fontSize: 9,
-                        fontWeight: FontWeight.w955,
+                        fontWeight: FontWeight.w800,
                         letterSpacing: 1.0,
                       ),
                     ),
@@ -371,7 +371,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             )
                           : const Text(
                               'SIGN IN TO WORKSPACE',
-                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.black, letterSpacing: 1.0),
+                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, letterSpacing: 1.0),
                             ),
                     ),
 
@@ -388,7 +388,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             style: TextStyle(
                               color: Color(0xFF94A3B8),
                               fontSize: 9,
-                              fontWeight: FontWeight.black,
+                              fontWeight: FontWeight.w900,
                               letterSpacing: 1.2,
                             ),
                           ),
