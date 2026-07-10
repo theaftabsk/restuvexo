@@ -11,14 +11,6 @@ class AppTheme {
     Color primaryColor = orange;
     Color secondaryColor = slate;
 
-    if (role == 'waiter') {
-      primaryColor = blue;
-      secondaryColor = slate;
-    } else if (role == 'kitchen') {
-      primaryColor = red;
-      secondaryColor = slate;
-    }
-
     return ThemeData(
       useMaterial3: true,
       colorScheme: ColorScheme.fromSeed(
