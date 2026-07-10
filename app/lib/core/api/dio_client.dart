@@ -30,7 +30,7 @@ class DioClient {
           if (savedBaseUrl != null && savedBaseUrl.isNotEmpty) {
             options.baseUrl = savedBaseUrl;
           } else {
-            options.baseUrl = 'https://app.restuvexo.shop';
+            options.baseUrl = 'https://api.restuvexo.shop';
           }
 
           // Inject Auth Token

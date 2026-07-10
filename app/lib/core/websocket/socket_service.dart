@@ -16,7 +16,7 @@ class SocketService {
     if (_socket != null) return;
 
     final prefs = await SharedPreferences.getInstance();
-    final baseUrl = prefs.getString('server_url') ?? 'https://app.restuvexo.shop';
+    final baseUrl = prefs.getString('server_url') ?? 'https://api.restuvexo.shop';
 
     _socket = io.io(baseUrl, io.OptionBuilder()
       .setTransports(['websocket'])
