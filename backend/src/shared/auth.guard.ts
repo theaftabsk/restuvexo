@@ -2,7 +2,7 @@ import { Injectable, CanActivate, ExecutionContext, UnauthorizedException, Forbi
 import * as jwt from 'jsonwebtoken';
 import { PrismaService } from '../prisma/prisma.service';
 
-const JWT_SECRET = process.env.JWT_SECRET || "ros_super_secret_jwt_key_2026_restuvexo";
+const JWT_SECRET = process.env.JWT_SECRET || "VexoSecretRosJwtToken2026MasterKey";
 const verificationCache = new Map<string, { valid: boolean; timestamp: number }>();
 const CACHE_TTL_MS = 30000;
 

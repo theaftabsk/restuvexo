@@ -278,6 +278,9 @@ export default function OrderCreate() {
       setCustomerName("");
       setCustomerMobile("");
       setEditingOrderId(null);
+      setSearchQuery("");
+      setSelectedCategory("All");
+      setMobileCartOpen(false);
       
       triggerToast(
         editingOrderId
@@ -286,9 +289,8 @@ export default function OrderCreate() {
         "success"
       );
 
-      setTimeout(() => {
-        window.location.href = "/dashboard/orders";
-      }, 1500);
+      // Reload active table status and menu item quantities instantly
+      fetchPosData();
 
     } catch (error: any) {
       triggerToast(`Order Dispatch Failed: ${error.message}`, "error");

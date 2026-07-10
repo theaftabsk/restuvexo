@@ -5,7 +5,7 @@ import { OrderService } from './order.service';
 import { AuthGuard } from '../../shared/auth.guard';
 
 
-@Controller('api/order')
+@Controller(['api/order', 'api/orders'])
 export class OrderController {
   constructor(private orderService: OrderService) {}
 

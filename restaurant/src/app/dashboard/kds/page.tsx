@@ -142,14 +142,16 @@ export default function KitchenDisplaySystem() {
     socket.on("connect", () => {
       console.log("KDS Socket Connected:", socket.id);
       const userStr = localStorage.getItem("user");
-      if (userStr) {
-        try {
-          const userObj = JSON.parse(userStr);
-          if (userObj.restaurantId) {
-            socket.emit("join_restaurant", userObj.restaurantId);
-          }
-        } catch (e) {}
-      }
+      const restStr = localStorage.getItem("restaurant");
+      try {
+        let restaurantId = null;
+        if (userStr) restaurantId = JSON.parse(userStr).restaurantId;
+        if (!restaurantId && restStr) restaurantId = JSON.parse(restStr).id;
+
+        if (restaurantId) {
+          socket.emit("join_restaurant", restaurantId);
+        }
+      } catch (e) {}
     });
 
     // Listen for instant order updates directly inside client memory!

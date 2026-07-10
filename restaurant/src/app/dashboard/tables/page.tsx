@@ -35,6 +35,16 @@ export default function TableManagerDashboard() {
 
   const BACKEND_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000");
 
+  const getCustomerOrigin = () => {
+    if (typeof window !== "undefined") {
+      if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+        return "http://localhost:3001";
+      }
+      return window.location.origin.replace(':3000', ':3001');
+    }
+    return "http://localhost:3001";
+  };
+
   const triggerToast = (message, type = "info") => {
     setToast({ show: true, message, type });
     setTimeout(() => {
@@ -103,7 +113,7 @@ export default function TableManagerDashboard() {
     const generateQrs = async () => {
       const urls = {};
       for (const table of tables) {
-        const link = `${window.location.origin}/scan/${table.qrCode || table.id}`;
+        const link = `${getCustomerOrigin()}/scan/${table.qrCode || table.id}`;
         try {
           const url = await QRCode.toDataURL(link, {
             margin: 2,
@@ -348,7 +358,7 @@ export default function TableManagerDashboard() {
   };
 
   const copyTableLink = (table) => {
-    const link = `${window.location.origin}/scan/${table.qrCode || table.id}`;
+    const link = `${getCustomerOrigin()}/scan/${table.qrCode || table.id}`;
     navigator.clipboard.writeText(link);
     const label = table.tableNo.toLowerCase().startsWith('table') ? table.tableNo : `Table ${table.tableNo}`;
     triggerToast(`${label} menu link copied!`, "success");
@@ -357,7 +367,7 @@ export default function TableManagerDashboard() {
   const printTableCard = async (table, theme = 'classic') => {
     let printQrUrl = "";
     try {
-      const link = `${window.location.origin}/scan/${table.qrCode || table.id}`;
+      const link = `${getCustomerOrigin()}/scan/${table.qrCode || table.id}`;
       const qrColor = theme === 'dark' ? "#ffffff" : "#0f172a";
       const qrBg = theme === 'dark' ? "#0f172a" : "#ffffff";
       printQrUrl = await QRCode.toDataURL(link, {

@@ -8,18 +8,58 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ExpenseController = void 0;
 const common_1 = require("@nestjs/common");
 const expense_service_1 = require("./expense.service");
+const auth_guard_1 = require("../../shared/auth.guard");
 let ExpenseController = class ExpenseController {
     constructor(expenseService) {
         this.expenseService = expenseService;
     }
+    async addExpense(req, res) {
+        return this.expenseService.addExpense(req, res);
+    }
+    async getExpenses(req, res) {
+        return this.expenseService.getExpenses(req, res);
+    }
+    async deleteExpense(req, res) {
+        return this.expenseService.deleteExpense(req, res);
+    }
 };
 exports.ExpenseController = ExpenseController;
+__decorate([
+    (0, common_1.UseGuards)(auth_guard_1.AuthGuard),
+    (0, common_1.Post)(),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], ExpenseController.prototype, "addExpense", null);
+__decorate([
+    (0, common_1.UseGuards)(auth_guard_1.AuthGuard),
+    (0, common_1.Get)(),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], ExpenseController.prototype, "getExpenses", null);
+__decorate([
+    (0, common_1.UseGuards)(auth_guard_1.AuthGuard),
+    (0, common_1.Delete)(':id'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], ExpenseController.prototype, "deleteExpense", null);
 exports.ExpenseController = ExpenseController = __decorate([
-    (0, common_1.Controller)('api/expense'),
+    (0, common_1.Controller)(['api/expense', 'api/expenses']),
     __metadata("design:paramtypes", [expense_service_1.ExpenseService])
 ], ExpenseController);
 //# sourceMappingURL=expense.controller.js.map

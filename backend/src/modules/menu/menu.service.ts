@@ -202,7 +202,7 @@ async updateMenuItem(req, res: any) {
     menuItem = await this.prisma.menuItem.findUnique({ where: { id: parseInt(id) } });
     if (!menuItem || menuItem.restaurantId !== restaurantId) {
       if (imageUrl) {
-        const newImagePath = path.join(__dirname, '../../public', imageUrl);
+        const newImagePath = path.join(__dirname, '../../../public', imageUrl);
         if (fs.existsSync(newImagePath)) fs.unlinkSync(newImagePath);
       }
       return res.status(404).json({ error: "Menu item not found." });
@@ -225,7 +225,7 @@ async updateMenuItem(req, res: any) {
     // RULE: Delete old image if a new one was uploaded and it is different
     if (imageUrl !== undefined && menuItem.imageUrl && imageUrl !== menuItem.imageUrl) {
       try {
-        const oldImagePath = path.join(__dirname, '../../public', menuItem.imageUrl);
+        const oldImagePath = path.join(__dirname, '../../../public', menuItem.imageUrl);
         if (fs.existsSync(oldImagePath)) {
           fs.unlinkSync(oldImagePath);
         }
@@ -250,7 +250,7 @@ async updateMenuItem(req, res: any) {
     // RULE: If update fails, delete the new image to prevent orphaned files
     if (imageUrl !== undefined && (!menuItem || imageUrl !== menuItem.imageUrl)) {
       try {
-        const newImagePath = path.join(__dirname, '../../public', imageUrl);
+        const newImagePath = path.join(__dirname, '../../../public', imageUrl);
         if (fs.existsSync(newImagePath)) {
           fs.unlinkSync(newImagePath);
         }
@@ -280,7 +280,7 @@ async deleteMenuItem(req, res: any) {
     // RULE: Delete the image file if it exists when menu item is deleted
     if (menuItem.imageUrl) {
       try {
-        const imagePath = path.join(__dirname, '../../public', menuItem.imageUrl);
+        const imagePath = path.join(__dirname, '../../../public', menuItem.imageUrl);
         if (fs.existsSync(imagePath)) {
           fs.unlinkSync(imagePath);
         }

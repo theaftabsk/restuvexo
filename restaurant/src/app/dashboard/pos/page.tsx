@@ -124,9 +124,12 @@ export default function PosTerminal() {
 
     // Register WebSockets for real-time synchronization
     const socket = io(BACKEND_URL);
+    const restStr = localStorage.getItem("restaurant");
     if (storedUser) {
       const parsed = JSON.parse(storedUser);
-      socket.emit("join_restaurant", `restaurant_${parsed.restaurantId}`);
+      let restaurantId = parsed.restaurantId;
+      if (!restaurantId && restStr) restaurantId = JSON.parse(restStr).id;
+      if (restaurantId) socket.emit("join_restaurant", restaurantId);
     }
 
     socket.on("new_order_placed", () => fetchActiveOrders());
@@ -138,6 +141,23 @@ export default function PosTerminal() {
       socket.disconnect();
     };
   }, [BACKEND_URL]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && activeOrders.length > 0) {
+      const params = new URLSearchParams(window.location.search);
+      const orderIdParam = params.get("orderId");
+      if (orderIdParam) {
+        const matched = activeOrders.find((o: any) => o.id.toString() === orderIdParam);
+        if (matched) {
+          setSelectedOrder(matched);
+          setSelectedOrderIds([]);
+          // Clean the query parameters from the URL safely without reloading
+          const cleanUrl = window.location.pathname;
+          window.history.replaceState({}, '', cleanUrl);
+        }
+      }
+    }
+  }, [activeOrders]);
 
   const selectActiveOrder = (order: any) => {
     setSelectedOrder(order);
@@ -642,7 +662,7 @@ export default function PosTerminal() {
         </div>
 
         {/* Right Side: Cashier Billing Panel */}
-        <div className="lg:col-span-4 bg-white border border-slate-100 rounded-[2rem] p-6 shadow-sm sticky top-6 space-y-6">
+        <div className="lg:col-span-4 bg-white border border-slate-100 rounded-[2rem] p-6 shadow-sm sticky top-6 space-y-6 max-h-[calc(100vh-3.5rem)] overflow-y-auto custom-scroll">
           <div className="pb-4 border-b border-slate-100">
             <h3 className="text-slate-900 font-black text-sm tracking-tight">Settle Active Order</h3>
             <p className="text-slate-400 text-[10px] uppercase font-bold tracking-widest mt-0.5">Billing & settle override terminal</p>

@@ -27,7 +27,7 @@ let DashboardService = class DashboardService {
         const endOfToday = new Date();
         endOfToday.setHours(23, 59, 59, 999);
         try {
-            const [paidOrdersToday, activeOrdersCount, completedOrdersTodayCount, tables, recentKots, popularItemsRaw, allOrdersToday, outOfStockCount, lowStockCount] = await Promise.all([
+            const [paidOrdersToday, activeOrdersCount, completedOrdersTodayCount, tables, recentKots, popularItemsRaw, allOrdersToday, outOfStockCount, lowStockCount, last7DaysOrdersRaw] = await Promise.all([
                 this.prisma.order.findMany({
                     where: {
                         restaurantId,
@@ -145,6 +145,24 @@ let DashboardService = class DashboardService {
                         restaurantId,
                         trackStock: true,
                         stockQty: { gt: 0, lte: 10 }
+                    }
+                }),
+                this.prisma.order.findMany({
+                    where: {
+                        restaurantId,
+                        paymentStatus: 'paid',
+                        createdAt: {
+                            gte: (() => {
+                                const d = new Date();
+                                d.setDate(d.getDate() - 6);
+                                d.setHours(0, 0, 0, 0);
+                                return d;
+                            })()
+                        }
+                    },
+                    select: {
+                        totalAmount: true,
+                        createdAt: true
                     }
                 })
             ]);
@@ -274,7 +292,27 @@ let DashboardService = class DashboardService {
                     }
                 },
                 kitchenFeed,
-                popularItems
+                popularItems,
+                last7DaysSales: (() => {
+                    const salesMap = new Map();
+                    for (let i = 0; i < 7; i++) {
+                        const d = new Date();
+                        d.setDate(d.getDate() - i);
+                        const dateStr = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                        salesMap.set(dateStr, 0);
+                    }
+                    const sortedDates = Array.from(salesMap.keys()).reverse();
+                    last7DaysOrdersRaw.forEach(order => {
+                        const dateStr = new Date(order.createdAt).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                        if (salesMap.has(dateStr)) {
+                            salesMap.set(dateStr, salesMap.get(dateStr) + parseFloat(String(order.totalAmount)));
+                        }
+                    });
+                    return sortedDates.map(date => ({
+                        date,
+                        sales: parseFloat(salesMap.get(date).toFixed(2))
+                    }));
+                })()
             });
         }
         catch (error) {

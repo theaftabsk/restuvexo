@@ -72,4 +72,23 @@ export class AuthController {
     return this.authService.deleteStaff(req, res);
   }
 
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles('owner')
+  @Put('restaurant')
+  async updateRestaurant(@Req() req: Request, @Res() res: Response) {
+    return this.authService.updateRestaurant(req, res);
+  }
+
+  @UseGuards(AuthGuard)
+  @Put('profile')
+  async updateProfile(@Req() req: Request, @Res() res: Response) {
+    return this.authService.updateProfile(req, res);
+  }
+
+  @UseGuards(AuthGuard)
+  @Get('restaurant')
+  async getRestaurant(@Req() req: Request, @Res() res: Response) {
+    return this.authService.getRestaurant(req, res);
+  }
+
 }

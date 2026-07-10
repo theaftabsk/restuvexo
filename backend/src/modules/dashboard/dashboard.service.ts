@@ -36,7 +36,8 @@ async getDashboardStats(req, res: any) {
       popularItemsRaw,
       allOrdersToday,
       outOfStockCount,
-      lowStockCount
+      lowStockCount,
+      last7DaysOrdersRaw
     ] = await Promise.all([
       // 1. Today's Paid Orders for absolute revenue & avg bill calculations
       this.prisma.order.findMany({
@@ -164,6 +165,25 @@ async getDashboardStats(req, res: any) {
           restaurantId,
           trackStock: true,
           stockQty: { gt: 0, lte: 10 }
+        }
+      }),
+      // 10. Last 7 days orders for absolute revenue
+      this.prisma.order.findMany({
+        where: {
+          restaurantId,
+          paymentStatus: 'paid',
+          createdAt: {
+            gte: (() => {
+              const d = new Date();
+              d.setDate(d.getDate() - 6);
+              d.setHours(0, 0, 0, 0);
+              return d;
+            })()
+          }
+        },
+        select: {
+          totalAmount: true,
+          createdAt: true
         }
       })
     ]);
@@ -303,7 +323,30 @@ async getDashboardStats(req, res: any) {
         }
       },
       kitchenFeed,
-      popularItems
+      popularItems,
+      last7DaysSales: (() => {
+        const salesMap = new Map<string, number>();
+        for (let i = 0; i < 7; i++) {
+          const d = new Date();
+          d.setDate(d.getDate() - i);
+          const dateStr = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+          salesMap.set(dateStr, 0);
+        }
+        
+        const sortedDates = Array.from(salesMap.keys()).reverse();
+
+        last7DaysOrdersRaw.forEach(order => {
+          const dateStr = new Date(order.createdAt).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+          if (salesMap.has(dateStr)) {
+            salesMap.set(dateStr, salesMap.get(dateStr) + parseFloat(String(order.totalAmount)));
+          }
+        });
+
+        return sortedDates.map(date => ({
+          date,
+          sales: parseFloat(salesMap.get(date).toFixed(2))
+        }));
+      })()
     });
 
   } catch (error) {

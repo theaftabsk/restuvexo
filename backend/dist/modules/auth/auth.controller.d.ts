@@ -13,4 +13,7 @@ export declare class AuthController {
     editStaff(req: Request, res: Response): Promise<any>;
     updateStaffStatus(req: Request, res: Response): Promise<any>;
     deleteStaff(req: Request, res: Response): Promise<any>;
+    updateRestaurant(req: Request, res: Response): Promise<void>;
+    updateProfile(req: Request, res: Response): Promise<any>;
+    getRestaurant(req: Request, res: Response): Promise<any>;
 }

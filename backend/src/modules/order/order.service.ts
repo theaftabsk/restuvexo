@@ -1171,7 +1171,7 @@ async settleOrder(req, res: any) {
      
     const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, ""); // YYYYMMDD
     const seqStr = String(countPaidToday + 1).padStart(5, "0"); // XXXXX
-    const receiptNo = `INV-${dateStr}-${seqStr}`;
+    const receiptNo = `INV-${dateStr}-${restaurantId}-${seqStr}-${order.id}`;
 
     const paymentsToCreate = [];
     if (payments && Array.isArray(payments) && payments.length > 0) {

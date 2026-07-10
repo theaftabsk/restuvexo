@@ -12,25 +12,29 @@ const sharp = require("sharp");
 const path = require("path");
 const fs = require("fs");
 let UploadService = class UploadService {
-    async uploadImage(file) {
+    async uploadImage(file, type) {
         if (!file) {
             throw new common_1.BadRequestException('No image uploaded');
         }
         try {
             const uniqueFilename = `${Date.now()}-${Math.round(Math.random() * 1e9)}.webp`;
-            const uploadDir = path.join(__dirname, '../../../public/uploads/foods');
+            const subFolder = type === 'logo' ? 'logos' : 'foods';
+            const uploadDir = path.join(__dirname, `../../../public/uploads/${subFolder}`);
             if (!fs.existsSync(uploadDir)) {
                 fs.mkdirSync(uploadDir, { recursive: true });
             }
             const outputPath = path.join(uploadDir, uniqueFilename);
+            const resizeOptions = type === 'logo'
+                ? { width: 400, height: 400, fit: sharp.fit.cover }
+                : { width: 800, withoutEnlargement: true };
             await sharp(file.buffer)
-                .webp({ quality: 80 })
-                .resize({ width: 800, withoutEnlargement: true })
+                .webp({ quality: 75 })
+                .resize(resizeOptions)
                 .toFile(outputPath);
             return {
                 success: true,
                 data: {
-                    url: `/uploads/foods/${uniqueFilename}`
+                    url: `/uploads/${subFolder}/${uniqueFilename}`
                 }
             };
         }

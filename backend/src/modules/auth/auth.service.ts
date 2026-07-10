@@ -6,6 +6,8 @@ import { EmailService } from '../../shared/email.service';
 import * as bcrypt from 'bcryptjs';
 import * as jwt from 'jsonwebtoken';
 import * as crypto from 'crypto';
+import * as fs from 'fs';
+import * as path from 'path';
 
 const JWT_SECRET = process.env.JWT_SECRET || "VexoSecretRosJwtToken2026MasterKey";
 
@@ -196,7 +198,8 @@ async verifyOtp(req, res: any) {
       user: {
         id: result.user.id,
         name: result.user.name,
-        role: result.user.role
+        role: result.user.role,
+        restaurantId: result.user.restaurantId
       }
     });
 
@@ -283,7 +286,8 @@ async login(req, res: any) {
       user: {
         id: user.id,
         name: user.name,
-        role: user.role
+        role: user.role,
+        restaurantId: user.restaurantId
       }
     });
 
@@ -623,5 +627,104 @@ async deleteStaff(req, res: any) {
   }
 };
 
+async updateRestaurant(req, res: any) {
+  const restaurantId = req.user.restaurantId;
+  const { name, address, logoUrl } = req.body;
+
+  try {
+    const currentRestaurant = await this.prisma.restaurant.findUnique({
+      where: { id: restaurantId }
+    });
+
+    if (logoUrl && currentRestaurant?.logoUrl && currentRestaurant.logoUrl !== logoUrl) {
+      const oldPath = path.join(__dirname, `../../../public${currentRestaurant.logoUrl}`);
+      if (fs.existsSync(oldPath)) {
+        try {
+          fs.unlinkSync(oldPath);
+          console.log(`[Storage] Deleted old logo file: ${oldPath}`);
+        } catch (err) {
+          console.error(`[Storage] Failed to delete old logo file: ${oldPath}`, err);
+        }
+      }
+    }
+
+    const updatedRestaurant = await this.prisma.restaurant.update({
+      where: { id: restaurantId },
+      data: {
+        name,
+        address,
+        logoUrl
+      }
+    });
+
+    res.json({
+      message: "Restaurant details updated successfully.",
+      restaurant: updatedRestaurant
+    });
+  } catch (error) {
+    console.error('[Update Restaurant Failed]', error);
+    res.status(400).json({ error: error.message || "Failed to update restaurant details." });
+  }
+}
+
+async updateProfile(req, res: any) {
+  const userId = req.user.id;
+  const restaurantId = req.user.restaurantId;
+  const { name, phone } = req.body;
+
+  if (!name?.trim()) {
+    return res.status(400).json({ error: "Name is required." });
+  }
+
+  try {
+    const updatedUser = await this.prisma.user.update({
+      where: { id: userId },
+      data: { name }
+    });
+
+    let updatedRestaurant = null;
+    if (phone) {
+      updatedRestaurant = await this.prisma.restaurant.update({
+        where: { id: restaurantId },
+        data: { phone }
+      });
+    }
+
+    res.json({
+      message: "Profile details updated successfully.",
+      user: {
+        id: updatedUser.id,
+        name: updatedUser.name,
+        role: updatedUser.role
+      },
+      restaurant: updatedRestaurant ? {
+        id: updatedRestaurant.id,
+        name: updatedRestaurant.name,
+        phone: updatedRestaurant.phone,
+        address: updatedRestaurant.address,
+        logoUrl: updatedRestaurant.logoUrl
+      } : undefined
+    });
+  } catch (error) {
+    console.error('[Update Profile Failed]', error);
+    res.status(400).json({ error: error.message || "Failed to update profile details." });
+  }
+}
+
+async getRestaurant(req, res: any) {
+  const restaurantId = req.user.restaurantId;
+  try {
+    const restaurant = await this.prisma.restaurant.findUnique({
+      where: { id: restaurantId }
+    });
+    if (!restaurant) {
+      return res.status(404).json({ error: "Restaurant not found." });
+    }
+    res.json(restaurant);
+  } catch (error) {
+    console.error('[Get Restaurant Error]', error);
+    res.status(500).json({ error: "Failed to retrieve restaurant details." });
+  }
+}
 
 }

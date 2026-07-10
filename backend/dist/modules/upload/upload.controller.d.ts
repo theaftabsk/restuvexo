@@ -3,5 +3,5 @@ import { UploadService } from './upload.service';
 export declare class UploadController {
     private uploadService;
     constructor(uploadService: UploadService);
-    uploadImage(file: any, res: Response): Promise<Response<any, Record<string, any>>>;
+    uploadImage(file: any, type: string, res: Response): Promise<Response<any, Record<string, any>>>;
 }

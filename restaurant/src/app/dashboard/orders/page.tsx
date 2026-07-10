@@ -84,14 +84,16 @@ export default function OrdersManager() {
     socket.on("connect", () => {
       console.log("Orders Socket Connected:", socket.id);
       const userStr = localStorage.getItem("user");
-      if (userStr) {
-        try {
-          const userObj = JSON.parse(userStr);
-          if (userObj.restaurantId) {
-            socket.emit("join_restaurant", userObj.restaurantId);
-          }
-        } catch (e) {}
-      }
+      const restStr = localStorage.getItem("restaurant");
+      try {
+        let restaurantId = null;
+        if (userStr) restaurantId = JSON.parse(userStr).restaurantId;
+        if (!restaurantId && restStr) restaurantId = JSON.parse(restStr).id;
+
+        if (restaurantId) {
+          socket.emit("join_restaurant", restaurantId);
+        }
+      } catch (e) {}
     });
 
     // Listen for instant order updates pushed by backend
@@ -369,7 +371,7 @@ export default function OrdersManager() {
     localStorage.setItem("editOrderDiscount", order.discountApplied ? order.discountApplied.toString() : "0");
     
     // Redirect securely to high-speed billing terminal
-    window.location.href = "/dashboard/pos";
+    window.location.href = "/dashboard/orders/create";
   };
 
   // Print thermal 80mm receipt driver
@@ -746,37 +748,20 @@ export default function OrdersManager() {
                             <button
                               onClick={() => handleEditInPos(order)}
                               className="py-1.5 px-3 bg-indigo-50 hover:bg-indigo-600 text-indigo-600 hover:text-white border border-indigo-200/60 text-[9px] font-black uppercase tracking-widest rounded-xl transition"
-                              title="Edit items / add dishes to this order in POS"
+                              title="Edit items / add dishes to this order"
                             >
-                               Edit POS
+                               Edit
                             </button>
                           )}
 
                           {order.paymentStatus === "unpaid" && (
-                            <div className="inline-block relative">
-                              <button
-                                onClick={() => setSettlingOrderId(settlingOrderId === order.id ? null : order.id)}
-                                className="py-1.5 px-3 bg-[#ff5722] hover:bg-[#e04c1c] text-white text-[9px] font-black uppercase tracking-widest rounded-xl shadow-sm transition"
-                              >
-                                 Settle
-                              </button>
-                              
-                              {/* Settle Dropdown */}
-                              {settlingOrderId === order.id && (
-                                <div className="absolute right-0 mt-2 bg-slate-950 border border-slate-800 rounded-2xl shadow-2xl p-2.5 z-50 flex flex-col gap-1 min-w-[120px] text-left">
-                                  <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest px-2 pb-1.5 border-b border-slate-900">Payment Option</span>
-                                  {["cash", "upi", "card"].map(method => (
-                                    <button
-                                      key={method}
-                                      onClick={() => handleSettlePayment(order.id, method)}
-                                      className="w-full text-left py-2 px-3 text-[10px] font-black uppercase text-slate-300 hover:text-white hover:bg-slate-900 rounded-lg transition"
-                                    >
-                                      {method === 'cash' ? ' Cash' : method === 'upi' ? ' UPI' : ' Card'}
-                                    </button>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
+                            <button
+                              onClick={() => window.location.href = `/dashboard/pos?orderId=${order.id}`}
+                              className="py-1.5 px-3 bg-[#ff5722] hover:bg-[#e04c1c] text-white text-[9px] font-black uppercase tracking-widest rounded-xl shadow-sm transition"
+                              title="Settle payment for this order on POS Billing"
+                            >
+                               Settle
+                            </button>
                           )}
 
                           {user?.role === "owner" && order.paymentStatus !== "paid" && (

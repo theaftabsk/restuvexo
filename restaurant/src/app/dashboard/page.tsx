@@ -4,6 +4,29 @@ import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { io } from "socket.io-client";
 import LoadingScreen from "@/components/LoadingScreen";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+} from 'chart.js';
+import { Line } from 'react-chartjs-2';
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+);
 
 export default function DashboardHome() {
   const [user, setUser] = useState(null);
@@ -48,12 +71,54 @@ export default function DashboardHome() {
   const [wizardSuccess, setWizardSuccess] = useState("");
   const [wizardLoading, setWizardLoading] = useState(false);
 
+  // Waiter states
+  const [waiterOrders, setWaiterOrders] = useState([]);
+  const [tables, setTables] = useState([]);
+  const [loadingWaiterData, setLoadingWaiterData] = useState(true);
+
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
     const storedRestaurant = localStorage.getItem("restaurant");
     if (storedUser) setUser(JSON.parse(storedUser));
     if (storedRestaurant) setRestaurant(JSON.parse(storedRestaurant));
   }, []);
+
+  const fetchWaiterDashboardData = async () => {
+    const BACKEND_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000");
+    const token = localStorage.getItem("authToken");
+    if (!token) return;
+
+    try {
+      const [ordersRes, tablesRes] = await Promise.all([
+        fetch(`${BACKEND_URL}/api/orders?limit=100`, {
+          headers: { "Authorization": `Bearer ${token}` }
+        }),
+        fetch(`${BACKEND_URL}/api/tables`, {
+          headers: { "Authorization": `Bearer ${token}` }
+        })
+      ]);
+
+      if (ordersRes.ok) {
+        const json = await ordersRes.json();
+        const allOrders = json.data || [];
+        const storedUser = localStorage.getItem("user");
+        if (storedUser) {
+          const u = JSON.parse(storedUser);
+          const myOrders = allOrders.filter((o: any) => o.createdBy === u.id);
+          setWaiterOrders(myOrders);
+        }
+      }
+
+      if (tablesRes.ok) {
+        const tablesJson = await tablesRes.json();
+        setTables(tablesJson);
+      }
+    } catch (err) {
+      console.error("Error loading waiter dashboard data:", err);
+    } finally {
+      setLoadingWaiterData(false);
+    }
+  };
 
   const fetchDashboardStats = async () => {
     const BACKEND_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000");
@@ -84,6 +149,9 @@ export default function DashboardHome() {
     if (user) {
       fetchMenuStatus();
       fetchDashboardStats();
+      if (user.role === "waiter") {
+        fetchWaiterDashboardData();
+      }
 
       //  SOCKET.IO REAL-TIME CONNECTION
       const BACKEND_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000");
@@ -102,28 +170,36 @@ export default function DashboardHome() {
       // Synchronize stats instantly on any backend transaction
       socket.on("new_order_placed", () => {
         debouncedFetchStats();
+        if (user.role === "waiter") fetchWaiterDashboardData();
       });
       socket.on("new_qr_order_placed", () => {
         debouncedFetchStats();
+        if (user.role === "waiter") fetchWaiterDashboardData();
       });
       socket.on("qr_order_approved", () => {
         debouncedFetchStats();
+        if (user.role === "waiter") fetchWaiterDashboardData();
       });
       socket.on("order_updated", () => {
         debouncedFetchStats();
         debouncedFetchMenu();
+        if (user.role === "waiter") fetchWaiterDashboardData();
       });
       socket.on("order_status_updated", () => {
         debouncedFetchStats();
+        if (user.role === "waiter") fetchWaiterDashboardData();
       });
       socket.on("order_deleted", () => {
         debouncedFetchStats();
+        if (user.role === "waiter") fetchWaiterDashboardData();
       });
       socket.on("order_payment_settled", () => {
         debouncedFetchStats();
+        if (user.role === "waiter") fetchWaiterDashboardData();
       });
       socket.on("table_updated", () => {
         debouncedFetchStats();
+        if (user.role === "waiter") fetchWaiterDashboardData();
       });
       socket.on("inventory_updated", () => {
         debouncedFetchStats();
@@ -259,7 +335,7 @@ export default function DashboardHome() {
     }
   };
 
-  if (!user || loadingMenu || loadingStats) {
+  if (!user || (user.role === "owner" && loadingMenu) || loadingStats || (user.role === "waiter" && loadingWaiterData)) {
     return <LoadingScreen message="Syncing dashboard engine..." minHeight="50vh" />;
   }
 
@@ -272,6 +348,211 @@ export default function DashboardHome() {
 
   // Dynamic Date string matching RestroServe format
   const formattedDate = new Date().toLocaleDateString("en-US", { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+
+  // Waiter Dashboard UI
+  const renderWaiterDashboard = () => {
+    const waiterActiveOrders = waiterOrders.filter((o: any) => o.paymentStatus === 'unpaid' && o.status !== 'cancelled');
+    const waiterCompletedToday = waiterOrders.filter((o: any) => o.paymentStatus === 'paid' && new Date(o.createdAt).toDateString() === new Date().toDateString());
+
+    return (
+      <div className="space-y-8">
+        
+        {/* --- 1. THREE GLOSSY MINI METRICS CARDS WITH WAVE CHARTS --- */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          
+          {/* Card 1: Your Active Orders */}
+          <div className="bg-white/70 backdrop-blur-xl border border-slate-100/80 p-5.5 rounded-[2.2rem] space-y-4 shadow-xl shadow-slate-100/40 relative overflow-hidden flex flex-col justify-between min-h-[130px] transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-orange-500/5 hover:border-orange-500/20 group">
+            <div className="flex justify-between items-start relative z-10">
+              <div className="space-y-1">
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Your Active Orders</span>
+                <h3 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight group-hover:scale-[1.02] transition-transform duration-300">
+                  {waiterActiveOrders.length} KOTs
+                </h3>
+              </div>
+              <span className="w-9 h-9 rounded-2xl bg-orange-50 text-[#ff5722] flex items-center justify-center shadow-inner group-hover:scale-110 transition duration-300 animate-pulse">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15.362 5.214A8.252 8.252 0 0112 21 8.25 8.25 0 016.038 7.048 8.287 8.287 0 009 9.6a8.983 8.983 0 013.361-6.867 8.21 8.21 0 003 2.48z" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 18a3.75 3.75 0 00.495-7.467 5.99 5.99 0 00-1.925 3.546 5.974 5.974 0 01-2.133-1A3.75 3.75 0 0012 18z" /></svg>
+              </span>
+            </div>
+            <div className="absolute bottom-0 inset-x-0 h-11 opacity-20 pointer-events-none group-hover:opacity-30 transition duration-500">
+              <svg viewBox="0 0 100 20" className="w-full h-full text-orange-500 fill-current">
+                <path d="M0,15 Q25,5 50,15 T100,5 L100,20 L0,20 Z" />
+              </svg>
+            </div>
+          </div>
+
+          {/* Card 2: Your Served Today */}
+          <div className="bg-white/70 backdrop-blur-xl border border-slate-100/80 p-5.5 rounded-[2.2rem] space-y-4 shadow-xl shadow-slate-100/40 relative overflow-hidden flex flex-col justify-between min-h-[130px] transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-emerald-500/5 hover:border-emerald-500/20 group">
+            <div className="flex justify-between items-start relative z-10">
+              <div className="space-y-1">
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Your Served Today</span>
+                <h3 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight group-hover:scale-[1.02] transition-transform duration-300">
+                  {waiterCompletedToday.length} Orders
+                </h3>
+              </div>
+              <span className="w-9 h-9 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shadow-inner group-hover:scale-110 transition duration-300">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              </span>
+            </div>
+            <div className="absolute bottom-0 inset-x-0 h-11 opacity-20 pointer-events-none group-hover:opacity-30 transition duration-500">
+              <svg viewBox="0 0 100 20" className="w-full h-full text-emerald-500 fill-current">
+                <path d="M0,10 Q25,20 50,5 T100,15 L100,20 L0,20 Z" />
+              </svg>
+            </div>
+          </div>
+
+          {/* Card 3: Active Dining Tables */}
+          <div className="bg-white/70 backdrop-blur-xl border border-slate-100/80 p-5.5 rounded-[2.2rem] space-y-4 shadow-xl shadow-slate-100/40 relative overflow-hidden flex flex-col justify-between min-h-[130px] transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-blue-500/5 hover:border-blue-500/20 group">
+            <div className="flex justify-between items-start relative z-10">
+              <div className="space-y-1">
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Active Dining Tables</span>
+                <h3 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight group-hover:scale-[1.02] transition-transform duration-300">
+                  {stats?.busyTables?.busy || "0"} / {stats?.busyTables?.total || "0"} Active
+                </h3>
+              </div>
+              <span className="w-9 h-9 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shadow-inner group-hover:rotate-12 transition duration-300">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" /></svg>
+              </span>
+            </div>
+            <div className="absolute bottom-0 inset-x-0 h-11 opacity-20 pointer-events-none group-hover:opacity-30 transition duration-500">
+              <svg viewBox="0 0 100 20" className="w-full h-full text-blue-500 fill-current">
+                <path d="M0,15 Q30,5 60,15 T100,10 L100,20 L0,20 Z" />
+              </svg>
+            </div>
+          </div>
+
+        </div>
+
+        {/* --- 2. QUICK ACTIONS FOR WAITER --- */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <Link href="/dashboard/orders/create" className="bg-[#ff5722] hover:bg-[#e64a19] text-white p-5 rounded-[1.8rem] flex flex-col items-center justify-center text-center gap-2.5 shadow-lg shadow-orange-500/10 hover:shadow-orange-500/30 transition-all duration-300 hover:-translate-y-0.5 active:scale-95 group">
+            <span className="w-9 h-9 rounded-xl bg-white/25 flex items-center justify-center text-white">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+            </span>
+            <span className="text-[10px] font-black tracking-widest uppercase">Take New Order</span>
+          </Link>
+
+          <Link href="/dashboard/pos" className="bg-[#0f172a] hover:bg-slate-900 text-white p-5 rounded-[1.8rem] flex flex-col items-center justify-center text-center gap-2.5 shadow-lg transition-all duration-300 hover:-translate-y-0.5 active:scale-95 group">
+            <span className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center text-white">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 14.25l6-6m4.5-3.493V21a3 3 0 11-6 0V6.5m12-3.5a3 3 0 11-6 0m-6 3.5H1.5M1.5 6.5a3 3 0 106 0V21a3 3 0 11-6 0V6.5z" /></svg>
+            </span>
+            <span className="text-[10px] font-black tracking-widest uppercase">POS Billing</span>
+          </Link>
+
+          <Link href="/dashboard/orders" className="bg-white hover:bg-slate-50 text-slate-800 border border-slate-100 p-5 rounded-[1.8rem] flex flex-col items-center justify-center text-center gap-2.5 shadow-md transition-all duration-300 hover:-translate-y-0.5 active:scale-95 group">
+            <span className="w-9 h-9 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-600">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
+            </span>
+            <span className="text-[10px] font-black tracking-widest uppercase">Orders Manager</span>
+          </Link>
+
+          <Link href="/dashboard/qr" className="bg-white hover:bg-slate-50 text-slate-800 border border-slate-100 p-5 rounded-[1.8rem] flex flex-col items-center justify-center text-center gap-2.5 shadow-md transition-all duration-300 hover:-translate-y-0.5 active:scale-95 group">
+            <span className="w-9 h-9 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-600">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m0 11v1m0-6V8m0-5a9 9 0 110 18 9 9 0 010-18zm-5 5h.01M9 16h.01m6-8h.01M15 16h.01" /></svg>
+            </span>
+            <span className="text-[10px] font-black tracking-widest uppercase">QR Approvals</span>
+          </Link>
+        </div>
+
+        {/* --- 3. FLOOR TABLES GRID MAP --- */}
+        <div className="bg-white border border-slate-100 rounded-[2.5rem] p-7 shadow-xl shadow-slate-200/30 space-y-6">
+          <div>
+            <h3 className="text-base font-black text-slate-900">Restaurant Floor Map</h3>
+            <p className="text-slate-400 text-[10px] uppercase font-bold tracking-widest mt-0.5">Real-time occupancy status of tables</p>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
+            {tables.map((t: any) => {
+              const isOccupied = t.status === 'occupied';
+
+              return (
+                <div 
+                  key={t.id} 
+                  className={`p-4.5 rounded-2xl border transition-all duration-300 flex flex-col justify-between min-h-[95px] ${
+                    isOccupied 
+                      ? "bg-rose-50/50 border-rose-100 text-rose-800" 
+                      : "bg-emerald-50/40 border-emerald-100 text-emerald-800"
+                  }`}
+                >
+                  <div className="flex justify-between items-start">
+                    <span className="text-xs font-black">{t.tableNo}</span>
+                    <span className={`w-2 h-2 rounded-full ${isOccupied ? 'bg-rose-500 animate-pulse' : 'bg-emerald-500'}`} />
+                  </div>
+                  <div className="text-left mt-2">
+                    <p className="text-[9px] font-black uppercase tracking-wider opacity-60">Status</p>
+                    <p className="text-xs font-extrabold uppercase">{isOccupied ? "Occupied" : "Free"}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* --- 4. YOUR ACTIVE AND RECENT KOTs QUEUE --- */}
+        <div className="bg-white border border-slate-100 rounded-[2.5rem] p-7 shadow-xl shadow-slate-200/30 space-y-5">
+          <div className="flex justify-between items-center border-b border-slate-50 pb-3">
+            <h3 className="text-base font-black text-slate-900">Your Recent Dispatched KOTs</h3>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Last 10 Tickets</span>
+          </div>
+
+          {waiterOrders.length === 0 ? (
+            <div className="text-center py-10 text-slate-350 font-bold uppercase tracking-widest text-[10px]">
+              You haven't dispatched any orders today.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-slate-100 text-left text-xs font-bold text-slate-700 bg-white">
+                <thead className="bg-slate-50 text-[9px] font-black uppercase text-slate-400 tracking-widest">
+                  <tr>
+                    <th className="px-5 py-3">Order ID</th>
+                    <th className="px-5 py-3">Table</th>
+                    <th className="px-5 py-3">Food Items</th>
+                    <th className="px-5 py-3">Bill Total</th>
+                    <th className="px-5 py-3">Status</th>
+                    <th className="px-5 py-3">Payment</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-semibold text-slate-600">
+                  {waiterOrders.slice(0, 10).map((order: any) => (
+                    <tr key={order.id} className="hover:bg-slate-50/40">
+                      <td className="px-5 py-3.5 font-black text-slate-900">#{order.id}</td>
+                      <td className="px-5 py-3.5">
+                        <span className="px-2 py-0.5 bg-slate-100 rounded text-[10px] font-black uppercase">{order.table?.tableNo || "Takeaway"}</span>
+                      </td>
+                      <td className="px-5 py-3.5 max-w-[200px] truncate" title={order.orderItems?.map((i: any) => `${i.menuItem?.name || i.name} x${i.qty}`).join(', ')}>
+                        {order.orderItems?.map((i: any) => `${i.menuItem?.name || i.name} x${i.qty}`).join(', ')}
+                      </td>
+                      <td className="px-5 py-3.5 font-black text-slate-900">₹{parseFloat(order.totalAmount).toFixed(2)}</td>
+                      <td className="px-5 py-3.5">
+                        <span className={`text-[8px] px-2 py-0.5 rounded font-black uppercase tracking-wider ${
+                          order.status === "ready" 
+                            ? "bg-emerald-100 text-emerald-600"
+                            : order.status === "cooking"
+                              ? "bg-amber-100 text-amber-600"
+                              : "bg-slate-100 text-slate-500"
+                        }`}>
+                          {order.status}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <span className={`text-[8px] px-2 py-0.5 rounded font-black uppercase tracking-wider ${
+                          order.paymentStatus === "paid" 
+                            ? "bg-emerald-50 text-emerald-600"
+                            : "bg-rose-50 text-rose-600"
+                        }`}>
+                          {order.paymentStatus}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-8 animate-fade-in-up relative text-slate-800">
@@ -425,6 +706,8 @@ export default function DashboardHome() {
           )}
 
         </div>
+      ) : user.role === "waiter" ? (
+        renderWaiterDashboard()
       ) : (
         /* ========================================================
             STAGE C: FULL WORKSPACE WIDGETS (GORGEOUS GLASSMORPHISM)
@@ -519,12 +802,11 @@ export default function DashboardHome() {
             </div>
  
           </div>
- 
-          {/* --- 2. THREE LARGE GRADIENT FULFILLMENT CARDS WITH REFLECTIONS --- */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+          {/* --- 2. DINE-IN CARD & 7-DAY REVENUE GRAPH --- */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
             
             {/* Card A: Dine-In (Orange Glossy Gradient) */}
-            <div className="bg-gradient-to-br from-orange-500 via-[#ff5722] to-amber-600 text-white rounded-[2.5rem] p-7 space-y-6 shadow-xl shadow-orange-500/10 hover:shadow-orange-500/30 hover:-translate-y-1.5 transition-all duration-500 relative overflow-hidden group">
+            <div className="lg:col-span-1 bg-gradient-to-br from-orange-500 via-[#ff5722] to-amber-600 text-white rounded-[2.5rem] p-7 space-y-6 shadow-xl shadow-orange-500/10 hover:shadow-orange-500/30 hover:-translate-y-1.5 transition-all duration-500 relative overflow-hidden group">
               {/* Glossy diagonal highlight glare */}
               <div className="absolute -inset-y-2 left-[-100%] w-1/2 bg-gradient-to-r from-transparent via-white/10 to-transparent skew-x-12 group-hover:left-[200%] transition-all duration-1000 ease-out pointer-events-none" />
               
@@ -541,7 +823,7 @@ export default function DashboardHome() {
               <div className="space-y-1 relative z-10">
                 <h3 className="text-2xl font-black tracking-tight">Dine-In</h3>
               </div>
- 
+
               <div className="grid grid-cols-3 border-t border-white/20 pt-4 text-left relative z-10 gap-2">
                 <div>
                   <span className="text-[8px] font-bold text-white/70 uppercase tracking-wider block">REVENUE</span>
@@ -556,7 +838,7 @@ export default function DashboardHome() {
                   <span className="text-sm font-black">₹{stats?.fulfillments?.dineIn?.avgBill?.toLocaleString() || "0"}</span>
                 </div>
               </div>
- 
+
               <div className="text-[9px] font-bold text-white/80 flex flex-wrap gap-2 md:gap-3 pt-2.5 border-t border-white/10 relative z-10">
                 <span className="flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" /> 
@@ -566,95 +848,110 @@ export default function DashboardHome() {
                 <span> {stats?.fulfillments?.dineIn?.itemsCount || "0"} items</span>
               </div>
             </div>
- 
-            {/* Card B: Delivery (Blue Glossy Gradient) */}
-            <div className="bg-gradient-to-br from-blue-500 via-indigo-600 to-violet-750 text-white rounded-[2.5rem] p-7 space-y-6 shadow-xl shadow-blue-500/10 hover:shadow-blue-500/30 hover:-translate-y-1.5 transition-all duration-500 relative overflow-hidden group">
-              {/* Glossy diagonal highlight glare */}
-              <div className="absolute -inset-y-2 left-[-100%] w-1/2 bg-gradient-to-r from-transparent via-white/10 to-transparent skew-x-12 group-hover:left-[200%] transition-all duration-1000 ease-out pointer-events-none" />
- 
-              <div className="flex justify-between items-start relative z-10">
-                <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center shadow-inner group-hover:scale-110 transition duration-300">
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.8"><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12" /></svg>
+
+            {/* Chart Card: Last 7 Days Sales */}
+            <div className="lg:col-span-2 bg-white border border-slate-100 rounded-[2.5rem] p-7 shadow-xl shadow-slate-100/50 flex flex-col justify-between relative overflow-hidden group hover:shadow-slate-200/50 hover:-translate-y-1.5 transition-all duration-500">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-100 pb-5">
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-[#ff5722] block mb-1">REVENUE TREND</span>
+                  <h3 className="text-2xl font-black text-slate-800 tracking-tight">Last 7 Days Sales</h3>
+                  <p className="text-xs text-slate-400 font-medium">Real-time daily transaction volume</p>
                 </div>
-                <div className="text-right">
-                  <span className="text-[8px] font-black uppercase tracking-widest text-white/70 block">SHARE</span>
-                  <span className="text-lg font-black tracking-tight">{stats?.fulfillments?.delivery?.share || "0"}%</span>
+                <div className="bg-orange-50 px-4 py-2.5 rounded-2xl border border-orange-100 text-right">
+                  <span className="text-[8px] font-bold text-orange-600 uppercase tracking-widest block mb-0.5">7-DAY TOTAL</span>
+                  <span className="text-lg font-black text-[#ff5722] tracking-tight">₹{(stats?.last7DaysSales?.reduce((sum: number, s: any) => sum + s.sales, 0) || 0).toLocaleString()}</span>
                 </div>
               </div>
-              
-              <div className="space-y-1 relative z-10">
-                <h3 className="text-2xl font-black tracking-tight">Delivery</h3>
-              </div>
- 
-              <div className="grid grid-cols-3 border-t border-white/20 pt-4 text-left relative z-10 gap-2">
-                <div>
-                  <span className="text-[8px] font-bold text-white/70 uppercase tracking-wider block">REVENUE</span>
-                  <span className="text-sm font-black">₹{stats?.fulfillments?.delivery?.revenue?.toLocaleString() || "0"}</span>
-                </div>
-                <div>
-                  <span className="text-[8px] font-bold text-white/70 uppercase tracking-wider block">ORDERS</span>
-                  <span className="text-sm font-black">{stats?.fulfillments?.delivery?.orders || "0"}</span>
-                </div>
-                <div>
-                  <span className="text-[8px] font-bold text-white/70 uppercase tracking-wider block">AVG BILL</span>
-                  <span className="text-sm font-black">₹{stats?.fulfillments?.delivery?.avgBill?.toLocaleString() || "0"}</span>
-                </div>
-              </div>
- 
-              <div className="text-[9px] font-bold text-white/80 flex flex-wrap gap-2 md:gap-3 pt-2.5 border-t border-white/10 relative z-10">
-                <span className="flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" /> 
-                  {stats?.fulfillments?.delivery?.activeCount || "0"} active
-                </span>
-                <span> {stats?.fulfillments?.delivery?.completedCount || "0"} done</span>
-                <span> {stats?.fulfillments?.delivery?.itemsCount || "0"} items</span>
+
+              {/* Chart container */}
+              <div className="h-64 mt-6 relative z-10 w-full">
+                {stats?.last7DaysSales && stats.last7DaysSales.length > 0 ? (
+                  <Line 
+                    data={{
+                      labels: stats.last7DaysSales.map((s: any) => s.date),
+                      datasets: [
+                        {
+                          label: "Sales Revenue",
+                          data: stats.last7DaysSales.map((s: any) => s.sales),
+                          fill: true,
+                          borderColor: "#ff5722",
+                          backgroundColor: "rgba(255, 87, 34, 0.05)",
+                          borderWidth: 3,
+                          pointBackgroundColor: "#ff5722",
+                          pointBorderColor: "#fff",
+                          pointBorderWidth: 2,
+                          pointRadius: 4,
+                          pointHoverRadius: 6,
+                          tension: 0.4,
+                        }
+                      ]
+                    }} 
+                    options={{
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      plugins: {
+                        legend: {
+                          display: false,
+                        },
+                        tooltip: {
+                          mode: 'index',
+                          intersect: false,
+                          backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                          titleColor: '#fff',
+                          bodyColor: '#e2e8f0',
+                          borderColor: 'rgba(255,255,255,0.1)',
+                          borderWidth: 1,
+                          padding: 12,
+                          cornerRadius: 12,
+                          displayColors: false,
+                          callbacks: {
+                            label: function(context: any) {
+                              return `Revenue: ₹${context.raw.toLocaleString()}`;
+                            }
+                          }
+                        }
+                      },
+                      scales: {
+                        x: {
+                          grid: {
+                            display: false,
+                          },
+                          ticks: {
+                            color: '#64748b',
+                            font: {
+                              size: 10,
+                              family: 'Outfit, sans-serif',
+                              weight: 'bold' as const
+                            }
+                          }
+                        },
+                        y: {
+                          grid: {
+                            color: 'rgba(226, 232, 240, 0.6)',
+                          },
+                          ticks: {
+                            color: '#64748b',
+                            font: {
+                              size: 10,
+                              family: 'Outfit, sans-serif',
+                              weight: 'bold' as const
+                            },
+                            callback: function(value: any) {
+                              return `₹${value}`;
+                            }
+                          }
+                        }
+                      }
+                    }} 
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-slate-400 text-xs">
+                    No sales data available for the last 7 days.
+                  </div>
+                )}
               </div>
             </div>
- 
-            {/* Card C: Takeaway / Parcel (Green Glossy Gradient) */}
-            <div className="bg-gradient-to-br from-emerald-500 via-emerald-600 to-teal-700 text-white rounded-[2.5rem] p-7 space-y-6 shadow-xl shadow-emerald-500/10 hover:shadow-emerald-500/30 hover:-translate-y-1.5 transition-all duration-500 relative overflow-hidden group">
-              {/* Glossy diagonal highlight glare */}
-              <div className="absolute -inset-y-2 left-[-100%] w-1/2 bg-gradient-to-r from-transparent via-white/10 to-transparent skew-x-12 group-hover:left-[200%] transition-all duration-1000 ease-out pointer-events-none" />
- 
-              <div className="flex justify-between items-start relative z-10">
-                <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center shadow-inner group-hover:scale-110 transition duration-300">
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.8"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007zM8.625 10.5a.375.375 0 11-.75 0 .375.375 0 01.75 0zm7.5 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" /></svg>
-                </div>
-                <div className="text-right">
-                  <span className="text-[8px] font-black uppercase tracking-widest text-white/70 block">SHARE</span>
-                  <span className="text-lg font-black tracking-tight">{stats?.fulfillments?.takeaway?.share || "0"}%</span>
-                </div>
-              </div>
-              
-              <div className="space-y-1 relative z-10">
-                <h3 className="text-2xl font-black tracking-tight">Parcel</h3>
-              </div>
- 
-              <div className="grid grid-cols-3 border-t border-white/20 pt-4 text-left relative z-10 gap-2">
-                <div>
-                  <span className="text-[8px] font-bold text-white/70 uppercase tracking-wider block">REVENUE</span>
-                  <span className="text-sm font-black">₹{stats?.fulfillments?.takeaway?.revenue?.toLocaleString() || "0"}</span>
-                </div>
-                <div>
-                  <span className="text-[8px] font-bold text-white/70 uppercase tracking-wider block">ORDERS</span>
-                  <span className="text-sm font-black">{stats?.fulfillments?.takeaway?.orders || "0"}</span>
-                </div>
-                <div>
-                  <span className="text-[8px] font-bold text-white/70 uppercase tracking-wider block">AVG BILL</span>
-                  <span className="text-sm font-black">₹{stats?.fulfillments?.takeaway?.avgBill?.toLocaleString() || "0"}</span>
-                </div>
-              </div>
- 
-              <div className="text-[9px] font-bold text-white/80 flex flex-wrap gap-2 md:gap-3 pt-2.5 border-t border-white/10 relative z-10">
-                <span className="flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" /> 
-                  {stats?.fulfillments?.takeaway?.activeCount || "0"} active
-                </span>
-                <span> {stats?.fulfillments?.takeaway?.completedCount || "0"} done</span>
-                <span> {stats?.fulfillments?.takeaway?.itemsCount || "0"} items</span>
-              </div>
-            </div>
- 
+
           </div>
  
           {/* --- 3. FOUR FLOATING QUICK ACTIONS CAPSULES WITH GLOWS --- */}

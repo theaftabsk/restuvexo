@@ -89,7 +89,7 @@ export default function DashboardLayout({ children }) {
         setPendingQrCount(data.pendingQrCount || 0);
         setActiveKdsCount(data.activeKdsCount || 0);
         setQrOrderingEnabled(data.qrOrderingEnabled !== false);
-        setSidebarTheme(data.sidebarTheme || 'light');
+        setSidebarTheme('light');
         setSidebarQuickActions(data.sidebarQuickActions !== false);
         setSidebarStoreSwitch(data.sidebarStoreSwitch !== false);
         setSidebarCollapsible(data.sidebarCollapsible !== false);
@@ -184,14 +184,16 @@ export default function DashboardLayout({ children }) {
 
     socket.on("connect", () => {
       const userStr = localStorage.getItem("user");
-      if (userStr) {
-        try {
-          const userObj = JSON.parse(userStr);
-          if (userObj.restaurantId) {
-            socket.emit("join_restaurant", userObj.restaurantId);
-          }
-        } catch (e) { }
-      }
+      const restStr = localStorage.getItem("restaurant");
+      try {
+        let restaurantId = null;
+        if (userStr) restaurantId = JSON.parse(userStr).restaurantId;
+        if (!restaurantId && restStr) restaurantId = JSON.parse(restStr).id;
+
+        if (restaurantId) {
+          socket.emit("join_restaurant", restaurantId);
+        }
+      } catch (e) { }
     });
 
     // We can keep these for other syncs if needed, but remove telemetry fetch overhead
@@ -207,7 +209,7 @@ export default function DashboardLayout({ children }) {
         setPendingQrCount(data.pendingQrCount || 0);
         setActiveKdsCount(data.activeKdsCount || 0);
         setQrOrderingEnabled(data.qrOrderingEnabled !== false);
-        setSidebarTheme(data.sidebarTheme || 'light');
+        setSidebarTheme('light');
         setSidebarQuickActions(data.sidebarQuickActions !== false);
         setSidebarStoreSwitch(data.sidebarStoreSwitch !== false);
         setSidebarCollapsible(data.sidebarCollapsible !== false);
@@ -232,6 +234,19 @@ export default function DashboardLayout({ children }) {
     window.addEventListener("subscription_updated", handleSubUpdated);
     return () => {
       window.removeEventListener("subscription_updated", handleSubUpdated);
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const stored = localStorage.getItem("restaurant");
+      if (stored) setRestaurant(JSON.parse(stored));
+    };
+    window.addEventListener("storage", handleStorageChange);
+    window.addEventListener("restaurant_updated", handleStorageChange);
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+      window.removeEventListener("restaurant_updated", handleStorageChange);
     };
   }, []);
 
@@ -271,9 +286,7 @@ export default function DashboardLayout({ children }) {
     window.location.href = "/auth/login";
   };
 
-  if (loading) {
-    return <LoadingScreen message="Securing session..." minHeight="100vh" fullScreen={true} />;
-  }
+
 
   // Helper to render high-end minimal SVG Outline Icons matching RestroServe style
   // Helper to render high-end minimal SVG Outline Icons matching RestroServe style
@@ -574,7 +587,37 @@ export default function DashboardLayout({ children }) {
     items: group.items.filter(item => item.allowed && !sidebarHiddenItems.includes(item.path))
   })).filter(group => group.items.length > 0);
 
+  // Dynamic Route Access Control Guard based on navigation permission configuration
+  useEffect(() => {
+    if (!user || loading) return;
+
+    let isPathFound = false;
+    let isAllowed = false;
+
+    for (const group of navigationGroups) {
+      for (const item of group.items) {
+        if (pathname === item.path || pathname.startsWith(item.path + "/")) {
+          isPathFound = true;
+          if (item.allowed) {
+            isAllowed = true;
+          }
+          break;
+        }
+      }
+      if (isPathFound) break;
+    }
+
+    if (isPathFound && !isAllowed) {
+      console.warn(`Unauthorized route access blocked for role: ${user.role} on ${pathname}`);
+      window.location.href = "/dashboard";
+    }
+  }, [user, pathname, loading]);
+
   const headerDetails = getPageHeaderDetails();
+
+  if (loading) {
+    return <LoadingScreen message="Securing session..." minHeight="100vh" fullScreen={true} />;
+  }
 
   return (
     <div className="h-screen w-full bg-[#f8fafc] flex text-slate-800 overflow-hidden font-sans relative">
@@ -686,13 +729,6 @@ export default function DashboardLayout({ children }) {
             </div>
           ) : (
             <div className="space-y-2 mt-1">
-              <div className={`flex items-center justify-between px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider shadow-md transition-all duration-300 ${themeClasses.workspaceBg}`}>
-                <span className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
-                  OWNER WORKSPACE
-                </span>
-                <span className="bg-white/20 px-1.5 py-0.5 rounded text-[8px] tracking-widest font-black text-white">LIVE</span>
-              </div>
 
               {/* Expanded Store Status Switch */}
               {sidebarStoreSwitch && (
@@ -885,7 +921,9 @@ export default function DashboardLayout({ children }) {
                   <p className={`text-[11px] font-black truncate leading-tight ${sidebarTheme === 'midnight' ? 'text-slate-100' : 'text-slate-900'}`}>{user?.name || "Aftab Sk"}</p>
                   <div className="flex items-center gap-1 mt-0.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse-glow" />
-                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">OWNER - ONLINE</span>
+                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">
+                      {user?.role ? `${user.role.toUpperCase()} - ONLINE` : "OWNER - ONLINE"}
+                    </span>
                   </div>
                 </div>
               </div>

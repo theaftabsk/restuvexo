@@ -11,8 +11,10 @@ async function bootstrap() {
   const server = app.getHttpAdapter().getInstance();
   server.set('trust proxy', 1);
 
-  // Secure HTTP headers
-  app.use(helmet());
+  // Secure HTTP headers with cross-origin resource policy enabled for static asset serving
+  app.use(helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" }
+  }));
 
   // Configure CORS dynamically to support subdomains
   const allowedOrigins = [
@@ -25,6 +27,8 @@ async function bootstrap() {
   if (process.env.NODE_ENV !== 'production') {
     allowedOrigins.push('http://localhost:3000');
     allowedOrigins.push('http://app.localhost:3000');
+    allowedOrigins.push('http://localhost:3001');
+    allowedOrigins.push('http://localhost:3002');
   }
 
   if (process.env.FRONTEND_URL) {

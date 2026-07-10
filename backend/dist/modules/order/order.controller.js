@@ -236,7 +236,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], OrderController.prototype, "getOrderLogs", null);
 exports.OrderController = OrderController = __decorate([
-    (0, common_1.Controller)('api/order'),
+    (0, common_1.Controller)(['api/order', 'api/orders']),
     __metadata("design:paramtypes", [order_service_1.OrderService])
 ], OrderController);
 //# sourceMappingURL=order.controller.js.map

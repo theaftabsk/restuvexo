@@ -52,6 +52,15 @@ let AuthController = class AuthController {
     async deleteStaff(req, res) {
         return this.authService.deleteStaff(req, res);
     }
+    async updateRestaurant(req, res) {
+        return this.authService.updateRestaurant(req, res);
+    }
+    async updateProfile(req, res) {
+        return this.authService.updateProfile(req, res);
+    }
+    async getRestaurant(req, res) {
+        return this.authService.getRestaurant(req, res);
+    }
 };
 exports.AuthController = AuthController;
 __decorate([
@@ -144,6 +153,34 @@ __decorate([
     __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "deleteStaff", null);
+__decorate([
+    (0, common_1.UseGuards)(auth_guard_1.AuthGuard, roles_guard_1.RolesGuard),
+    (0, roles_decorator_1.Roles)('owner'),
+    (0, common_1.Put)('restaurant'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "updateRestaurant", null);
+__decorate([
+    (0, common_1.UseGuards)(auth_guard_1.AuthGuard),
+    (0, common_1.Put)('profile'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "updateProfile", null);
+__decorate([
+    (0, common_1.UseGuards)(auth_guard_1.AuthGuard),
+    (0, common_1.Get)('restaurant'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "getRestaurant", null);
 exports.AuthController = AuthController = __decorate([
     (0, common_1.Controller)('api/auth'),
     __metadata("design:paramtypes", [auth_service_1.AuthService])

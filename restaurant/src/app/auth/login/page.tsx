@@ -56,7 +56,7 @@ export default function UnifiedLogin() {
 
       setTimeout(() => {
         if (data.user.role === "waiter") {
-          window.location.href = "/waiter";
+          window.location.href = "/dashboard";
         } else if (data.user.role === "kitchen") {
           window.location.href = "/kds";
         } else {
@@ -147,7 +147,7 @@ export default function UnifiedLogin() {
       localStorage.setItem("user", JSON.stringify(data.user));
 
       setTimeout(() => {
-        window.location.href = "/waiter";
+        window.location.href = "/dashboard";
       }, 1200);
 
     } catch (err) {

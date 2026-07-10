@@ -9,7 +9,9 @@ async function bootstrap() {
     const app = await core_1.NestFactory.create(app_module_1.AppModule);
     const server = app.getHttpAdapter().getInstance();
     server.set('trust proxy', 1);
-    app.use((0, helmet_1.default)());
+    app.use((0, helmet_1.default)({
+        crossOriginResourcePolicy: { policy: "cross-origin" }
+    }));
     const allowedOrigins = [
         'https://app.restuvexo.shop',
         'https://restuvexo.shop',
@@ -19,6 +21,8 @@ async function bootstrap() {
     if (process.env.NODE_ENV !== 'production') {
         allowedOrigins.push('http://localhost:3000');
         allowedOrigins.push('http://app.localhost:3000');
+        allowedOrigins.push('http://localhost:3001');
+        allowedOrigins.push('http://localhost:3002');
     }
     if (process.env.FRONTEND_URL) {
         allowedOrigins.push(process.env.FRONTEND_URL);

@@ -4,6 +4,29 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { io } from "socket.io-client";
 import LoadingScreen from "@/components/LoadingScreen";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+} from 'chart.js';
+import { Line } from 'react-chartjs-2';
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+);
 
 export default function ReportsDashboard() {
   const [loading, setLoading] = useState(true);
@@ -655,56 +678,86 @@ export default function ReportsDashboard() {
             </button>
           </div>
 
-          {/* Outline SVG Graph */}
-          <div className="w-full h-56 bg-slate-50 border border-slate-100 rounded-[1.8rem] flex flex-col justify-end p-6 shadow-inner relative">
-            <svg className="w-full h-full" viewBox="0 0 500 150" preserveAspectRatio="none">
-              {/* Grid Lines */}
-              <line x1="0" y1="37.5" x2="500" y2="37.5" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="5,5" />
-              <line x1="0" y1="75" x2="500" y2="75" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="5,5" />
-              <line x1="0" y1="112.5" x2="500" y2="112.5" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="5,5" />
-
-              {/* Spark Trend Path */}
-              <path
-                d={weeklyTrend.map((t, idx) => {
-                  const x = (idx / 6) * 500;
-                  const y = 150 - (Number(t.sales) / maxWeeklySales) * 110 - 20;
-                  return `${idx === 0 ? "M" : "L"} ${x} ${y}`;
-                }).join(" ")}
-                fill="none"
-                stroke="#ff5722"
-                strokeWidth="4.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="animate-draw"
-              />
-
-              {/* Data points */}
-              {weeklyTrend.map((t, idx) => {
-                const x = (idx / 6) * 500;
-                const y = 150 - (Number(t.sales) / maxWeeklySales) * 110 - 20;
-                return (
-                  <circle
-                    key={idx}
-                    cx={x}
-                    cy={y}
-                    r="5.5"
-                    fill="#0f172a"
-                    stroke="#ffffff"
-                    strokeWidth="2.5"
-                    className="hover:scale-125 transition cursor-pointer"
-                  >
-                    <title>{t.day}: ₹{Number(t.sales).toFixed(0)}</title>
-                  </circle>
-                );
-              })}
-            </svg>
-
-            {/* X Axis Labels */}
-            <div className="flex justify-between w-full pt-4 border-t border-slate-100 mt-2 text-[9px] font-black text-slate-400 uppercase tracking-wider">
-              {weeklyTrend.map((t, idx) => (
-                <span key={idx} className="w-12 text-center">{t.day}</span>
-              ))}
-            </div>
+          {/* Chart.js Line Chart */}
+          <div className="w-full h-56 bg-slate-50 border border-slate-100 rounded-[1.8rem] p-4 shadow-inner relative">
+            <Line
+              data={{
+                labels: weeklyTrend.map(t => t.day),
+                datasets: [
+                  {
+                    label: "Daily Revenue",
+                    data: weeklyTrend.map(t => t.sales),
+                    fill: true,
+                    borderColor: "#ff5722",
+                    backgroundColor: "rgba(255, 87, 34, 0.05)",
+                    borderWidth: 3,
+                    pointBackgroundColor: "#0f172a",
+                    pointBorderColor: "#fff",
+                    pointBorderWidth: 2,
+                    pointRadius: 4.5,
+                    pointHoverRadius: 6,
+                    tension: 0.4,
+                  }
+                ]
+              }}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: {
+                    display: false,
+                  },
+                  tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                    backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                    titleColor: '#fff',
+                    bodyColor: '#e2e8f0',
+                    borderColor: 'rgba(255,255,255,0.1)',
+                    borderWidth: 1,
+                    padding: 10,
+                    cornerRadius: 12,
+                    displayColors: false,
+                    callbacks: {
+                      label: function(context: any) {
+                        return `Revenue: ₹${context.raw.toLocaleString()}`;
+                      }
+                    }
+                  }
+                },
+                scales: {
+                  x: {
+                    grid: {
+                      display: false,
+                    },
+                    ticks: {
+                      color: '#64748b',
+                      font: {
+                        size: 9,
+                        family: 'Outfit, sans-serif',
+                        weight: 'bold' as const
+                      }
+                    }
+                  },
+                  y: {
+                    grid: {
+                      color: 'rgba(226, 232, 240, 0.6)',
+                    },
+                    ticks: {
+                      color: '#64748b',
+                      font: {
+                        size: 9,
+                        family: 'Outfit, sans-serif',
+                        weight: 'bold' as const
+                      },
+                      callback: function(value: any) {
+                        return `₹${value}`;
+                      }
+                    }
+                  }
+                }
+              }}
+            />
           </div>
         </div>
 
@@ -1143,76 +1196,86 @@ export default function ReportsDashboard() {
                     style={{ width: `${zoomScale * 100}%`, minWidth: '100%', transition: 'width 0.25s ease-in-out' }}
                     className="flex flex-col justify-end"
                   >
-                    {/* SVG Curve */}
+                    {/* ChartJS 14-Day Line Graph */}
                     <div className="h-72 w-full relative">
-                      <svg className="w-full h-full" viewBox="0 0 1000 240" preserveAspectRatio="none">
-                        <defs>
-                          <linearGradient id="chart-gradient" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#ff5722" stopOpacity="1" />
-                            <stop offset="100%" stopColor="#ff9800" stopOpacity="1" />
-                          </linearGradient>
-                          <linearGradient id="chart-area" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#ff5722" stopOpacity="0.25" />
-                            <stop offset="100%" stopColor="#ff5722" stopOpacity="0" />
-                          </linearGradient>
-                        </defs>
-
-                        {/* Dotted Grid lines */}
-                        <line x1="0" y1="60" x2="1000" y2="60" stroke="#f1f5f9" strokeWidth="1.5" strokeDasharray="6,6" />
-                        <line x1="0" y1="120" x2="1000" y2="120" stroke="#f1f5f9" strokeWidth="1.5" strokeDasharray="6,6" />
-                        <line x1="0" y1="180" x2="1000" y2="180" stroke="#f1f5f9" strokeWidth="1.5" strokeDasharray="6,6" />
-
-                        {/* Area under curve */}
-                        <path
-                          d={`M 0 240 ${trend14Days.map((t, idx) => {
-                            const x = (idx / 13) * 1000;
-                            const y = 240 - (Number(t.sales) / max14DaySales) * 180 - 20;
-                            return `L ${x} ${y}`;
-                          }).join(" ")} L 1000 240 Z`}
-                          fill="url(#chart-area)"
-                        />
-
-                        {/* Stroke line */}
-                        <path
-                          d={trend14Days.map((t, idx) => {
-                            const x = (idx / 13) * 1000;
-                            const y = 240 - (Number(t.sales) / max14DaySales) * 180 - 20;
-                            return `${idx === 0 ? "M" : "L"} ${x} ${y}`;
-                          }).join(" ")}
-                          fill="none"
-                          stroke="url(#chart-gradient)"
-                          strokeWidth="5.5"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-
-                        {/* Circles on peak / data points */}
-                        {trend14Days.map((t, idx) => {
-                          const x = (idx / 13) * 1000;
-                          const y = 240 - (Number(t.sales) / max14DaySales) * 180 - 20;
-                          return (
-                            <g key={idx} className="group/dot cursor-pointer">
-                              <circle
-                                cx={x}
-                                cy={y}
-                                r="7.5"
-                                fill="#0f172a"
-                                stroke="#ffffff"
-                                strokeWidth="3"
-                                className="transition transform duration-200 hover:scale-150"
-                              />
-                              <title>{t.day}: ₹{Number(t.sales).toLocaleString('en-IN')}</title>
-                            </g>
-                          );
-                        })}
-                      </svg>
-                    </div>
-
-                    {/* X Axis labels (Scrolling in sync inside width scaling wrapper) */}
-                    <div className="flex justify-between w-full pt-4 border-t border-slate-100 mt-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                      {trend14Days.map((t, idx) => (
-                        <span key={idx} className="w-16 text-center whitespace-nowrap">{t.day}</span>
-                      ))}
+                      <Line
+                        data={{
+                          labels: trend14Days.map(t => t.day),
+                          datasets: [
+                            {
+                              label: "14-Day Revenue Trend",
+                              data: trend14Days.map(t => t.sales),
+                              fill: true,
+                              borderColor: "#ff5722",
+                              backgroundColor: "rgba(255, 87, 34, 0.05)",
+                              borderWidth: 4.5,
+                              pointBackgroundColor: "#0f172a",
+                              pointBorderColor: "#fff",
+                              pointBorderWidth: 3,
+                              pointRadius: 6,
+                              pointHoverRadius: 8,
+                              tension: 0.4,
+                            }
+                          ]
+                        }}
+                        options={{
+                          responsive: true,
+                          maintainAspectRatio: false,
+                          plugins: {
+                            legend: {
+                              display: false,
+                            },
+                            tooltip: {
+                              mode: 'index',
+                              intersect: false,
+                              backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                              titleColor: '#fff',
+                              bodyColor: '#e2e8f0',
+                              borderColor: 'rgba(255,255,255,0.1)',
+                              borderWidth: 1,
+                              padding: 12,
+                              cornerRadius: 12,
+                              displayColors: false,
+                              callbacks: {
+                                label: function(context: any) {
+                                  return `Revenue: ₹${context.raw.toLocaleString()}`;
+                                }
+                              }
+                            }
+                          },
+                          scales: {
+                            x: {
+                              grid: {
+                                display: false,
+                              },
+                              ticks: {
+                                color: '#64748b',
+                                font: {
+                                  size: 10,
+                                  family: 'Outfit, sans-serif',
+                                  weight: 'bold' as const
+                                }
+                              }
+                            },
+                            y: {
+                              grid: {
+                                color: 'rgba(226, 232, 240, 0.6)',
+                              },
+                              ticks: {
+                                color: '#64748b',
+                                font: {
+                                  size: 10,
+                                  family: 'Outfit, sans-serif',
+                                  weight: 'bold' as const
+                                },
+                                callback: function(value: any) {
+                                  return `₹${value}`;
+                                }
+                              }
+                            }
+                          }
+                        }}
+                      />
                     </div>
                   </div>
                 </div>

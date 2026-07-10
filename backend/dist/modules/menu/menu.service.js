@@ -186,7 +186,7 @@ let MenuService = class MenuService {
             menuItem = await this.prisma.menuItem.findUnique({ where: { id: parseInt(id) } });
             if (!menuItem || menuItem.restaurantId !== restaurantId) {
                 if (imageUrl) {
-                    const newImagePath = path.join(__dirname, '../../public', imageUrl);
+                    const newImagePath = path.join(__dirname, '../../../public', imageUrl);
                     if (fs.existsSync(newImagePath))
                         fs.unlinkSync(newImagePath);
                 }
@@ -207,7 +207,7 @@ let MenuService = class MenuService {
             });
             if (imageUrl !== undefined && menuItem.imageUrl && imageUrl !== menuItem.imageUrl) {
                 try {
-                    const oldImagePath = path.join(__dirname, '../../public', menuItem.imageUrl);
+                    const oldImagePath = path.join(__dirname, '../../../public', menuItem.imageUrl);
                     if (fs.existsSync(oldImagePath)) {
                         fs.unlinkSync(oldImagePath);
                     }
@@ -232,7 +232,7 @@ let MenuService = class MenuService {
             console.error('[Update Menu Item Error]', error);
             if (imageUrl !== undefined && (!menuItem || imageUrl !== menuItem.imageUrl)) {
                 try {
-                    const newImagePath = path.join(__dirname, '../../public', imageUrl);
+                    const newImagePath = path.join(__dirname, '../../../public', imageUrl);
                     if (fs.existsSync(newImagePath)) {
                         fs.unlinkSync(newImagePath);
                     }
@@ -256,7 +256,7 @@ let MenuService = class MenuService {
             await this.prisma.menuItem.delete({ where: { id: menuItem.id } });
             if (menuItem.imageUrl) {
                 try {
-                    const imagePath = path.join(__dirname, '../../public', menuItem.imageUrl);
+                    const imagePath = path.join(__dirname, '../../../public', menuItem.imageUrl);
                     if (fs.existsSync(imagePath)) {
                         fs.unlinkSync(imagePath);
                     }
