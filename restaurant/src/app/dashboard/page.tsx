@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import Link from "next/link";
 import { io } from "socket.io-client";
-import LoadingScreen from "@/components/LoadingScreen";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -12,10 +11,26 @@ import {
   LineElement,
   Title,
   Tooltip,
-  Legend,
   Filler
-} from 'chart.js';
-import { Line } from 'react-chartjs-2';
+} from "chart.js";
+import { Line } from "react-chartjs-2";
+import {
+  Plus,
+  ChefHat,
+  LayoutGrid,
+  TrendingUp,
+  ShoppingBag,
+  Flame,
+  IndianRupee,
+  Eye,
+  Receipt,
+  CheckCircle2,
+  Clock,
+  UtensilsCrossed,
+  ArrowUpRight,
+  Printer,
+  X
+} from "lucide-react";
 
 ChartJS.register(
   CategoryScale,
@@ -24,1058 +39,704 @@ ChartJS.register(
   LineElement,
   Title,
   Tooltip,
-  Legend,
   Filler
 );
 
 export default function DashboardHome() {
-  const [user, setUser] = useState(null);
-  const [restaurant, setRestaurant] = useState(null);
-  
-  // Menu and category counts to check for Onboarding state
-  const [categories, setCategories] = useState([]);
-  const [loadingMenu, setLoadingMenu] = useState(true);
+  const [user, setUser] = useState<any>(null);
+  const [restaurant, setRestaurant] = useState<any>(null);
 
-  // Real-time Live Stats States
-  const [stats, setStats] = useState(null);
-  const [loadingStats, setLoadingStats] = useState(true);
+  // Core metrics & operational states
+  const [stats, setStats] = useState<any>(null);
+  const [recentOrders, setRecentOrders] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [orderFilter, setOrderFilter] = useState<"all" | "active" | "completed">("all");
 
-  const statsTimeoutRef = useRef(null);
-  const menuTimeoutRef = useRef(null);
+  // Receipt Modal State
+  const [selectedOrder, setSelectedOrder] = useState<any>(null);
 
-  const debouncedFetchStats = () => {
-    if (statsTimeoutRef.current) clearTimeout(statsTimeoutRef.current);
-    statsTimeoutRef.current = setTimeout(() => {
-      fetchDashboardStats();
-    }, 300);
+  const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  const fetchTimeoutRef = useRef<any>(null);
+
+  // Time-based Greeting
+  const greeting = useMemo(() => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good morning";
+    if (hour < 17) return "Good afternoon";
+    return "Good evening";
+  }, []);
+
+  // Today formatted string
+  const todayFormatted = useMemo(() => {
+    return new Date().toLocaleDateString("en-US", {
+      day: "numeric",
+      month: "short",
+      year: "numeric"
+    });
+  }, []);
+
+  // Fetch Dashboard Stats & Recent Orders in parallel
+  const fetchDashboardData = async () => {
+    const token = localStorage.getItem("authToken");
+    if (!token) return;
+
+    try {
+      const [statsRes, ordersRes] = await Promise.all([
+        fetch(`${BACKEND_URL}/api/dashboard/stats?_=${Date.now()}`, {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store"
+        }),
+        fetch(`${BACKEND_URL}/api/orders?limit=10&_=${Date.now()}`, {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store"
+        })
+      ]);
+
+      if (statsRes.ok) {
+        const statsData = await statsRes.json();
+        setStats(statsData);
+      }
+
+      if (ordersRes.ok) {
+        const ordersData = await ordersRes.json();
+        setRecentOrders(Array.isArray(ordersData) ? ordersData : ordersData.orders || []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch dashboard data:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const debouncedFetchMenu = () => {
-    if (menuTimeoutRef.current) clearTimeout(menuTimeoutRef.current);
-    menuTimeoutRef.current = setTimeout(() => {
-      fetchMenuStatus();
-    }, 300);
+  const debouncedRefresh = () => {
+    if (fetchTimeoutRef.current) clearTimeout(fetchTimeoutRef.current);
+    fetchTimeoutRef.current = setTimeout(() => {
+      fetchDashboardData();
+    }, 250);
   };
-  
-  // Onboarding Wizard states
-  const [wizardStep, setWizardStep] = useState(1);
-  const [newCategoryName, setNewCategoryName] = useState("");
-  const [newMenuItem, setNewMenuItem] = useState({
-    name: "",
-    price: "",
-    categoryId: "",
-    stockQty: "100"
-  });
-  
-  const [wizardError, setWizardError] = useState("");
-  const [wizardSuccess, setWizardSuccess] = useState("");
-  const [wizardLoading, setWizardLoading] = useState(false);
-
-  // Waiter states
-  const [waiterOrders, setWaiterOrders] = useState([]);
-  const [tables, setTables] = useState([]);
-  const [loadingWaiterData, setLoadingWaiterData] = useState(true);
 
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
     const storedRestaurant = localStorage.getItem("restaurant");
     if (storedUser) setUser(JSON.parse(storedUser));
     if (storedRestaurant) setRestaurant(JSON.parse(storedRestaurant));
+
+    fetchDashboardData();
+
+    // Setup Live WebSocket Sync
+    const socket = io(BACKEND_URL, {
+      transports: ["websocket"],
+      reconnection: true
+    });
+
+    socket.on("connect", () => {
+      let restId = null;
+      if (storedUser) restId = JSON.parse(storedUser).restaurantId;
+      if (!restId && storedRestaurant) restId = JSON.parse(storedRestaurant).id;
+      if (restId) {
+        socket.emit("join_restaurant", restId);
+      }
+    });
+
+    socket.on("new_order_placed", () => debouncedRefresh());
+    socket.on("new_qr_order_placed", () => debouncedRefresh());
+    socket.on("order_status_updated", () => debouncedRefresh());
+    socket.on("order_deleted", () => debouncedRefresh());
+    socket.on("table_updated", () => debouncedRefresh());
+
+    return () => {
+      socket.disconnect();
+      if (fetchTimeoutRef.current) clearTimeout(fetchTimeoutRef.current);
+    };
   }, []);
 
-  const fetchWaiterDashboardData = async () => {
-    const BACKEND_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000");
-    const token = localStorage.getItem("authToken");
-    if (!token) return;
-
-    try {
-      const [ordersRes, tablesRes] = await Promise.all([
-        fetch(`${BACKEND_URL}/api/orders?limit=100`, {
-          headers: { "Authorization": `Bearer ${token}` }
-        }),
-        fetch(`${BACKEND_URL}/api/tables`, {
-          headers: { "Authorization": `Bearer ${token}` }
-        })
-      ]);
-
-      if (ordersRes.ok) {
-        const json = await ordersRes.json();
-        const allOrders = json.data || [];
-        const storedUser = localStorage.getItem("user");
-        if (storedUser) {
-          const u = JSON.parse(storedUser);
-          const myOrders = allOrders.filter((o: any) => o.createdBy === u.id);
-          setWaiterOrders(myOrders);
-        }
-      }
-
-      if (tablesRes.ok) {
-        const tablesJson = await tablesRes.json();
-        setTables(tablesJson);
-      }
-    } catch (err) {
-      console.error("Error loading waiter dashboard data:", err);
-    } finally {
-      setLoadingWaiterData(false);
+  // Filtered orders list
+  const filteredOrders = useMemo(() => {
+    if (orderFilter === "active") {
+      return recentOrders.filter(
+        (o) => o.status === "pending" || o.status === "cooking" || o.status === "ready"
+      );
     }
-  };
-
-  const fetchDashboardStats = async () => {
-    const BACKEND_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000");
-    const token = localStorage.getItem("authToken");
-    if (!token) return;
-
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/dashboard/stats?_=${Date.now()}`, {
-        headers: {
-          "Authorization": `Bearer ${token}`
-        },
-        cache: 'no-store'
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        setStats(data);
-      }
-    } catch (err) {
-      console.error("Error loading dashboard stats:", err);
-    } finally {
-      setLoadingStats(false);
+    if (orderFilter === "completed") {
+      return recentOrders.filter(
+        (o) => o.status === "completed" || o.paymentStatus === "paid"
+      );
     }
-  };
+    return recentOrders;
+  }, [recentOrders, orderFilter]);
 
-  // Fetch Menu categories & Stats on load with instant Socket.io live sync!
-  useEffect(() => {
-    if (user) {
-      fetchMenuStatus();
-      fetchDashboardStats();
-      if (user.role === "waiter") {
-        fetchWaiterDashboardData();
-      }
-
-      //  SOCKET.IO REAL-TIME CONNECTION
-      const BACKEND_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000");
-      const socket = io(BACKEND_URL, {
-        transports: ["websocket"],
-        reconnection: true
-      });
-
-      socket.on("connect", () => {
-        console.log("Dashboard Overview Socket Connected:", socket.id);
-        if (user.restaurantId) {
-          socket.emit("join_restaurant", user.restaurantId);
-        }
-      });
-
-      // Synchronize stats instantly on any backend transaction
-      socket.on("new_order_placed", () => {
-        debouncedFetchStats();
-        if (user.role === "waiter") fetchWaiterDashboardData();
-      });
-      socket.on("new_qr_order_placed", () => {
-        debouncedFetchStats();
-        if (user.role === "waiter") fetchWaiterDashboardData();
-      });
-      socket.on("qr_order_approved", () => {
-        debouncedFetchStats();
-        if (user.role === "waiter") fetchWaiterDashboardData();
-      });
-      socket.on("order_updated", () => {
-        debouncedFetchStats();
-        debouncedFetchMenu();
-        if (user.role === "waiter") fetchWaiterDashboardData();
-      });
-      socket.on("order_status_updated", () => {
-        debouncedFetchStats();
-        if (user.role === "waiter") fetchWaiterDashboardData();
-      });
-      socket.on("order_deleted", () => {
-        debouncedFetchStats();
-        if (user.role === "waiter") fetchWaiterDashboardData();
-      });
-      socket.on("order_payment_settled", () => {
-        debouncedFetchStats();
-        if (user.role === "waiter") fetchWaiterDashboardData();
-      });
-      socket.on("table_updated", () => {
-        debouncedFetchStats();
-        if (user.role === "waiter") fetchWaiterDashboardData();
-      });
-      socket.on("inventory_updated", () => {
-        debouncedFetchStats();
-      });
-      socket.on("reports_updated", () => {
-        debouncedFetchStats();
-      });
-
-      return () => {
-        socket.disconnect();
-        if (statsTimeoutRef.current) clearTimeout(statsTimeoutRef.current);
-        if (menuTimeoutRef.current) clearTimeout(menuTimeoutRef.current);
+  // Mini 7-Day Chart Setup
+  const chartData = useMemo(() => {
+    if (!stats?.last7Days || stats.last7Days.length === 0) {
+      return {
+        labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+        datasets: [
+          {
+            data: [0, 0, 0, 0, 0, 0, stats?.todayRevenue || 0],
+            fill: true,
+            borderColor: "#ff5722",
+            backgroundColor: "rgba(255, 87, 34, 0.08)",
+            tension: 0.4,
+            pointRadius: 3,
+            pointHoverRadius: 5,
+            pointBackgroundColor: "#ff5722",
+            borderWidth: 2.5
+          }
+        ]
       };
     }
-  }, [user]);
 
-  const fetchMenuStatus = async () => {
-    const BACKEND_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000");
-    const token = localStorage.getItem("authToken");
-    
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/menu/categories`, {
-        headers: { "Authorization": `Bearer ${token}` }
-      });
-      
-      // Auto-recover if database was seeded and old token restaurantId is mismatched (401)
-      if (res.status === 401) {
-        console.warn(" Session expired or DB seeded. Automatically redirecting to auth sync...");
-        localStorage.clear();
-        window.location.href = "/auth/login";
-        return;
-      }
+    const labels = stats.last7Days.map((d: any) => d.date);
+    const revenues = stats.last7Days.map((d: any) => d.revenue);
 
-      if (res.ok) {
-        const data = await res.json();
-        setCategories(data);
-        
-        if (data.length > 0 && wizardStep === 1) {
-          setWizardStep(2);
-          setNewMenuItem(prev => ({ ...prev, categoryId: data[0].id.toString() }));
+    return {
+      labels,
+      datasets: [
+        {
+          data: revenues,
+          fill: true,
+          borderColor: "#ff5722",
+          backgroundColor: "rgba(255, 87, 34, 0.08)",
+          tension: 0.4,
+          pointRadius: 3,
+          pointHoverRadius: 5,
+          pointBackgroundColor: "#ff5722",
+          borderWidth: 2.5
+        }
+      ]
+    };
+  }, [stats]);
+
+  const chartOptions: any = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: "#0f172a",
+        titleFont: { size: 11, weight: "bold" },
+        bodyFont: { size: 12, weight: "bold" },
+        padding: 8,
+        displayColors: false,
+        callbacks: {
+          label: (context: any) => `₹${Number(context.raw || 0).toLocaleString("en-IN")}`
         }
       }
-    } catch (error) {
-      console.error("Error checking menu status:", error);
-    } finally {
-      setLoadingMenu(false);
-    }
-  };
-
-  const handleCreateCategory = async (e) => {
-    e.preventDefault();
-    setWizardError("");
-    setWizardSuccess("");
-    setWizardLoading(true);
-
-    const BACKEND_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000");
-    const token = localStorage.getItem("authToken");
-
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/menu/categories`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify({ name: newCategoryName })
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to create category.");
+    },
+    scales: {
+      x: {
+        grid: { display: false },
+        ticks: { font: { size: 10, weight: "600" }, color: "#94a3b8" }
+      },
+      y: {
+        display: false,
+        beginAtZero: true
       }
-
-      setWizardSuccess("Category created successfully!");
-      setNewCategoryName("");
-      await fetchMenuStatus();
-      
-      setTimeout(() => {
-        setWizardStep(2);
-        setWizardSuccess("");
-      }, 1200);
-
-    } catch (err) {
-      setWizardError(err.message);
-    } finally {
-      setWizardLoading(false);
     }
   };
 
-  const handleCreateMenuItem = async (e) => {
-    e.preventDefault();
-    setWizardError("");
-    setWizardSuccess("");
-    setWizardLoading(true);
-
-    const BACKEND_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000");
-    const token = localStorage.getItem("authToken");
-
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/menu/menu-items`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          name: newMenuItem.name,
-          price: newMenuItem.price,
-          categoryId: parseInt(newMenuItem.categoryId),
-          stockQty: parseInt(newMenuItem.stockQty)
-        })
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to add menu item.");
-      }
-
-      setWizardSuccess("Fantastic! First dish added successfully!");
-      setNewMenuItem({ name: "", price: "", categoryId: categories[0]?.id.toString() || "", stockQty: "100" });
-      
-      setTimeout(async () => {
-        await fetchMenuStatus();
-        setWizardSuccess("");
-      }, 1500);
-
-    } catch (err) {
-      setWizardError(err.message);
-    } finally {
-      setWizardLoading(false);
+  // Helper for Order Status Pills
+  const renderStatusBadge = (status: string, paymentStatus: string) => {
+    if (paymentStatus === "paid" || status === "completed") {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/80">
+          <CheckCircle2 className="w-3 h-3" /> Paid
+        </span>
+      );
     }
-  };
-
-  if (!user || (user.role === "owner" && loadingMenu) || loadingStats || (user.role === "waiter" && loadingWaiterData)) {
-    return <LoadingScreen message="Syncing dashboard engine..." minHeight="50vh" />;
-  }
-
-  const hasItems = categories.some(cat => 
-    (cat._count && cat._count.menuItems > 0) || 
-    (cat.menuItems && cat.menuItems.length > 0) || 
-    cat.itemCount > 0
-  );
-  const showOnboardingWizard = user.role === "owner" && (!categories.length || !hasItems);
-
-  // Dynamic Date string matching RestroServe format
-  const formattedDate = new Date().toLocaleDateString("en-US", { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
-
-  // Waiter Dashboard UI
-  const renderWaiterDashboard = () => {
-    const waiterActiveOrders = waiterOrders.filter((o: any) => o.paymentStatus === 'unpaid' && o.status !== 'cancelled');
-    const waiterCompletedToday = waiterOrders.filter((o: any) => o.paymentStatus === 'paid' && new Date(o.createdAt).toDateString() === new Date().toDateString());
-
+    if (status === "ready") {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500 text-white shadow-xs">
+          <CheckCircle2 className="w-3 h-3" /> Ready
+        </span>
+      );
+    }
+    if (status === "cooking") {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200/80 animate-pulse">
+          <ChefHat className="w-3 h-3 text-amber-600" /> Cooking
+        </span>
+      );
+    }
     return (
-      <div className="space-y-8">
-        
-        {/* --- 1. THREE GLOSSY MINI METRICS CARDS WITH WAVE CHARTS --- */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          
-          {/* Card 1: Your Active Orders */}
-          <div className="bg-white/70 backdrop-blur-xl border border-slate-100/80 p-5.5 rounded-[2.2rem] space-y-4 shadow-xl shadow-slate-100/40 relative overflow-hidden flex flex-col justify-between min-h-[130px] transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-orange-500/5 hover:border-orange-500/20 group">
-            <div className="flex justify-between items-start relative z-10">
-              <div className="space-y-1">
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Your Active Orders</span>
-                <h3 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight group-hover:scale-[1.02] transition-transform duration-300">
-                  {waiterActiveOrders.length} KOTs
-                </h3>
-              </div>
-              <span className="w-9 h-9 rounded-2xl bg-orange-50 text-[#ff5722] flex items-center justify-center shadow-inner group-hover:scale-110 transition duration-300 animate-pulse">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15.362 5.214A8.252 8.252 0 0112 21 8.25 8.25 0 016.038 7.048 8.287 8.287 0 009 9.6a8.983 8.983 0 013.361-6.867 8.21 8.21 0 003 2.48z" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 18a3.75 3.75 0 00.495-7.467 5.99 5.99 0 00-1.925 3.546 5.974 5.974 0 01-2.133-1A3.75 3.75 0 0012 18z" /></svg>
-              </span>
-            </div>
-            <div className="absolute bottom-0 inset-x-0 h-11 opacity-20 pointer-events-none group-hover:opacity-30 transition duration-500">
-              <svg viewBox="0 0 100 20" className="w-full h-full text-orange-500 fill-current">
-                <path d="M0,15 Q25,5 50,15 T100,5 L100,20 L0,20 Z" />
-              </svg>
-            </div>
-          </div>
-
-          {/* Card 2: Your Served Today */}
-          <div className="bg-white/70 backdrop-blur-xl border border-slate-100/80 p-5.5 rounded-[2.2rem] space-y-4 shadow-xl shadow-slate-100/40 relative overflow-hidden flex flex-col justify-between min-h-[130px] transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-emerald-500/5 hover:border-emerald-500/20 group">
-            <div className="flex justify-between items-start relative z-10">
-              <div className="space-y-1">
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Your Served Today</span>
-                <h3 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight group-hover:scale-[1.02] transition-transform duration-300">
-                  {waiterCompletedToday.length} Orders
-                </h3>
-              </div>
-              <span className="w-9 h-9 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shadow-inner group-hover:scale-110 transition duration-300">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-              </span>
-            </div>
-            <div className="absolute bottom-0 inset-x-0 h-11 opacity-20 pointer-events-none group-hover:opacity-30 transition duration-500">
-              <svg viewBox="0 0 100 20" className="w-full h-full text-emerald-500 fill-current">
-                <path d="M0,10 Q25,20 50,5 T100,15 L100,20 L0,20 Z" />
-              </svg>
-            </div>
-          </div>
-
-          {/* Card 3: Active Dining Tables */}
-          <div className="bg-white/70 backdrop-blur-xl border border-slate-100/80 p-5.5 rounded-[2.2rem] space-y-4 shadow-xl shadow-slate-100/40 relative overflow-hidden flex flex-col justify-between min-h-[130px] transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-blue-500/5 hover:border-blue-500/20 group">
-            <div className="flex justify-between items-start relative z-10">
-              <div className="space-y-1">
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Active Dining Tables</span>
-                <h3 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight group-hover:scale-[1.02] transition-transform duration-300">
-                  {stats?.busyTables?.busy || "0"} / {stats?.busyTables?.total || "0"} Active
-                </h3>
-              </div>
-              <span className="w-9 h-9 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shadow-inner group-hover:rotate-12 transition duration-300">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" /></svg>
-              </span>
-            </div>
-            <div className="absolute bottom-0 inset-x-0 h-11 opacity-20 pointer-events-none group-hover:opacity-30 transition duration-500">
-              <svg viewBox="0 0 100 20" className="w-full h-full text-blue-500 fill-current">
-                <path d="M0,15 Q30,5 60,15 T100,10 L100,20 L0,20 Z" />
-              </svg>
-            </div>
-          </div>
-
-        </div>
-
-        {/* --- 2. QUICK ACTIONS FOR WAITER --- */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <Link href="/dashboard/orders/create" className="bg-[#ff5722] hover:bg-[#e64a19] text-white p-5 rounded-[1.8rem] flex flex-col items-center justify-center text-center gap-2.5 shadow-lg shadow-orange-500/10 hover:shadow-orange-500/30 transition-all duration-300 hover:-translate-y-0.5 active:scale-95 group">
-            <span className="w-9 h-9 rounded-xl bg-white/25 flex items-center justify-center text-white">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-            </span>
-            <span className="text-[10px] font-black tracking-widest uppercase">Take New Order</span>
-          </Link>
-
-          <Link href="/dashboard/pos" className="bg-[#0f172a] hover:bg-slate-900 text-white p-5 rounded-[1.8rem] flex flex-col items-center justify-center text-center gap-2.5 shadow-lg transition-all duration-300 hover:-translate-y-0.5 active:scale-95 group">
-            <span className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center text-white">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 14.25l6-6m4.5-3.493V21a3 3 0 11-6 0V6.5m12-3.5a3 3 0 11-6 0m-6 3.5H1.5M1.5 6.5a3 3 0 106 0V21a3 3 0 11-6 0V6.5z" /></svg>
-            </span>
-            <span className="text-[10px] font-black tracking-widest uppercase">POS Billing</span>
-          </Link>
-
-          <Link href="/dashboard/orders" className="bg-white hover:bg-slate-50 text-slate-800 border border-slate-100 p-5 rounded-[1.8rem] flex flex-col items-center justify-center text-center gap-2.5 shadow-md transition-all duration-300 hover:-translate-y-0.5 active:scale-95 group">
-            <span className="w-9 h-9 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-600">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
-            </span>
-            <span className="text-[10px] font-black tracking-widest uppercase">Orders Manager</span>
-          </Link>
-
-          <Link href="/dashboard/qr" className="bg-white hover:bg-slate-50 text-slate-800 border border-slate-100 p-5 rounded-[1.8rem] flex flex-col items-center justify-center text-center gap-2.5 shadow-md transition-all duration-300 hover:-translate-y-0.5 active:scale-95 group">
-            <span className="w-9 h-9 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-600">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m0 11v1m0-6V8m0-5a9 9 0 110 18 9 9 0 010-18zm-5 5h.01M9 16h.01m6-8h.01M15 16h.01" /></svg>
-            </span>
-            <span className="text-[10px] font-black tracking-widest uppercase">QR Approvals</span>
-          </Link>
-        </div>
-
-        {/* --- 3. FLOOR TABLES GRID MAP --- */}
-        <div className="bg-white border border-slate-100 rounded-[2.5rem] p-7 shadow-xl shadow-slate-200/30 space-y-6">
-          <div>
-            <h3 className="text-base font-black text-slate-900">Restaurant Floor Map</h3>
-            <p className="text-slate-400 text-[10px] uppercase font-bold tracking-widest mt-0.5">Real-time occupancy status of tables</p>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
-            {tables.map((t: any) => {
-              const isOccupied = t.status === 'occupied';
-
-              return (
-                <div 
-                  key={t.id} 
-                  className={`p-4.5 rounded-2xl border transition-all duration-300 flex flex-col justify-between min-h-[95px] ${
-                    isOccupied 
-                      ? "bg-rose-50/50 border-rose-100 text-rose-800" 
-                      : "bg-emerald-50/40 border-emerald-100 text-emerald-800"
-                  }`}
-                >
-                  <div className="flex justify-between items-start">
-                    <span className="text-xs font-black">{t.tableNo}</span>
-                    <span className={`w-2 h-2 rounded-full ${isOccupied ? 'bg-rose-500 animate-pulse' : 'bg-emerald-500'}`} />
-                  </div>
-                  <div className="text-left mt-2">
-                    <p className="text-[9px] font-black uppercase tracking-wider opacity-60">Status</p>
-                    <p className="text-xs font-extrabold uppercase">{isOccupied ? "Occupied" : "Free"}</p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* --- 4. YOUR ACTIVE AND RECENT KOTs QUEUE --- */}
-        <div className="bg-white border border-slate-100 rounded-[2.5rem] p-7 shadow-xl shadow-slate-200/30 space-y-5">
-          <div className="flex justify-between items-center border-b border-slate-50 pb-3">
-            <h3 className="text-base font-black text-slate-900">Your Recent Dispatched KOTs</h3>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Last 10 Tickets</span>
-          </div>
-
-          {waiterOrders.length === 0 ? (
-            <div className="text-center py-10 text-slate-350 font-bold uppercase tracking-widest text-[10px]">
-              You haven't dispatched any orders today.
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-slate-100 text-left text-xs font-bold text-slate-700 bg-white">
-                <thead className="bg-slate-50 text-[9px] font-black uppercase text-slate-400 tracking-widest">
-                  <tr>
-                    <th className="px-5 py-3">Order ID</th>
-                    <th className="px-5 py-3">Table</th>
-                    <th className="px-5 py-3">Food Items</th>
-                    <th className="px-5 py-3">Bill Total</th>
-                    <th className="px-5 py-3">Status</th>
-                    <th className="px-5 py-3">Payment</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 font-semibold text-slate-600">
-                  {waiterOrders.slice(0, 10).map((order: any) => (
-                    <tr key={order.id} className="hover:bg-slate-50/40">
-                      <td className="px-5 py-3.5 font-black text-slate-900">#{order.id}</td>
-                      <td className="px-5 py-3.5">
-                        <span className="px-2 py-0.5 bg-slate-100 rounded text-[10px] font-black uppercase">{order.table?.tableNo || "Takeaway"}</span>
-                      </td>
-                      <td className="px-5 py-3.5 max-w-[200px] truncate" title={order.orderItems?.map((i: any) => `${i.menuItem?.name || i.name} x${i.qty}`).join(', ')}>
-                        {order.orderItems?.map((i: any) => `${i.menuItem?.name || i.name} x${i.qty}`).join(', ')}
-                      </td>
-                      <td className="px-5 py-3.5 font-black text-slate-900">₹{parseFloat(order.totalAmount).toFixed(2)}</td>
-                      <td className="px-5 py-3.5">
-                        <span className={`text-[8px] px-2 py-0.5 rounded font-black uppercase tracking-wider ${
-                          order.status === "ready" 
-                            ? "bg-emerald-100 text-emerald-600"
-                            : order.status === "cooking"
-                              ? "bg-amber-100 text-amber-600"
-                              : "bg-slate-100 text-slate-500"
-                        }`}>
-                          {order.status}
-                        </span>
-                      </td>
-                      <td className="px-5 py-3.5">
-                        <span className={`text-[8px] px-2 py-0.5 rounded font-black uppercase tracking-wider ${
-                          order.paymentStatus === "paid" 
-                            ? "bg-emerald-50 text-emerald-600"
-                            : "bg-rose-50 text-rose-600"
-                        }`}>
-                          {order.paymentStatus}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-
-      </div>
+      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+        <Clock className="w-3 h-3 text-slate-500" /> Pending
+      </span>
     );
   };
 
+  // Elapsed time helper
+  const getElapsedTime = (dateStr: string) => {
+    if (!dateStr) return "";
+    const diffMs = Date.now() - new Date(dateStr).getTime();
+    const diffMins = Math.max(1, Math.floor(diffMs / 60000));
+    return `${diffMins}m`;
+  };
+
   return (
-    <div className="space-y-8 animate-fade-in-up relative text-slate-800">
+    <div className="w-full max-w-7xl mx-auto space-y-6 pb-12">
       
-
-      {/* ========================================================
-          STAGE B: FIRST-TIME WELCOME ONBOARDING WIZARD (LUXURY)
-          ======================================================== */}
-      {showOnboardingWizard ? (
-        <div className="bg-white/90 backdrop-blur-xl p-8 md:p-12 rounded-[2.5rem] space-y-10 border border-slate-100 shadow-xl shadow-slate-100/40 text-center relative overflow-hidden max-w-4xl mx-auto">
-          
-          {/* Subtle warm glow background accent */}
-          <div className="absolute -top-24 -left-24 w-64 h-64 rounded-full bg-orange-500/5 blur-3xl pointer-events-none" />
-          <div className="absolute -bottom-24 -right-24 w-64 h-64 rounded-full bg-orange-500/5 blur-3xl pointer-events-none" />
-
-          <div className="text-center max-w-2xl mx-auto space-y-4">
-            <span className="inline-flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-[#ff5722] bg-orange-50 border border-orange-100/50 px-4 py-2 rounded-full">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#ff5722] animate-pulse" />
-               Fast-Track Indian Menu Setup
+      {/* 1. TOP HEADER & FAST OPERATIONS BAR */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+        
+        {/* Left Greeting & Context */}
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+              {greeting}, {user?.name || "Owner"}
+            </h1>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              Online
             </span>
-            <h2 className="text-3xl font-black text-slate-900 tracking-tight pt-1">
-              Let's build your delicious Indian Menu!
-            </h2>
-            <p className="text-slate-500 text-xs leading-relaxed max-w-xl mx-auto font-semibold">
-              To launch your high-speed POS billing terminal or activate KDS live feeds, we need to quickly create your first food Category and add a signature dish.
+          </div>
+          <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+            <span>{restaurant?.name || "RESTUVEXO Restaurant"}</span>
+            <span>•</span>
+            <span className="text-slate-600 font-bold">Today · {todayFormatted}</span>
+          </div>
+        </div>
+
+        {/* Right Quick Operational Shortcuts */}
+        <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
+          <Link
+            href="/dashboard/pos"
+            className="flex items-center gap-2 bg-[#ff5722] hover:bg-[#e04c1d] text-white text-xs font-black px-4 py-2.5 rounded-xl shadow-sm shadow-orange-500/20 active:scale-95 transition cursor-pointer"
+          >
+            <Plus className="w-4 h-4 stroke-[3]" />
+            <span>+ New POS Bill</span>
+          </Link>
+
+          <Link
+            href="/dashboard/kds"
+            className="flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-3.5 py-2.5 rounded-xl transition active:scale-95 cursor-pointer"
+          >
+            <ChefHat className="w-4 h-4 text-orange-400" />
+            <span>Kitchen</span>
+            {stats?.activeOrdersCount > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-black bg-orange-500 text-white ml-0.5">
+                {stats.activeOrdersCount}
+              </span>
+            )}
+          </Link>
+
+          <Link
+            href="/dashboard/tables"
+            className="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200/80 text-slate-700 text-xs font-bold px-3.5 py-2.5 rounded-xl border border-slate-200 transition active:scale-95 cursor-pointer"
+          >
+            <LayoutGrid className="w-4 h-4 text-slate-500" />
+            <span>Tables</span>
+          </Link>
+        </div>
+      </div>
+
+      {/* 2. FIVE CORE BUSINESS KPI CARDS */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
+        
+        {/* Card 1: Today's Sales */}
+        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between text-slate-500 mb-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Sales</span>
+            <div className="w-7 h-7 rounded-lg bg-orange-50 text-[#ff5722] flex items-center justify-center">
+              <IndianRupee className="w-4 h-4" />
+            </div>
+          </div>
+          <div>
+            <div className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+              ₹{Number(stats?.todayRevenue || 0).toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+            </div>
+            <p className="text-[10px] font-semibold text-slate-400 mt-0.5">Today's Revenue</p>
+          </div>
+        </div>
+
+        {/* Card 2: Today's Orders */}
+        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between text-slate-500 mb-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Orders</span>
+            <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+              <ShoppingBag className="w-4 h-4" />
+            </div>
+          </div>
+          <div>
+            <div className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+              {stats?.totalOrdersTodayCount || (stats?.completedOrdersTodayCount || 0) + (stats?.activeOrdersCount || 0) || 0}
+            </div>
+            <p className="text-[10px] font-semibold text-slate-400 mt-0.5">
+              {stats?.completedOrdersTodayCount || 0} completed
             </p>
           </div>
-
-          {/* Dynamic Steps Indicator */}
-          <div className="flex justify-center items-center gap-6 max-w-md mx-auto">
-            <div className="flex items-center gap-2.5">
-              <span className={`w-9 h-9 rounded-full flex items-center justify-center font-black text-xs transition-all duration-300 shadow-sm ${wizardStep >= 1 ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-orange-500/20' : 'bg-slate-100 text-slate-400'}`}>1</span>
-              <span className={`text-xs font-black tracking-wide ${wizardStep >= 1 ? 'text-slate-800' : 'text-slate-400'}`}>Category Setup</span>
-            </div>
-            <div className={`w-16 h-[2px] transition-colors duration-500 ${wizardStep >= 2 ? 'bg-orange-500' : 'bg-slate-100'}`} />
-            <div className="flex items-center gap-2.5">
-              <span className={`w-9 h-9 rounded-full flex items-center justify-center font-black text-xs transition-all duration-300 shadow-sm ${wizardStep >= 2 ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-orange-500/20' : 'bg-slate-100 text-slate-400'}`}>2</span>
-              <span className={`text-xs font-black tracking-wide ${wizardStep >= 2 ? 'text-slate-800' : 'text-slate-400'}`}>Dishes Setup</span>
-            </div>
-          </div>
-
-          {wizardError && (
-            <div className="p-4 rounded-2xl bg-rose-50 border border-rose-100/50 text-xs text-rose-600 font-bold max-w-lg mx-auto flex items-center justify-center gap-2 animate-bounce">
-               {wizardError}
-            </div>
-          )}
-          {wizardSuccess && (
-            <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-100/50 text-xs text-emerald-600 font-bold max-w-lg mx-auto flex items-center justify-center gap-2">
-               {wizardSuccess}
-            </div>
-          )}
-
-          {wizardStep === 1 && (
-            <div className="max-w-md mx-auto bg-slate-50/50 border border-slate-100 p-6 md:p-8 rounded-[2rem] text-left shadow-sm">
-              <form onSubmit={handleCreateCategory} className="space-y-5">
-                <div className="flex flex-col gap-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Category Name</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Royal Curries, Dum Biryani"
-                    value={newCategoryName}
-                    onChange={(e) => setNewCategoryName(e.target.value)}
-                    className="premium-input text-slate-800 border-slate-200 text-xs bg-white font-bold"
-                    required
-                  />
-                </div>
-                <button
-                  type="submit"
-                  disabled={wizardLoading}
-                  className="w-full bg-slate-900 hover:bg-slate-800 text-white font-extrabold py-4 px-4 rounded-2xl text-xs tracking-wider transition-all duration-300 shadow-md shadow-slate-900/10 active:scale-[0.98]"
-                >
-                  {wizardLoading ? "Creating..." : "Save & Continue to Step 2"}
-                </button>
-              </form>
-            </div>
-          )}
-
-          {wizardStep === 2 && (
-            <div className="max-w-md mx-auto bg-slate-50/50 border border-slate-100 p-6 md:p-8 rounded-[2rem] text-left shadow-sm">
-              <form onSubmit={handleCreateMenuItem} className="space-y-5">
-                
-                <div className="flex flex-col gap-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Select Category</label>
-                  <select
-                    value={newMenuItem.categoryId}
-                    onChange={(e) => setNewMenuItem({ ...newMenuItem, categoryId: e.target.value })}
-                    className="premium-input text-slate-800 border-slate-200 text-xs bg-white font-bold"
-                    required
-                  >
-                    {categories.map(cat => (
-                      <option key={cat.id} value={cat.id}>{cat.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="flex flex-col gap-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Dish Name</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Rich Paneer Butter Masala"
-                    value={newMenuItem.name}
-                    onChange={(e) => setNewMenuItem({ ...newMenuItem, name: e.target.value })}
-                    className="premium-input text-slate-800 border-slate-200 text-xs bg-white font-bold"
-                    required
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="flex flex-col gap-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Price (₹)</label>
-                    <input
-                      type="number"
-                      placeholder="e.g. 280"
-                      value={newMenuItem.price}
-                      onChange={(e) => setNewMenuItem({ ...newMenuItem, price: e.target.value })}
-                      className="premium-input text-slate-800 border-slate-200 text-xs bg-white font-bold"
-                      required
-                    />
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Initial Stock</label>
-                    <input
-                      type="number"
-                      placeholder="e.g. 100"
-                      value={newMenuItem.stockQty}
-                      onChange={(e) => setNewMenuItem({ ...newMenuItem, stockQty: e.target.value })}
-                      className="premium-input text-slate-800 border-slate-200 text-xs bg-white font-bold"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex gap-4 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setWizardStep(1)}
-                    className="flex-1 py-3.5 border border-slate-200 hover:bg-slate-100 font-extrabold text-slate-600 rounded-2xl text-xs transition"
-                  >
-                    ← Back
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={wizardLoading}
-                    className="flex-[2] bg-slate-900 hover:bg-slate-800 text-white font-extrabold py-3.5 rounded-2xl text-xs shadow-md transition"
-                  >
-                    {wizardLoading ? "Adding..." : "Add Dish & Open Workspace"}
-                  </button>
-                </div>
-
-              </form>
-            </div>
-          )}
-
         </div>
-      ) : user.role === "waiter" ? (
-        renderWaiterDashboard()
-      ) : (
-        /* ========================================================
-            STAGE C: FULL WORKSPACE WIDGETS (GORGEOUS GLASSMORPHISM)
-           ======================================================== */
-        <div className="space-y-8">
+
+        {/* Card 3: Active KOTs */}
+        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between text-slate-500 mb-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Active KOTs</span>
+            <div className="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+              <Flame className="w-4 h-4" />
+            </div>
+          </div>
+          <div>
+            <div className="text-xl sm:text-2xl font-black text-amber-600 tracking-tight">
+              {stats?.activeOrdersCount || 0}
+            </div>
+            <p className="text-[10px] font-semibold text-slate-400 mt-0.5">In Kitchen / Tables</p>
+          </div>
+        </div>
+
+        {/* Card 4: Tables Occupancy */}
+        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between text-slate-500 mb-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Tables</span>
+            <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+              <LayoutGrid className="w-4 h-4" />
+            </div>
+          </div>
+          <div>
+            <div className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+              {stats?.tablesOccupied || 0} / {stats?.tablesTotal || 0}
+            </div>
+            <p className="text-[10px] font-semibold text-slate-400 mt-0.5">
+              {stats?.tablesFree || 0} free tables
+            </p>
+          </div>
+        </div>
+
+        {/* Card 5: Estimated Gross Profit */}
+        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col justify-between col-span-2 sm:col-span-1">
+          <div className="flex items-center justify-between text-slate-500 mb-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Gross Profit</span>
+            <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+              <TrendingUp className="w-4 h-4" />
+            </div>
+          </div>
+          <div>
+            <div className="text-xl sm:text-2xl font-black text-emerald-700 tracking-tight">
+              ₹{Number(stats?.todayProfit || 0).toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+            </div>
+            <p className="text-[10px] font-semibold text-slate-400 mt-0.5">Sales − Food Cost</p>
+          </div>
+        </div>
+
+      </div>
+
+      {/* 3. SLEEK COMPACT 7-DAY SALES TREND GRAPH */}
+      <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">7-Day Sales Trend</span>
+            <span className="text-sm font-bold text-slate-800">Daily Revenue Velocity</span>
+          </div>
+          <div className="text-right">
+            <span className="text-xs font-semibold text-slate-400 block">7-Day Total</span>
+            <span className="text-base font-black text-slate-900">
+              ₹{Number(stats?.last7DaysTotal || stats?.last7Days?.reduce((acc: number, curr: any) => acc + (curr.revenue || 0), 0) || stats?.todayRevenue || 0).toLocaleString("en-IN")}
+            </span>
+          </div>
+        </div>
+        
+        {/* Chart Canvas */}
+        <div className="h-28 w-full">
+          <Line data={chartData} options={chartOptions} />
+        </div>
+      </div>
+
+      {/* 4. MAIN OPERATIONAL SPLIT: RECENT ORDERS (7/12) + KITCHEN FEED & TOP DISHES (5/12) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        
+        {/* LEFT COLUMN: LIVE RECENT ORDERS TABLE */}
+        <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
           
-          {/* --- 1. FOUR GLOSSY MINI METRICS CARDS WITH WAVE CHARTS --- */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
-            
-            {/* Card 1: Today's Revenue */}
-            <div className="bg-white/70 backdrop-blur-xl border border-slate-100/80 p-5.5 rounded-[2.2rem] space-y-4 shadow-xl shadow-slate-100/40 relative overflow-hidden flex flex-col justify-between min-h-[130px] transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-emerald-500/5 hover:border-emerald-500/20 group">
-              <div className="flex justify-between items-start relative z-10">
-                <div className="space-y-1">
-                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Today's Revenue</span>
-                  <h3 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight group-hover:scale-[1.02] transition-transform duration-300">
-                    ₹{stats?.todayRevenue?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "0.00"}
-                  </h3>
-                </div>
-                <span className="w-9 h-9 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shadow-inner group-hover:rotate-12 transition duration-300">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941" /></svg>
-                </span>
-              </div>
-              {/* Green wave chart vector */}
-              <div className="absolute bottom-0 inset-x-0 h-11 opacity-20 pointer-events-none group-hover:opacity-30 transition duration-500">
-                <svg viewBox="0 0 100 20" className="w-full h-full text-emerald-500 fill-current">
-                  <path d="M0,15 Q25,5 50,15 T100,5 L100,20 L0,20 Z" />
-                </svg>
-              </div>
+          {/* Section Header with Tabs */}
+          <div className="p-4 sm:p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h2 className="text-base font-black text-slate-900 tracking-tight">Live Recent Orders</h2>
+              <p className="text-xs text-slate-400 font-semibold">Real-time incoming dining & takeaway transactions</p>
             </div>
- 
-            {/* Card 2: Active Orders */}
-            <div className="bg-white/70 backdrop-blur-xl border border-slate-100/80 p-5.5 rounded-[2.2rem] space-y-4 shadow-xl shadow-slate-100/40 relative overflow-hidden flex flex-col justify-between min-h-[130px] transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-rose-500/5 hover:border-rose-500/20 group">
-              <div className="flex justify-between items-start relative z-10">
-                <div className="space-y-1">
-                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Active Orders</span>
-                  <h3 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight group-hover:scale-[1.02] transition-transform duration-300">
-                    {stats?.activeOrdersCount || "0"} KOTs
-                  </h3>
-                </div>
-                <span className="w-9 h-9 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center shadow-inner group-hover:scale-110 transition duration-300 animate-pulse">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15.362 5.214A8.252 8.252 0 0112 21 8.25 8.25 0 016.038 7.048 8.287 8.287 0 009 9.6a8.983 8.983 0 013.361-6.867 8.21 8.21 0 003 2.48z" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 18a3.75 3.75 0 00.495-7.467 5.99 5.99 0 00-1.925 3.546 5.974 5.974 0 01-2.133-1A3.75 3.75 0 0012 18z" /></svg>
-                </span>
-              </div>
-              {/* Red wave chart vector */}
-              <div className="absolute bottom-0 inset-x-0 h-11 opacity-20 pointer-events-none group-hover:opacity-30 transition duration-500">
-                <svg viewBox="0 0 100 20" className="w-full h-full text-rose-500 fill-current">
-                  <path d="M0,10 Q25,20 50,5 T100,15 L100,20 L0,20 Z" />
-                </svg>
-              </div>
+
+            {/* Filter Tabs */}
+            <div className="flex items-center bg-slate-100 p-1 rounded-xl gap-1">
+              <button
+                onClick={() => setOrderFilter("all")}
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg transition ${
+                  orderFilter === "all" ? "bg-white text-slate-900 shadow-xs" : "text-slate-500 hover:text-slate-900"
+                }`}
+              >
+                All
+              </button>
+              <button
+                onClick={() => setOrderFilter("active")}
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg transition ${
+                  orderFilter === "active" ? "bg-white text-orange-600 shadow-xs" : "text-slate-500 hover:text-slate-900"
+                }`}
+              >
+                Active
+              </button>
+              <button
+                onClick={() => setOrderFilter("completed")}
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg transition ${
+                  orderFilter === "completed" ? "bg-white text-emerald-700 shadow-xs" : "text-slate-500 hover:text-slate-900"
+                }`}
+              >
+                Done
+              </button>
             </div>
- 
-            {/* Card 3: Busy Tables */}
-            <div className="bg-white/70 backdrop-blur-xl border border-slate-100/80 p-5.5 rounded-[2.2rem] space-y-4 shadow-xl shadow-slate-100/40 relative overflow-hidden flex flex-col justify-between min-h-[130px] transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-blue-500/5 hover:border-blue-500/20 group">
-              <div className="flex justify-between items-start relative z-10">
-                <div className="space-y-1">
-                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Busy Tables</span>
-                  <h3 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight group-hover:scale-[1.02] transition-transform duration-300">
-                    {stats?.busyTables?.busy || "0"} / {stats?.busyTables?.total || "0"} Busy
-                  </h3>
-                </div>
-                <span className="w-9 h-9 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shadow-inner group-hover:rotate-12 transition duration-300">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" /></svg>
-                </span>
-              </div>
-              {/* Blue wave chart vector */}
-              <div className="absolute bottom-0 inset-x-0 h-11 opacity-20 pointer-events-none group-hover:opacity-30 transition duration-500">
-                <svg viewBox="0 0 100 20" className="w-full h-full text-blue-500 fill-current">
-                  <path d="M0,15 Q30,5 60,15 T100,10 L100,20 L0,20 Z" />
-                </svg>
-              </div>
-            </div>
- 
-            {/* Card 4: Completed Today's */}
-            <div className="bg-white/70 backdrop-blur-xl border border-slate-100/80 p-5.5 rounded-[2.2rem] space-y-4 shadow-xl shadow-slate-100/40 relative overflow-hidden flex flex-col justify-between min-h-[130px] transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-purple-500/5 hover:border-purple-500/20 group">
-              <div className="flex justify-between items-start relative z-10">
-                <div className="space-y-1">
-                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Completed Today's</span>
-                  <h3 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight group-hover:scale-[1.02] transition-transform duration-300">
-                    {stats?.completedTodayCount || "0"} Orders
-                  </h3>
-                </div>
-                <span className="w-9 h-9 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center shadow-inner group-hover:scale-110 transition duration-300">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                </span>
-              </div>
-              {/* Purple wave chart vector */}
-              <div className="absolute bottom-0 inset-x-0 h-11 opacity-20 pointer-events-none group-hover:opacity-30 transition duration-500">
-                <svg viewBox="0 0 100 20" className="w-full h-full text-purple-500 fill-current">
-                  <path d="M0,5 Q20,15 50,5 T100,15 L100,20 L0,20 Z" />
-                </svg>
-              </div>
-            </div>
- 
           </div>
-          {/* --- 2. DINE-IN CARD & 7-DAY REVENUE GRAPH --- */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
-            
-            {/* Card A: Dine-In (Orange Glossy Gradient) */}
-            <div className="lg:col-span-1 bg-gradient-to-br from-orange-500 via-[#ff5722] to-amber-600 text-white rounded-[2.5rem] p-7 space-y-6 shadow-xl shadow-orange-500/10 hover:shadow-orange-500/30 hover:-translate-y-1.5 transition-all duration-500 relative overflow-hidden group">
-              {/* Glossy diagonal highlight glare */}
-              <div className="absolute -inset-y-2 left-[-100%] w-1/2 bg-gradient-to-r from-transparent via-white/10 to-transparent skew-x-12 group-hover:left-[200%] transition-all duration-1000 ease-out pointer-events-none" />
-              
-              <div className="flex justify-between items-start relative z-10">
-                <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center shadow-inner group-hover:scale-110 transition duration-300">
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.8"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8.25v-1.5m0 1.5c-1.355 0-2.697.056-4.024.166C6.845 8.51 6 9.473 6 10.608v2.513m6-4.87c1.355 0 2.697.055 4.024.165C17.155 8.51 18 9.473 18 10.608v2.513m-3-4.87v-1.5m-6 1.5v-1.5m12 9.75l-1.5.75a3.354 3.354 0 01-3 0 3.354 3.354 0 00-3 0 3.354 3.354 0 01-3 0 3.354 3.354 0 00-3 0L3 16.5m15-3.38a48.474 48.474 0 00-6-.37c-2.032 0-4.034.125-6 .37m12 0c.39.049.777.102 1.163.16 1.07.16 1.837 1.094 1.837 2.175v5.17c0 .62-.504 1.124-1.125 1.124H4.125A1.125 1.125 0 013 20.625v-5.17c0-1.08.768-2.014 1.837-2.174A47.78 47.78 0 016 13.12M12.265 3.11a.375.375 0 11-.53 0L12 2.845l.265.265zm-3 0a.375.375 0 11-.53 0L9 2.845l.265.265zm6 0a.375.375 0 11-.53 0L15 2.845l.265.265z" /></svg>
-                </div>
-                <div className="text-right">
-                  <span className="text-[8px] font-black uppercase tracking-widest text-white/70 block">SHARE</span>
-                  <span className="text-lg font-black tracking-tight">{stats?.fulfillments?.dineIn?.share || "0"}%</span>
-                </div>
-              </div>
-              
-              <div className="space-y-1 relative z-10">
-                <h3 className="text-2xl font-black tracking-tight">Dine-In</h3>
-              </div>
 
-              <div className="grid grid-cols-3 border-t border-white/20 pt-4 text-left relative z-10 gap-2">
-                <div>
-                  <span className="text-[8px] font-bold text-white/70 uppercase tracking-wider block">REVENUE</span>
-                  <span className="text-sm font-black">₹{stats?.fulfillments?.dineIn?.revenue?.toLocaleString() || "0"}</span>
-                </div>
-                <div>
-                  <span className="text-[8px] font-bold text-white/70 uppercase tracking-wider block">ORDERS</span>
-                  <span className="text-sm font-black">{stats?.fulfillments?.dineIn?.orders || "0"}</span>
-                </div>
-                <div>
-                  <span className="text-[8px] font-bold text-white/70 uppercase tracking-wider block">AVG BILL</span>
-                  <span className="text-sm font-black">₹{stats?.fulfillments?.dineIn?.avgBill?.toLocaleString() || "0"}</span>
-                </div>
+          {/* Orders Table */}
+          <div className="overflow-x-auto">
+            {filteredOrders.length === 0 ? (
+              <div className="py-12 text-center text-slate-400 text-xs font-semibold">
+                <ShoppingBag className="w-8 h-8 mx-auto text-slate-300 mb-2 stroke-[1.5]" />
+                No orders found in this category today
               </div>
+            ) : (
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="bg-slate-50/70 border-b border-slate-100 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                    <th className="py-3 px-4">Order</th>
+                    <th className="py-3 px-3">Table / Type</th>
+                    <th className="py-3 px-3">Items</th>
+                    <th className="py-3 px-3">Total</th>
+                    <th className="py-3 px-3">Status</th>
+                    <th className="py-3 px-4 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                  {filteredOrders.map((order) => {
+                    const itemCount = order.orderItems?.reduce((sum: number, item: any) => sum + (item.qty || 1), 0) || 0;
+                    return (
+                      <tr key={order.id} className="hover:bg-slate-50/80 transition">
+                        <td className="py-3 px-4 font-bold text-slate-900">
+                          #{order.receiptNo || order.id}
+                        </td>
+                        <td className="py-3 px-3">
+                          {order.table?.tableNo ? (
+                            <span className="font-bold text-slate-800">Table {order.table.tableNo}</span>
+                          ) : (
+                            <span className="text-slate-500 capitalize">{order.orderType?.replace("_", " ") || "Dine in"}</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-3 text-slate-500">
+                          {itemCount} {itemCount === 1 ? "item" : "items"}
+                        </td>
+                        <td className="py-3 px-3 font-bold text-slate-900">
+                          ₹{Number(order.totalAmount || 0).toLocaleString("en-IN")}
+                        </td>
+                        <td className="py-3 px-3">
+                          {renderStatusBadge(order.status, order.paymentStatus)}
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <button
+                            onClick={() => setSelectedOrder(order)}
+                            className="inline-flex items-center gap-1 text-[11px] font-bold text-[#ff5722] hover:text-[#e04c1d] bg-orange-50/60 hover:bg-orange-50 px-2.5 py-1 rounded-lg border border-orange-200/60 transition cursor-pointer"
+                          >
+                            <Eye className="w-3 h-3" /> View
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
 
-              <div className="text-[9px] font-bold text-white/80 flex flex-wrap gap-2 md:gap-3 pt-2.5 border-t border-white/10 relative z-10">
-                <span className="flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" /> 
-                  {stats?.fulfillments?.dineIn?.activeCount || "0"} active
-                </span>
-                <span> {stats?.fulfillments?.dineIn?.completedCount || "0"} done</span>
-                <span> {stats?.fulfillments?.dineIn?.itemsCount || "0"} items</span>
+          {/* Footer View All Link */}
+          <div className="p-3 bg-slate-50/50 border-t border-slate-100 text-center">
+            <Link
+              href="/dashboard/orders"
+              className="text-xs font-bold text-[#ff5722] hover:underline inline-flex items-center gap-1"
+            >
+              <span>View all orders and invoices</span>
+              <ArrowUpRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+        </div>
+
+        {/* RIGHT COLUMN: LIVE KITCHEN QUEUE & COMPACT TOP DISHES */}
+        <div className="lg:col-span-5 space-y-6">
+          
+          {/* Card 1: LIVE KITCHEN QUEUE */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-5 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-orange-50 text-[#ff5722] flex items-center justify-center">
+                  <ChefHat className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900 tracking-tight">Live Kitchen Queue</h3>
+                  <p className="text-[10px] font-semibold text-slate-400">Active chef preparation tickets</p>
+                </div>
               </div>
+              <Link
+                href="/dashboard/kds"
+                className="text-[11px] font-bold text-[#ff5722] hover:underline"
+              >
+                Open KDS →
+              </Link>
             </div>
 
-            {/* Chart Card: Last 7 Days Sales */}
-            <div className="lg:col-span-2 bg-white border border-slate-100 rounded-[2.5rem] p-7 shadow-xl shadow-slate-100/50 flex flex-col justify-between relative overflow-hidden group hover:shadow-slate-200/50 hover:-translate-y-1.5 transition-all duration-500">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-100 pb-5">
-                <div>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-[#ff5722] block mb-1">REVENUE TREND</span>
-                  <h3 className="text-2xl font-black text-slate-800 tracking-tight">Last 7 Days Sales</h3>
-                  <p className="text-xs text-slate-400 font-medium">Real-time daily transaction volume</p>
-                </div>
-                <div className="bg-orange-50 px-4 py-2.5 rounded-2xl border border-orange-100 text-right">
-                  <span className="text-[8px] font-bold text-orange-600 uppercase tracking-widest block mb-0.5">7-DAY TOTAL</span>
-                  <span className="text-lg font-black text-[#ff5722] tracking-tight">₹{(stats?.last7DaysSales?.reduce((sum: number, s: any) => sum + s.sales, 0) || 0).toLocaleString()}</span>
-                </div>
-              </div>
-
-              {/* Chart container */}
-              <div className="h-64 mt-6 relative z-10 w-full">
-                {stats?.last7DaysSales && stats.last7DaysSales.length > 0 ? (
-                  <Line 
-                    data={{
-                      labels: stats.last7DaysSales.map((s: any) => s.date),
-                      datasets: [
-                        {
-                          label: "Sales Revenue",
-                          data: stats.last7DaysSales.map((s: any) => s.sales),
-                          fill: true,
-                          borderColor: "#ff5722",
-                          backgroundColor: "rgba(255, 87, 34, 0.05)",
-                          borderWidth: 3,
-                          pointBackgroundColor: "#ff5722",
-                          pointBorderColor: "#fff",
-                          pointBorderWidth: 2,
-                          pointRadius: 4,
-                          pointHoverRadius: 6,
-                          tension: 0.4,
-                        }
-                      ]
-                    }} 
-                    options={{
-                      responsive: true,
-                      maintainAspectRatio: false,
-                      plugins: {
-                        legend: {
-                          display: false,
-                        },
-                        tooltip: {
-                          mode: 'index',
-                          intersect: false,
-                          backgroundColor: 'rgba(15, 23, 42, 0.9)',
-                          titleColor: '#fff',
-                          bodyColor: '#e2e8f0',
-                          borderColor: 'rgba(255,255,255,0.1)',
-                          borderWidth: 1,
-                          padding: 12,
-                          cornerRadius: 12,
-                          displayColors: false,
-                          callbacks: {
-                            label: function(context: any) {
-                              return `Revenue: ₹${context.raw.toLocaleString()}`;
-                            }
-                          }
-                        }
-                      },
-                      scales: {
-                        x: {
-                          grid: {
-                            display: false,
-                          },
-                          ticks: {
-                            color: '#64748b',
-                            font: {
-                              size: 10,
-                              family: 'Outfit, sans-serif',
-                              weight: 'bold' as const
-                            }
-                          }
-                        },
-                        y: {
-                          grid: {
-                            color: 'rgba(226, 232, 240, 0.6)',
-                          },
-                          ticks: {
-                            color: '#64748b',
-                            font: {
-                              size: 10,
-                              family: 'Outfit, sans-serif',
-                              weight: 'bold' as const
-                            },
-                            callback: function(value: any) {
-                              return `₹${value}`;
-                            }
-                          }
-                        }
-                      }
-                    }} 
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-slate-400 text-xs">
-                    No sales data available for the last 7 days.
-                  </div>
-                )}
-              </div>
-            </div>
-
-          </div>
- 
-          {/* --- 3. FOUR FLOATING QUICK ACTIONS CAPSULES WITH GLOWS --- */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 pt-2">
-            
-            {/* Action 1: POS Billing (Dark Slate) */}
-            <Link href="/dashboard/pos" className="bg-[#0f172a]/95 hover:bg-[#090d16] text-white p-6 rounded-[2.2rem] border border-slate-800 hover:border-[#ff5722]/30 flex flex-col items-center justify-center text-center gap-3.5 shadow-xl transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-[#ff5722]/5 active:scale-95 group">
-              <div className="w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center text-white smooth-transition group-hover:scale-110">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 14.25l6-6m4.5-3.493V21a3 3 0 11-6 0V6.5m12-3.5a3 3 0 11-6 0m-6 3.5H1.5M1.5 6.5a3 3 0 106 0V21a3 3 0 11-6 0V6.5z" />
-                </svg>
-              </div>
-              <span className="text-xs font-black tracking-wide uppercase">POS Billing</span>
-            </Link>
- 
-            {/* Action 2: Captain Desk / Staff (Orange) */}
-            <Link href="/dashboard/staff" className="bg-[#ff5722] hover:bg-[#e64a19] text-white p-6 rounded-[2.2rem] flex flex-col items-center justify-center text-center gap-3.5 shadow-xl shadow-orange-500/10 hover:shadow-orange-500/30 transition-all duration-300 hover:-translate-y-1 active:scale-95 group">
-              <div className="w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center text-white smooth-transition group-hover:scale-110">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zm11 10v-2a4 4 0 00-3-3.87m-4-12a4 4 0 010 7.75" />
-                </svg>
-              </div>
-              <span className="text-xs font-black tracking-wide uppercase">Captain Desk</span>
-            </Link>
- 
-            {/* Action 3: Kitchen (Blue) */}
-            <Link href="/dashboard/kds" className="bg-gradient-to-br from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white p-6 rounded-[2.2rem] flex flex-col items-center justify-center text-center gap-3.5 shadow-xl shadow-blue-500/10 hover:shadow-blue-500/30 transition-all duration-300 hover:-translate-y-1 active:scale-95 group">
-              <div className="w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center text-white smooth-transition group-hover:scale-110">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 2a4 4 0 00-4 4v2H6a3 3 0 00-3 3v2a3 3 0 003 3h12a3 3 0 003-3v-2a3 3 0 00-3-3h-2V6a4 4 0 00-4-4z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 17v2a3 3 0 003 3h6a3 3 0 003-3v-2" />
-                </svg>
-              </div>
-              <span className="text-xs font-black tracking-wide uppercase">Kitchen Display</span>
-            </Link>
- 
-            {/* Action 4: Inventory (White/Border) */}
-            <Link href="/dashboard/inventory" className="bg-white hover:bg-[#fafbfd] text-slate-800 border border-slate-100 hover:border-slate-200 p-6 rounded-[2.2rem] flex flex-col items-center justify-center text-center gap-3.5 shadow-xl shadow-slate-200/20 hover:shadow-slate-200/40 transition-all duration-300 hover:-translate-y-1 active:scale-95 group">
-              <div className="w-10 h-10 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-500 smooth-transition group-hover:scale-110">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                </svg>
-              </div>
-              <span className="text-xs font-black tracking-wide uppercase">Inventory Control</span>
-            </Link>
- 
-          </div>
- 
-          {/* --- 4. BOTTOM FEED AND TOP SELLING ITEMS --- */}
-          <div className="grid lg:grid-cols-12 gap-8 pt-4">
-            
-            {/* Left: Kitchen Activity Feed */}
-            <div className="lg:col-span-8 bg-white/80 backdrop-blur-xl border border-slate-100 rounded-[2.5rem] p-7 shadow-xl shadow-slate-200/30 space-y-5">
-              <div className="flex justify-between items-center border-b border-slate-50 pb-3">
-                <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
-                  <svg className="w-5 h-5 text-orange-500 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
-                  </svg>
-                  <span>Live Kitchen Feed</span>
-                </h3>
-                <span className="inline-flex items-center gap-1.5 text-[9px] font-black text-[#ff5722] bg-orange-50 border border-orange-100 px-3.5 py-1.5 rounded-full animate-pulse">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#ff5722]" />
-                   ACTIVE KOTs
-                </span>
-              </div>
- 
-              <div className="space-y-4">
-                {stats?.kitchenFeed?.length === 0 ? (
-                  <div className="text-center py-12 text-slate-400 font-extrabold text-xs">
-                     All KOTs served! Kitchen queue is clean.
-                  </div>
-                ) : (
-                  stats?.kitchenFeed?.map((kot) => (
-                    <div key={kot.id} className="flex items-center justify-between p-4 bg-slate-50/50 border border-slate-100 rounded-3xl shadow-sm hover:border-orange-500/20 hover:bg-orange-50/[0.02] transition duration-300">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="text-xs font-black text-slate-900">{kot.kotId} ({kot.tableNo})</p>
-                          <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${kot.status === 'pending' ? 'bg-rose-500' : 'bg-amber-500'}`} />
-                        </div>
-                        <p className="text-[10px] text-slate-400 font-bold mt-1">{kot.itemsText}</p>
+            {/* KOT List */}
+            <div className="space-y-2.5">
+              {stats?.recentKots && stats.recentKots.length > 0 ? (
+                stats.recentKots.map((kot: any, idx: number) => (
+                  <div
+                    key={kot.id || idx}
+                    className="p-3 rounded-xl bg-slate-50 border border-slate-100 flex items-start justify-between gap-2"
+                  >
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-black text-slate-900">
+                          KOT #{idx + 1}
+                        </span>
+                        <span className="text-xs font-bold text-slate-600">
+                          {kot.table?.tableNo ? `Table ${kot.table.tableNo}` : "Takeaway"}
+                        </span>
                       </div>
-                      <span className={`px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-wider ${kot.status === 'pending' ? 'bg-rose-50 border border-rose-100 text-rose-600' : 'bg-amber-50 border border-amber-100 text-amber-605'}`}>
-                        {kot.status}
+                      <div className="text-[11px] text-slate-600 line-clamp-1 font-medium">
+                        {kot.orderItems?.map((it: any) => `${it.qty}x ${it.menuItem?.name || "Dish"}`).join(", ")}
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <span className="inline-block px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-100 text-amber-800 uppercase">
+                        {kot.status || "Cooking"}
+                      </span>
+                      <span className="block text-[9px] font-semibold text-slate-400 mt-1">
+                        {getElapsedTime(kot.createdAt)}
                       </span>
                     </div>
-                  ))
-                )}
-              </div>
-            </div>
- 
-            {/* Right: Top Selling Specialties */}
-            <div className="lg:col-span-4 bg-white/80 backdrop-blur-xl border border-slate-100 rounded-[2.5rem] p-7 shadow-xl shadow-slate-200/30 space-y-5">
-              <div className="border-b border-slate-50 pb-3 flex items-center justify-between">
-                <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
-                  <svg className="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v18M3 12h18m-9-9l9 9-9 9" />
-                  </svg>
-                  <span>Popular Items</span>
-                </h3>
-              </div>
- 
-              <div className="space-y-5">
-                {stats?.popularItems?.length === 0 ? (
-                  <div className="text-center py-12 text-slate-400 font-extrabold text-xs">
-                     No sales completed yet today.
                   </div>
-                ) : (
-                  stats?.popularItems?.map((item) => (
-                    <div key={item.rank} className="space-y-2">
-                      <div className="flex justify-between items-center text-xs">
-                        <span className="text-slate-800 font-black">{item.rank}. {item.name}</span>
-                        <span className="text-[10px] font-black text-[#ff5722] bg-orange-50 px-2 py-0.5 rounded-md">{item.soldCount} Sold</span>
-                      </div>
-                      <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                        <div className="h-full bg-gradient-to-r from-orange-500 to-amber-500 rounded-full" style={{ width: `${Math.min(100, (item.soldCount / Math.max(1, stats.popularItems[0].soldCount)) * 100)}%` }} />
-                      </div>
+                ))
+              ) : (
+                <div className="py-6 text-center text-slate-400 text-xs font-semibold">
+                  <ChefHat className="w-6 h-6 mx-auto text-slate-300 mb-1.5 stroke-[1.5]" />
+                  Kitchen is all caught up! No active KOTs
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Card 2: TOP DISHES (COMPACT & CLEAN) */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-5 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                  <UtensilsCrossed className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900 tracking-tight">Today's Top Dishes</h3>
+                  <p className="text-[10px] font-semibold text-slate-400">Best selling items today</p>
+                </div>
+              </div>
+              <Link
+                href="/dashboard/menu"
+                className="text-[11px] font-bold text-[#ff5722] hover:underline"
+              >
+                Menu →
+              </Link>
+            </div>
+
+            {/* Popular Items List */}
+            <div className="space-y-2">
+              {stats?.popularItems && stats.popularItems.length > 0 ? (
+                stats.popularItems.map((item: any, i: number) => (
+                  <div
+                    key={item.id || i}
+                    className="flex items-center justify-between text-xs py-1.5 border-b border-slate-50 last:border-0"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-slate-100 text-slate-700 text-[10px] font-black flex items-center justify-center">
+                        {i + 1}
+                      </span>
+                      <span className="font-bold text-slate-800">{item.name}</span>
                     </div>
-                  ))
-                )}
+                    <span className="font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-lg text-[10px]">
+                      {item.soldCount || item.qty || 1} sold
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <div className="py-6 text-center text-slate-400 text-xs font-semibold">
+                  <UtensilsCrossed className="w-6 h-6 mx-auto text-slate-300 mb-1.5 stroke-[1.5]" />
+                  Sales data will appear after orders are placed
+                </div>
+              )}
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+      {/* 5. ORDER BILL / RECEIPT DETAIL MODAL */}
+      {selectedOrder && (
+        <div className="fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white max-w-md w-full rounded-2xl shadow-xl border border-slate-200 p-6 space-y-4 animate-fade-in relative">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-base font-black text-slate-900">
+                  Order #{selectedOrder.receiptNo || selectedOrder.id}
+                </h3>
+                <p className="text-xs text-slate-400 font-semibold">
+                  {selectedOrder.table?.tableNo ? `Table ${selectedOrder.table.tableNo}` : "Takeaway"} •{" "}
+                  {new Date(selectedOrder.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedOrder(null)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Order Items List */}
+            <div className="max-h-60 overflow-y-auto space-y-2 divide-y divide-slate-100 text-xs">
+              {selectedOrder.orderItems?.map((it: any) => (
+                <div key={it.id} className="pt-2 flex justify-between items-center">
+                  <div>
+                    <span className="font-bold text-slate-800">{it.menuItem?.name || "Dish Item"}</span>
+                    <span className="text-slate-400 text-[11px] block">Qty: {it.qty} × ₹{Number(it.price || 0)}</span>
+                  </div>
+                  <span className="font-black text-slate-900">₹{Number(it.price * it.qty).toLocaleString("en-IN")}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Pricing Summary */}
+            <div className="border-t border-slate-100 pt-3 space-y-1.5 text-xs">
+              <div className="flex justify-between text-slate-500 font-medium">
+                <span>Subtotal</span>
+                <span>₹{Number(selectedOrder.subtotal || selectedOrder.totalAmount || 0).toLocaleString("en-IN")}</span>
+              </div>
+              {Number(selectedOrder.discountApplied || 0) > 0 && (
+                <div className="flex justify-between text-emerald-600 font-semibold">
+                  <span>Discount</span>
+                  <span>-₹{Number(selectedOrder.discountApplied).toLocaleString("en-IN")}</span>
+                </div>
+              )}
+              <div className="flex justify-between text-sm font-black text-slate-900 pt-1 border-t border-slate-100">
+                <span>Total Paid Amount</span>
+                <span>₹{Number(selectedOrder.totalAmount || 0).toLocaleString("en-IN")}</span>
               </div>
             </div>
- 
+
+            {/* Modal Actions */}
+            <div className="flex gap-2 pt-2">
+              <button
+                onClick={() => window.print()}
+                className="flex-1 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold py-2.5 rounded-xl flex items-center justify-center gap-1.5 transition"
+              >
+                <Printer className="w-3.5 h-3.5" /> Print Receipt
+              </button>
+              <button
+                onClick={() => setSelectedOrder(null)}
+                className="px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold py-2.5 rounded-xl transition"
+              >
+                Close
+              </button>
+            </div>
           </div>
- 
         </div>
       )}
 

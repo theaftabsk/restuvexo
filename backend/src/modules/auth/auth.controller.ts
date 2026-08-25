@@ -91,4 +91,9 @@ export class AuthController {
     return this.authService.getRestaurant(req, res);
   }
 
+  @UseGuards(AuthGuard)
+  @Post('change-password')
+  async changePassword(@Req() req: Request, @Res() res: Response) {
+    return this.authService.changePassword(req, res);
+  }
 }

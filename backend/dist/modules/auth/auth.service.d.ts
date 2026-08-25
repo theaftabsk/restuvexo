@@ -19,4 +19,5 @@ export declare class AuthService {
     updateRestaurant(req: any, res: any): Promise<void>;
     updateProfile(req: any, res: any): Promise<any>;
     getRestaurant(req: any, res: any): Promise<any>;
+    changePassword(req: any, res: any): Promise<any>;
 }

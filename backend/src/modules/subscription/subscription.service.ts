@@ -1,280 +1,713 @@
-import { Injectable, ForbiddenException, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { WebsocketGateway } from '../../websocket/websocket.gateway';
+import { SubscriptionStatus, Prisma } from '@prisma/client';
 
 @Injectable()
 export class SubscriptionService {
-  constructor(private prisma: PrismaService) {}
+  private getCashfreeConfig() {
+    const isProd = (process.env.CASHFREE_ENV || '').trim().toLowerCase() === 'production';
+    return {
+      appId: process.env.CASHFREE_APP_ID || '',
+      secret: process.env.CASHFREE_SECRET_KEY || '',
+      env: isProd ? 'production' : 'sandbox',
+      baseUrl: isProd ? 'https://api.cashfree.com/pg' : 'https://sandbox.cashfree.com/pg'
+    };
+  }
 
-  /**
-   * Check if a specific feature code is active for a restaurant.
-   */
-  async canUse(restaurantId: number, featureCode: string): Promise<boolean> {
-    const sub = await this.prisma.restaurantSubscription.findUnique({
+  constructor(
+    private prisma: PrismaService,
+    private websocketGateway: WebsocketGateway
+  ) {}
+
+  // 1. Get All Active Public Plans
+  async getPlans() {
+    return this.prisma.plan.findMany({
+      where: { isActive: true },
+      orderBy: { price: 'asc' }
+    });
+  }
+
+  // 2. Get Restaurant's Current Subscription & History
+  async getMySubscription(restaurantId: number) {
+    const subscription = await this.prisma.subscription.findUnique({
       where: { restaurantId },
       include: {
-        plan: {
-          include: {
-            features: {
-              include: { feature: true }
-            }
-          }
+        plan: true,
+        payments: {
+          orderBy: { createdAt: 'desc' },
+          take: 20
         },
-        addons: {
-          include: { addon: { include: { feature: true } } }
+        events: {
+          orderBy: { createdAt: 'desc' },
+          take: 10
         }
       }
     });
 
-    if (!sub || ['canceled', 'unpaid'].includes(sub.status)) return false;
+    if (!subscription) {
+      // Default to Starter if unassigned
+      const starter = await this.prisma.plan.findFirst({ where: { name: 'Starter' } });
+      return {
+        hasSubscription: false,
+        recommendedPlan: starter
+      };
+    }
 
-    // Enterprise plan bypasses all feature locks
-    if (sub.plan.name === 'Enterprise') return true;
+    const now = new Date();
+    const dueDate = new Date(subscription.currentPeriodEnd);
+    const msDiff = dueDate.getTime() - now.getTime();
+    const daysRemaining = Math.ceil(msDiff / (1000 * 60 * 60 * 24));
 
-    // Check plan features
-    const hasBase = sub.plan.features.some(
-      (f) => f.feature.code === featureCode && f.enabled
-    );
-
-    // Check purchased addons features
-    const hasAddon = sub.addons.some(
-      (a) => a.addon.feature?.code === featureCode
-    );
-
-    return hasBase || hasAddon;
+    return {
+      hasSubscription: true,
+      subscription: {
+        ...subscription,
+        daysRemaining,
+        isExpiringSoon: daysRemaining <= 7 && daysRemaining > 0,
+        isInGrace: subscription.status === SubscriptionStatus.GRACE,
+        isSuspended: subscription.status === SubscriptionStatus.SUSPENDED
+      }
+    };
   }
 
-  /**
-   * Track usage telemetry (e.g., daily orders, QR scans).
-   */
-  async trackUsage(restaurantId: number, metric: string, amount: number = 1): Promise<void> {
-    const period = 'daily'; // Defaulting to daily tracking for POS orders
-    await this.prisma.usageMetric.upsert({
+  // 3. Create Cashfree Order for ₹1 First Month Promo or Full Renewal
+  async createCashfreeOrder(restaurantId: number, planId?: number, isRenewal: boolean = false) {
+    const restaurant = await this.prisma.restaurant.findUnique({
+      where: { id: restaurantId }
+    });
+    if (!restaurant) throw new NotFoundException('Restaurant not found');
+
+    let targetPlan;
+    if (planId) {
+      targetPlan = await this.prisma.plan.findUnique({ where: { id: planId } });
+    } else {
+      const currentSub = await this.prisma.subscription.findUnique({ where: { restaurantId }, include: { plan: true } });
+      targetPlan = currentSub?.plan;
+    }
+
+    if (!targetPlan) {
+      targetPlan = await this.prisma.plan.findFirst({ where: { name: 'Growth' } });
+    }
+
+    // Check if this is the first subscription for the restaurant or a tier upgrade
+    const existingSub = await this.prisma.subscription.findUnique({
+      where: { restaurantId },
+      include: { payments: true, plan: true }
+    });
+    const isFirstTime = !existingSub || existingSub.payments.length === 0;
+    const isPlanSwitch = existingSub && existingSub.planId !== targetPlan.id;
+
+    // Price calculation:
+    // 1. First-time registration promo = ₹1.00
+    // 2. Plan Tier Switch / Upgrade = New Plan's Standard Price
+    // 3. Regular Renewal = Target Plan's Standard Price
+    let orderAmount: number;
+    if (isFirstTime && !isRenewal) {
+      orderAmount = Number(targetPlan.firstMonthPrice || 1.00);
+    } else if (isPlanSwitch) {
+      orderAmount = Number(targetPlan.price);
+    } else {
+      orderAmount = Number(existingSub?.renewalAmount || targetPlan.price);
+    }
+
+    const orderId = `SUB_${restaurantId}_${Date.now()}`;
+    const cfConfig = this.getCashfreeConfig();
+
+    try {
+      const frontendBase = process.env.FRONTEND_URL || 'http://localhost:3000';
+      const cleanPhone = (restaurant.phone || '').replace(/[^0-9]/g, '');
+      const validPhone = cleanPhone.length >= 10 ? cleanPhone.slice(-10) : '9876543210';
+
+      // Cashfree Production requires HTTPS return_url
+      const returnUrl = cfConfig.env === 'production' && frontendBase.startsWith('http://localhost')
+        ? `https://app.restuvexo.shop/dashboard/subscription?cf_order_id={order_id}`
+        : `${frontendBase}/dashboard/subscription?cf_order_id={order_id}`;
+
+      const noteText = isFirstTime
+        ? `RESTUVEXO ${targetPlan.name} Plan (₹1 First Month Launch Offer)`
+        : isPlanSwitch
+        ? `RESTUVEXO Upgrade: ${existingSub?.plan?.name || 'Previous'} -> ${targetPlan.name} Tier`
+        : `RESTUVEXO ${targetPlan.name} Monthly Renewal`;
+
+      // Create Order via Cashfree API
+      const response = await fetch(`${cfConfig.baseUrl}/orders`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-version': '2023-08-01',
+          'x-client-id': cfConfig.appId,
+          'x-client-secret': cfConfig.secret
+        },
+        body: JSON.stringify({
+          order_id: orderId,
+          order_amount: orderAmount,
+          order_currency: 'INR',
+          customer_details: {
+            customer_id: `CUST_${restaurantId}`,
+            customer_name: restaurant.name || 'Restaurant Owner',
+            customer_email: restaurant.email || `owner_${restaurantId}@restuvexo.shop`,
+            customer_phone: validPhone
+          },
+          order_meta: {
+            return_url: returnUrl
+          },
+          order_note: `RESTUVEXO ${targetPlan.name} Plan (${isFirstTime ? '₹1 First Month' : 'Monthly Renewal'})`
+        })
+      });
+
+      const cfData = await response.json();
+
+      if (response.ok && cfData.payment_session_id) {
+        return {
+          success: true,
+          orderId,
+          paymentSessionId: cfData.payment_session_id,
+          orderAmount,
+          planName: targetPlan.name,
+          isFirstTime,
+          environment: cfConfig.env
+        };
+      } else {
+        // Fallback for local testing if Cashfree credentials are mock
+        return {
+          success: true,
+          orderId,
+          paymentSessionId: `mock_session_${Date.now()}`,
+          orderAmount,
+          planName: targetPlan.name,
+          isFirstTime,
+          isMock: true,
+          environment: cfConfig.env
+        };
+      }
+    } catch (error: any) {
+      console.warn('[Cashfree Gateway Notice] Running in sandbox checkout mode:', error.message);
+      return {
+        success: true,
+        orderId,
+        paymentSessionId: `mock_session_${Date.now()}`,
+        orderAmount,
+        planName: targetPlan.name,
+        isFirstTime,
+        isMock: true,
+        environment: cfConfig.env
+      };
+    }
+  }
+
+  // 4. Verify Cashfree Payment according to v2023-08-01 API
+  async verifyCashfreePayment(restaurantId: number, orderId: string, planId?: number) {
+    const idempotencyKey = `CF_ORDER_${orderId}`;
+    const cfConfig = this.getCashfreeConfig();
+
+    // Check if already processed
+    const existingPayment = await this.prisma.saasPayment.findFirst({
       where: {
-        restaurantId_metric_period: {
-          restaurantId,
-          metric,
-          period
+        OR: [
+          { gatewayEventId: idempotencyKey },
+          { cfOrderId: orderId }
+        ]
+      }
+    });
+
+    if (existingPayment && existingPayment.status === 'SUCCESS') {
+      return { success: true, message: 'Payment already verified and active.' };
+    }
+
+    let cfPaymentId: string | null = null;
+    let paymentMethod = 'UPI';
+    let cfOrderStatus = 'UNKNOWN';
+    let hasSuccessfulPayment = false;
+
+    // CRITICAL: Query live Cashfree API to confirm order is PAID
+    try {
+      const orderRes = await fetch(`${cfConfig.baseUrl}/orders/${orderId}`, {
+        headers: {
+          'x-api-version': '2023-08-01',
+          'x-client-id': cfConfig.appId,
+          'x-client-secret': cfConfig.secret
         }
-      },
+      });
+      if (!orderRes.ok) {
+        throw new BadRequestException(`Cashfree order lookup failed: HTTP ${orderRes.status}`);
+      }
+
+      const orderData = await orderRes.json();
+      cfOrderStatus = orderData.order_status || 'UNKNOWN';
+
+      console.log(`[Cashfree Verify] Order ${orderId} status: ${cfOrderStatus}`);
+
+      // ONLY proceed if order is PAID
+      if (cfOrderStatus !== 'PAID') {
+        return {
+          success: false,
+          error: `Payment not completed. Order status: ${cfOrderStatus}. Please complete the payment.`
+        };
+      }
+
+      // Fetch payment details for this order
+      const paymentsRes = await fetch(`${cfConfig.baseUrl}/orders/${orderId}/payments`, {
+        headers: {
+          'x-api-version': '2023-08-01',
+          'x-client-id': cfConfig.appId,
+          'x-client-secret': cfConfig.secret
+        }
+      });
+      if (paymentsRes.ok) {
+        const payments = await paymentsRes.json();
+        if (Array.isArray(payments) && payments.length > 0) {
+          const successPayment = payments.find((p: any) => p.payment_status === 'SUCCESS');
+          if (successPayment) {
+            hasSuccessfulPayment = true;
+            cfPaymentId = successPayment.cf_payment_id ? String(successPayment.cf_payment_id) : null;
+            paymentMethod = successPayment.payment_group || successPayment.payment_method || 'UPI';
+          }
+        }
+      }
+
+      if (!hasSuccessfulPayment) {
+        return {
+          success: false,
+          error: 'No confirmed payment found for this order. Please contact support.'
+        };
+      }
+    } catch (e: any) {
+      if (e instanceof BadRequestException) throw e;
+      console.error('[Cashfree Verify Error]', e.message);
+      return {
+        success: false,
+        error: 'Could not verify payment with Cashfree. Please contact support.'
+      };
+    }
+
+
+    let targetPlan;
+    if (planId) {
+      targetPlan = await this.prisma.plan.findUnique({ where: { id: planId } });
+    }
+    if (!targetPlan) {
+      const sub = await this.prisma.subscription.findUnique({ where: { restaurantId }, include: { plan: true } });
+      targetPlan = sub?.plan || await this.prisma.plan.findFirst({ where: { name: 'Growth' } });
+    }
+
+    const now = new Date();
+    const existingSub = await this.prisma.subscription.findUnique({ where: { restaurantId } });
+
+    // Calculate new period: Maintain period continuity from old due date if late payment
+    let periodStart = now;
+    let periodEnd: Date;
+
+    if (existingSub && existingSub.currentPeriodEnd) {
+      const oldDue = new Date(existingSub.currentPeriodEnd);
+      // If renewed before expiry or slightly into grace, extend from old due date
+      const baseDate = oldDue > now ? oldDue : now;
+      periodEnd = new Date(baseDate.getTime() + (targetPlan.billingDays || 30) * 24 * 60 * 60 * 1000);
+    } else {
+      periodEnd = new Date(now.getTime() + (targetPlan.billingDays || 30) * 24 * 60 * 60 * 1000);
+    }
+
+    const isFirstTime = !existingSub;
+    const isPlanSwitch = existingSub && existingSub.planId !== targetPlan.id;
+    let paidAmount: number;
+    if (isFirstTime) {
+      paidAmount = Number(targetPlan.firstMonthPrice || 1.00);
+    } else if (isPlanSwitch) {
+      paidAmount = Number(targetPlan.price);
+    } else {
+      paidAmount = Number(existingSub?.renewalAmount || targetPlan.price);
+    }
+
+    // Upsert Subscription
+    const subscription = await this.prisma.subscription.upsert({
+      where: { restaurantId },
       update: {
-        currentValue: { increment: amount },
-        lastSyncedAt: new Date()
+        planId: targetPlan.id,
+        status: SubscriptionStatus.ACTIVE,
+        currentPeriodStart: periodStart,
+        currentPeriodEnd: periodEnd,
+        nextBillingAt: periodEnd,
+        amount: new Prisma.Decimal(paidAmount),
+        renewalAmount: new Prisma.Decimal(targetPlan.price),
+        graceDays: 7
       },
       create: {
         restaurantId,
-        metric,
-        period,
-        currentValue: amount
+        planId: targetPlan.id,
+        status: SubscriptionStatus.ACTIVE,
+        startedAt: now,
+        currentPeriodStart: periodStart,
+        currentPeriodEnd: periodEnd,
+        nextBillingAt: periodEnd,
+        amount: new Prisma.Decimal(paidAmount),
+        renewalAmount: new Prisma.Decimal(targetPlan.price),
+        graceDays: 7,
+        notes: 'Initial ₹1 activation via Cashfree'
       }
     });
-  }
 
-  /**
-   * Evaluate soft and hard daily order limits.
-   */
-  async checkOrderLimit(restaurantId: number): Promise<{ allowed: boolean; warning?: string }> {
-    const sub = await this.prisma.restaurantSubscription.findUnique({
-      where: { restaurantId },
-      include: { plan: true }
+    const paymentNote = isFirstTime
+      ? '₹1 First Month Launch Offer via Cashfree'
+      : isPlanSwitch
+      ? `Tier Switch: Upgrade to ${targetPlan.name} Plan via Cashfree`
+      : 'Monthly Recurring Renewal via Cashfree';
+
+    // Record Payment
+    await this.prisma.saasPayment.create({
+      data: {
+        restaurantId,
+        subscriptionId: subscription.id,
+        amount: new Prisma.Decimal(paidAmount),
+        paymentMethod: paymentMethod.toUpperCase(),
+        status: 'SUCCESS',
+        transactionId: `TXN_${orderId}`,
+        gateway: 'Cashfree',
+        gatewayEventId: idempotencyKey,
+        cfOrderId: orderId,
+        cfPaymentId: cfPaymentId,
+        notes: paymentNote
+      }
     });
 
-    if (!sub) return { allowed: false, warning: 'No active subscription found.' };
-    if (sub.plan.name === 'Enterprise') return { allowed: true };
-
-    const metricRecord = await this.prisma.usageMetric.findUnique({
-      where: {
-        restaurantId_metric_period: {
-          restaurantId,
-          metric: 'daily_orders',
-          period: 'daily'
+    // Log Audit Event
+    await this.prisma.subscriptionEvent.create({
+      data: {
+        subscriptionId: subscription.id,
+        action: isFirstTime ? 'INITIAL_ACTIVATION' : isPlanSwitch ? 'PLAN_UPGRADE' : 'RENEWAL_PAID',
+        actor: 'Cashfree PG v2023-08-01',
+        details: {
+          orderId,
+          cfPaymentId,
+          paymentMethod,
+          paidAmount,
+          previousPlanId: existingSub?.planId || null,
+          targetPlanId: targetPlan.id,
+          planName: targetPlan.name,
+          validUntil: periodEnd
         }
       }
     });
 
-    const currentCount = metricRecord?.currentValue ?? 0;
-    const limit = sub.plan.maxDailyOrders || 30; // Default limit for Starter plan
+    // Broadcast live event over WebSocket
+    this.websocketGateway?.server?.to(`restaurant_${restaurantId}`).emit('subscription_updated', {
+      status: 'ACTIVE',
+      planName: targetPlan.name,
+      currentPeriodEnd: periodEnd
+    });
 
-    if (sub.plan.name === 'Starter') {
-      if (currentCount >= limit) {
-        return {
-          allowed: false,
-          warning: 'Hard quota reached: Daily limit (30) exceeded on Starter Plan. Upgrade to resume billing.'
-        };
+    return {
+      success: true,
+      message: 'Subscription successfully activated!',
+      subscription: {
+        planName: targetPlan.name,
+        status: 'ACTIVE',
+        currentPeriodEnd: periodEnd,
+        renewalAmount: targetPlan.price
       }
-      if (currentCount === limit - 3) {
-        return {
-          allowed: true,
-          warning: 'Quota Warning: You have used 90% of your daily order limit. Please upgrade to Pro.'
-        };
-      }
-      if (currentCount === limit - 1) {
-        return {
-          allowed: true,
-          warning: 'Urgent: Only 1 order remaining in your daily quota. Upgrade now!'
-        };
+    };
+  }
+
+  // 4b. Cashfree Webhook Handler (v2023-08-01)
+  async handleCashfreeWebhook(payload: any, signature?: string, timestamp?: string) {
+    if (!payload || !payload.data) {
+      return { status: 'IGNORED', message: 'No payload data.' };
+    }
+
+    const eventType = payload.type;
+    const orderData = payload.data.order;
+    const paymentData = payload.data.payment;
+
+    if (eventType === 'PAYMENT_SUCCESS_WEBHOOK' && orderData && orderData.order_id) {
+      const orderId = orderData.order_id;
+      // Extract restaurantId from order_id format (e.g. SUB_1_1787607631426)
+      const parts = orderId.split('_');
+      const restaurantId = parseInt(parts[1]);
+
+      if (restaurantId && !isNaN(restaurantId)) {
+        await this.verifyCashfreePayment(restaurantId, orderId);
+        return { status: 'PROCESSED', orderId };
       }
     }
 
-    return { allowed: true };
+    return { status: 'RECEIVED', type: eventType };
   }
 
-  /**
-   * Fetch complete subscription status, limits, and usage logs.
-   */
-  async getSubscriptionStatus(restaurantId: number): Promise<any> {
-    const sub = await this.prisma.restaurantSubscription.findUnique({
-      where: { restaurantId },
-      include: {
-        plan: {
-          include: {
-            features: {
-              include: { feature: true }
-            }
+  // 5. Super Admin: List Subscriptions with MRR Telemetry
+  async getAdminSubscriptions(statusFilter: string = 'ALL', search: string = '', page: number = 1, limit: number = 50) {
+    const pageNum = Math.max(1, page);
+    const pageSize = Math.min(100, Math.max(1, limit));
+
+    const where: any = {};
+    if (statusFilter && statusFilter !== 'ALL') {
+      where.status = statusFilter as SubscriptionStatus;
+    }
+    if (search) {
+      where.restaurant = {
+        name: { contains: search, mode: 'insensitive' }
+      };
+    }
+
+    const [totalCount, subscriptions, allActive] = await Promise.all([
+      this.prisma.subscription.count({ where }),
+      this.prisma.subscription.findMany({
+        where,
+        include: {
+          restaurant: {
+            select: { id: true, name: true, phone: true, email: true, createdAt: true }
+          },
+          plan: true,
+          payments: {
+            orderBy: { createdAt: 'desc' },
+            take: 1
           }
         },
-        addons: {
-          include: { addon: true }
-        }
+        orderBy: { updatedAt: 'desc' },
+        skip: (pageNum - 1) * pageSize,
+        take: pageSize
+      }),
+      this.prisma.subscription.findMany({
+        where: { status: SubscriptionStatus.ACTIVE },
+        select: { renewalAmount: true }
+      })
+    ]);
+
+    // Calculate MRR (Monthly Recurring Revenue)
+    const mrr = allActive.reduce((sum, s) => sum + Number(s.renewalAmount || 0), 0);
+
+    const [activeCount, graceCount, suspendedCount] = await Promise.all([
+      this.prisma.subscription.count({ where: { status: SubscriptionStatus.ACTIVE } }),
+      this.prisma.subscription.count({ where: { status: SubscriptionStatus.GRACE } }),
+      this.prisma.subscription.count({ where: { status: SubscriptionStatus.SUSPENDED } })
+    ]);
+
+    return {
+      data: subscriptions,
+      stats: {
+        totalSubscribed: activeCount + graceCount + suspendedCount,
+        mrr,
+        activeCount,
+        graceCount,
+        suspendedCount
+      },
+      pagination: {
+        total: totalCount,
+        page: pageNum,
+        limit: pageSize,
+        totalPages: Math.ceil(totalCount / pageSize)
+      }
+    };
+  }
+
+  // 6. Super Admin: Extend Subscription (Free Days)
+  async adminExtendSubscription(subscriptionId: number, days: number, reason: string, actor: string = 'Super Admin') {
+    if (!days || days <= 0) throw new BadRequestException('Days must be a positive number');
+
+    const sub = await this.prisma.subscription.findUnique({ where: { id: subscriptionId } });
+    if (!sub) throw new NotFoundException('Subscription not found');
+
+    const now = new Date();
+    const currentEnd = new Date(sub.currentPeriodEnd);
+    const baseDate = currentEnd > now ? currentEnd : now;
+    const newEnd = new Date(baseDate.getTime() + days * 24 * 60 * 60 * 1000);
+
+    const updated = await this.prisma.subscription.update({
+      where: { id: subscriptionId },
+      data: {
+        currentPeriodEnd: newEnd,
+        nextBillingAt: newEnd,
+        status: SubscriptionStatus.ACTIVE
       }
     });
 
-    if (!sub) {
-      return { status: 'inactive', message: 'No subscription record linked.' };
-    }
-
-    const usageMetrics = await this.prisma.usageMetric.findMany({
-      where: { restaurantId }
+    // Log Audit Event
+    await this.prisma.subscriptionEvent.create({
+      data: {
+        subscriptionId,
+        action: 'EXTEND',
+        actor,
+        notes: reason,
+        details: { daysAdded: days, newEndDate: newEnd }
+      }
     });
 
-    const featuresCatalog = sub.plan.features.map(f => ({
-      code: f.feature.code,
-      name: f.feature.name,
-      enabled: f.enabled
-    }));
+    // WebSocket notify
+    this.websocketGateway?.server?.to(`restaurant_${sub.restaurantId}`).emit('subscription_updated', {
+      status: 'ACTIVE',
+      currentPeriodEnd: newEnd
+    });
 
-    sub.addons.forEach(a => {
-      if (!featuresCatalog.some(f => f.code === a.addon.code)) {
-        featuresCatalog.push({
-          code: a.addon.code,
-          name: a.addon.name,
-          enabled: true
+    return { success: true, message: `Subscription extended by ${days} days!`, newEndDate: newEnd };
+  }
+
+  // 7. Super Admin: Record Offline / Manual Payment
+  async adminRecordPayment(subscriptionId: number, amount: number, paymentMethod: string, transactionId: string, notes: string, actor: string = 'Super Admin') {
+    const sub = await this.prisma.subscription.findUnique({ where: { id: subscriptionId }, include: { plan: true } });
+    if (!sub) throw new NotFoundException('Subscription not found');
+
+    const now = new Date();
+    const currentEnd = new Date(sub.currentPeriodEnd);
+    const baseDate = currentEnd > now ? currentEnd : now;
+    const newEnd = new Date(baseDate.getTime() + (sub.plan.billingDays || 30) * 24 * 60 * 60 * 1000);
+
+    const txnId = transactionId || `MANUAL_${Date.now()}`;
+
+    await this.prisma.$transaction([
+      this.prisma.subscription.update({
+        where: { id: subscriptionId },
+        data: {
+          currentPeriodEnd: newEnd,
+          nextBillingAt: newEnd,
+          amount: new Prisma.Decimal(amount),
+          status: SubscriptionStatus.ACTIVE
+        }
+      }),
+      this.prisma.saasPayment.create({
+        data: {
+          restaurantId: sub.restaurantId,
+          subscriptionId,
+          amount: new Prisma.Decimal(amount),
+          paymentMethod: paymentMethod || 'Cash',
+          status: 'SUCCESS',
+          transactionId: txnId,
+          gateway: 'Manual',
+          notes: notes || 'Admin recorded offline payment'
+        }
+      }),
+      this.prisma.subscriptionEvent.create({
+        data: {
+          subscriptionId,
+          action: 'RECORD_PAYMENT',
+          actor,
+          notes,
+          details: { amount, paymentMethod, transactionId: txnId, newEndDate: newEnd }
+        }
+      })
+    ]);
+
+    this.websocketGateway?.server?.to(`restaurant_${sub.restaurantId}`).emit('subscription_updated', {
+      status: 'ACTIVE',
+      currentPeriodEnd: newEnd
+    });
+
+    return { success: true, message: 'Offline payment recorded and subscription renewed!', newEndDate: newEnd };
+  }
+
+  // 8. Super Admin: Change Plan & Price Snapshot
+  async adminChangePlan(subscriptionId: number, newPlanId: number, customRenewalPrice?: number, actor: string = 'Super Admin') {
+    const newPlan = await this.prisma.plan.findUnique({ where: { id: newPlanId } });
+    if (!newPlan) throw new NotFoundException('Plan not found');
+
+    const renewalAmount = customRenewalPrice !== undefined ? customRenewalPrice : Number(newPlan.price);
+
+    const updated = await this.prisma.subscription.update({
+      where: { id: subscriptionId },
+      data: {
+        planId: newPlanId,
+        renewalAmount: new Prisma.Decimal(renewalAmount)
+      }
+    });
+
+    await this.prisma.subscriptionEvent.create({
+      data: {
+        subscriptionId,
+        action: 'CHANGE_PLAN',
+        actor,
+        details: { newPlanName: newPlan.name, newRenewalPrice: renewalAmount }
+      }
+    });
+
+    return { success: true, message: `Plan changed to ${newPlan.name} (Renewal: ₹${renewalAmount})` };
+  }
+
+  // 9. Super Admin: Suspend / Reactivate / Cancel
+  async adminChangeStatus(subscriptionId: number, status: SubscriptionStatus, reason: string, actor: string = 'Super Admin') {
+    const sub = await this.prisma.subscription.findUnique({ where: { id: subscriptionId } });
+    if (!sub) throw new NotFoundException('Subscription not found');
+
+    const updated = await this.prisma.subscription.update({
+      where: { id: subscriptionId },
+      data: { status }
+    });
+
+    await this.prisma.subscriptionEvent.create({
+      data: {
+        subscriptionId,
+        action: status,
+        actor,
+        notes: reason
+      }
+    });
+
+    this.websocketGateway?.server?.to(`restaurant_${sub.restaurantId}`).emit('subscription_updated', {
+      status
+    });
+
+    return { success: true, message: `Subscription status updated to ${status}` };
+  }
+
+  // 10. Daily Cron: Process Reminders & Expiration Transitions
+  async processDailyCron() {
+    const now = new Date();
+    console.log(`[Subscription Cron] Running daily check at ${now.toISOString()}`);
+
+    // A. Subscriptions where period ended and still ACTIVE -> Move to GRACE
+    const expiredActive = await this.prisma.subscription.findMany({
+      where: {
+        status: SubscriptionStatus.ACTIVE,
+        currentPeriodEnd: { lt: now }
+      }
+    });
+
+    for (const sub of expiredActive) {
+      await this.prisma.subscription.update({
+        where: { id: sub.id },
+        data: { status: SubscriptionStatus.GRACE }
+      });
+      await this.prisma.subscriptionEvent.create({
+        data: {
+          subscriptionId: sub.id,
+          action: 'GRACE',
+          actor: 'System Cron',
+          notes: 'Current period expired, entered 7-day grace period'
+        }
+      });
+      this.websocketGateway?.server?.to(`restaurant_${sub.restaurantId}`).emit('subscription_updated', {
+        status: 'GRACE'
+      });
+    }
+
+    // B. Subscriptions where grace period ended -> Move to SUSPENDED
+    const graceSubs = await this.prisma.subscription.findMany({
+      where: { status: SubscriptionStatus.GRACE }
+    });
+
+    for (const sub of graceSubs) {
+      const graceEnd = new Date(new Date(sub.currentPeriodEnd).getTime() + (sub.graceDays || 7) * 24 * 60 * 60 * 1000);
+      if (now > graceEnd) {
+        await this.prisma.subscription.update({
+          where: { id: sub.id },
+          data: { status: SubscriptionStatus.SUSPENDED }
+        });
+        await this.prisma.subscriptionEvent.create({
+          data: {
+            subscriptionId: sub.id,
+            action: 'SUSPENDED',
+            actor: 'System Cron',
+            notes: 'Grace period expired without payment'
+          }
+        });
+        this.websocketGateway?.server?.to(`restaurant_${sub.restaurantId}`).emit('subscription_updated', {
+          status: 'SUSPENDED'
         });
       }
-    });
-
-    return {
-      planName: sub.plan.name,
-      status: sub.status,
-      billingPeriod: sub.billingPeriod,
-      startDate: sub.startDate,
-      endDate: sub.endDate,
-      trialStart: sub.trialStart,
-      trialEnd: sub.trialEnd,
-      extraTables: sub.extraTablesCount,
-      extraStaff: sub.extraStaffCount,
-      limits: {
-        maxTables: sub.plan.maxTables + sub.extraTablesCount,
-        maxStaff: sub.plan.maxStaff + sub.extraStaffCount,
-        maxKds: sub.plan.maxKds
-      },
-      features: featuresCatalog,
-      usage: usageMetrics.map(m => ({
-        metric: m.metric,
-        value: m.currentValue,
-        period: m.period
-      }))
-    };
-  }
-
-  /**
-   * Purchase seat-based or flat addons.
-   */
-  async purchaseAddon(restaurantId: number, addonCode: string, quantity: number): Promise<any> {
-    const sub = await this.prisma.restaurantSubscription.findUnique({
-      where: { restaurantId }
-    });
-
-    if (!sub) throw new BadRequestException('No subscription profile linked.');
-
-    const addon = await this.prisma.addon.findUnique({
-      where: { code: addonCode }
-    });
-
-    if (!addon) throw new BadRequestException(`Addon ${addonCode} not found in catalog.`);
-
-    // 1. Log purchase addon record
-    const subAddon = await this.prisma.subscriptionAddon.create({
-      data: {
-        subscriptionId: sub.id,
-        addonId: addon.id,
-        quantity: quantity
-      }
-    });
-
-    // 2. Adjust subscription limits accordingly
-    if (addonCode === 'extra_staff') {
-      await this.prisma.restaurantSubscription.update({
-        where: { id: sub.id },
-        data: { extraStaffCount: { increment: quantity } }
-      });
-    } else if (addonCode === 'extra_tables') {
-      await this.prisma.restaurantSubscription.update({
-        where: { id: sub.id },
-        data: { extraTablesCount: { increment: quantity } }
-      });
     }
 
-    // 3. Create Invoice audit log for billing records
-    const unitPrice = parseFloat(addon.price.toString());
-    const totalAmount = unitPrice * quantity;
-    const tax = totalAmount * 0.18; // 18% standard VAT/Tax
-    const grandTotal = totalAmount + tax;
-
-    const invoiceNo = `INV-ADDON-${Date.now()}`;
-    const invoice = await this.prisma.invoice.create({
-      data: {
-        subscriptionId: sub.id,
-        invoiceNo,
-        subtotal: totalAmount,
-        discount: 0.00,
-        tax,
-        total: grandTotal,
-        status: 'paid',
-        paidAt: new Date(),
-        items: {
-          create: [
-            {
-              description: `Purchased Addon: ${addon.name} x${quantity}`,
-              quantity,
-              unitPrice,
-              totalAmount
-            }
-          ]
-        }
-      }
-    });
-
     return {
-      message: `Successfully purchased addon: ${addon.name}`,
-      invoiceNo: invoice.invoiceNo,
-      totalPaid: grandTotal
+      success: true,
+      processed: {
+        movedToGrace: expiredActive.length,
+        checkedGrace: graceSubs.length
+      }
     };
-  }
-
-  /**
-   * Get all invoice records for restaurant
-   */
-  async getInvoices(restaurantId: number): Promise<any[]> {
-    const sub = await this.prisma.restaurantSubscription.findUnique({
-      where: { restaurantId }
-    });
-
-    if (!sub) return [];
-
-    return this.prisma.invoice.findMany({
-      where: { subscriptionId: sub.id },
-      include: { items: true },
-      orderBy: { createdAt: 'desc' }
-    });
   }
 }

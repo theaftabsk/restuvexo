@@ -31,7 +31,9 @@ ChartJS.register(
 export default function ReportsDashboard() {
   const [loading, setLoading] = useState(true);
   const [orders, setOrders] = useState([]);
-  const [dateRange, setDateRange] = useState("7days"); // today, yesterday, 7days, 30days, all
+  const [dateRange, setDateRange] = useState("7days"); // today, yesterday, 7days, 30days, month, all, custom
+  const [customStartDate, setCustomStartDate] = useState("");
+  const [customEndDate, setCustomEndDate] = useState("");
   const [cogsPercentage, setCogsPercentage] = useState(35); // Cost of Goods Sold (COGS) %: customizable slider
 
   // Dynamic OPEX Expense items (Loaded from Database)
@@ -98,7 +100,7 @@ export default function ReportsDashboard() {
     const token = localStorage.getItem("authToken");
     if (!token) return;
     try {
-      const res = await fetch(`${BACKEND_URL}/api/expenses?limit=300`, {
+      const res = await fetch(`${BACKEND_URL}/api/expenses?limit=1000`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
       if (res.ok) {
@@ -115,13 +117,12 @@ export default function ReportsDashboard() {
     if (!token) return;
 
     try {
-      const res = await fetch(`${BACKEND_URL}/api/orders?limit=300`, {
+      const res = await fetch(`${BACKEND_URL}/api/orders?dateFilter=all&limit=1000`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
       if (res.ok) {
         const json = await res.json();
         const data = json.data || [];
-        // Only consider paid or settled orders for actual profit ledger calculations
         setOrders(data);
       }
     } catch (error) {
@@ -211,43 +212,52 @@ export default function ReportsDashboard() {
   // Date Filtering Calculations
   const getFilteredData = () => {
     const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const startOfYesterday = startOfToday - 86400000;
+    const startOf7Days = startOfToday - 6 * 86400000;
+    const startOf30Days = startOfToday - 29 * 86400000;
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
 
     // Filter Orders by range
-    const filteredOrders = orders.filter(order => {
-      const oDate = new Date(order.createdAt);
-      const diffTime = Math.abs(now.getTime() - oDate.getTime());
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const filteredOrders = orders.filter((order: any) => {
+      const oTime = new Date(order.createdAt).getTime();
 
       if (dateRange === "today") {
-        return oDate.toDateString() === now.toDateString();
+        return oTime >= startOfToday;
       } else if (dateRange === "yesterday") {
-        const yesterday = new Date();
-        yesterday.setDate(now.getDate() - 1);
-        return oDate.toDateString() === yesterday.toDateString();
+        return oTime >= startOfYesterday && oTime < startOfToday;
       } else if (dateRange === "7days") {
-        return diffDays <= 7;
+        return oTime >= startOf7Days;
       } else if (dateRange === "30days") {
-        return diffDays <= 30;
+        return oTime >= startOf30Days;
+      } else if (dateRange === "month") {
+        return oTime >= startOfMonth;
+      } else if (dateRange === "custom") {
+        const s = customStartDate ? new Date(customStartDate).setHours(0, 0, 0, 0) : 0;
+        const e = customEndDate ? new Date(customEndDate).setHours(23, 59, 59, 999) : Infinity;
+        return oTime >= s && oTime <= e;
       }
       return true; // all
     });
 
     // Filter Expenses by range
-    const filteredExpenses = expenses.filter(exp => {
-      const eDate = new Date(exp.date);
-      const diffTime = Math.abs(now.getTime() - eDate.getTime());
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const filteredExpenses = expenses.filter((exp: any) => {
+      const eTime = new Date(exp.date).getTime();
 
       if (dateRange === "today") {
-        return eDate.toDateString() === now.toDateString();
+        return eTime >= startOfToday;
       } else if (dateRange === "yesterday") {
-        const yesterday = new Date();
-        yesterday.setDate(now.getDate() - 1);
-        return eDate.toDateString() === yesterday.toDateString();
+        return eTime >= startOfYesterday && eTime < startOfToday;
       } else if (dateRange === "7days") {
-        return diffDays <= 7;
+        return eTime >= startOf7Days;
       } else if (dateRange === "30days") {
-        return diffDays <= 30;
+        return eTime >= startOf30Days;
+      } else if (dateRange === "month") {
+        return eTime >= startOfMonth;
+      } else if (dateRange === "custom") {
+        const s = customStartDate ? new Date(customStartDate).setHours(0, 0, 0, 0) : 0;
+        const e = customEndDate ? new Date(customEndDate).setHours(23, 59, 59, 999) : Infinity;
+        return eTime >= s && eTime <= e;
       }
       return true; // all
     });
@@ -526,17 +536,20 @@ export default function ReportsDashboard() {
       <div className="flex flex-col gap-4 bg-white border border-slate-200 p-4 rounded-[2rem] shadow-sm">
 
         {/* Date Filters */}
-        <div className="flex gap-2 overflow-x-auto scrollbar-none justify-start flex-wrap">
+        <div className="flex gap-2 overflow-x-auto scrollbar-none justify-start flex-wrap items-center">
           {[
             { key: "today", label: "Today" },
             { key: "yesterday", label: "Yesterday" },
             { key: "7days", label: "Last 7 Days" },
-            { key: "30days", label: "Last 30 Days" }
+            { key: "30days", label: "Last 30 Days" },
+            { key: "month", label: "This Month" },
+            { key: "all", label: "All Time" },
+            { key: "custom", label: "Custom Date" }
           ].map((tab) => (
             <button
               key={tab.key}
               onClick={() => setDateRange(tab.key)}
-              className={`px-4.5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border whitespace-nowrap transition duration-200 ${dateRange === tab.key
+              className={`px-4.5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border whitespace-nowrap transition duration-200 cursor-pointer ${dateRange === tab.key
                   ? "bg-[#ff5722] border-[#ff5722] text-white shadow-md shadow-orange-500/10"
                   : "bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-500 font-extrabold"
                 }`}
@@ -544,6 +557,30 @@ export default function ReportsDashboard() {
               {tab.label}
             </button>
           ))}
+
+          {/* Custom Date Pickers */}
+          {dateRange === "custom" && (
+            <div className="flex items-center gap-2 bg-slate-50 p-1.5 rounded-xl border border-slate-200">
+              <div className="flex items-center gap-1">
+                <span className="text-[9px] font-bold text-slate-500 uppercase">From:</span>
+                <input
+                  type="date"
+                  value={customStartDate}
+                  onChange={(e) => setCustomStartDate(e.target.value)}
+                  className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-[11px] font-bold text-slate-700 focus:outline-none focus:border-[#ff5722]"
+                />
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-[9px] font-bold text-slate-500 uppercase">To:</span>
+                <input
+                  type="date"
+                  value={customEndDate}
+                  onChange={(e) => setCustomEndDate(e.target.value)}
+                  className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-[11px] font-bold text-slate-700 focus:outline-none focus:border-[#ff5722]"
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Action Trigger Buttons */}

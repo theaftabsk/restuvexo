@@ -7,6 +7,7 @@ export declare class TableController {
     createTable(req: Request, res: Response): Promise<any>;
     updateTable(req: Request, res: Response): Promise<any>;
     deleteTable(req: Request, res: Response): Promise<any>;
+    getTableHistory(req: Request, res: Response): Promise<any>;
     getActiveSessions(req: Request, res: Response): Promise<any>;
     clearActiveSession(req: Request, res: Response): Promise<any>;
     getSettings(req: Request, res: Response): Promise<void>;

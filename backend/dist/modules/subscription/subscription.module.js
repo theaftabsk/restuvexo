@@ -10,12 +10,14 @@ exports.SubscriptionModule = void 0;
 const common_1 = require("@nestjs/common");
 const subscription_service_1 = require("./subscription.service");
 const subscription_controller_1 = require("./subscription.controller");
+const websocket_module_1 = require("../../websocket/websocket.module");
 let SubscriptionModule = class SubscriptionModule {
 };
 exports.SubscriptionModule = SubscriptionModule;
 exports.SubscriptionModule = SubscriptionModule = __decorate([
     (0, common_1.Global)(),
     (0, common_1.Module)({
+        imports: [websocket_module_1.WebsocketModule],
         providers: [subscription_service_1.SubscriptionService],
         controllers: [subscription_controller_1.SubscriptionController],
         exports: [subscription_service_1.SubscriptionService],

@@ -599,6 +599,38 @@ let AuthService = class AuthService {
             res.status(500).json({ error: "Failed to retrieve restaurant details." });
         }
     }
+    async changePassword(req, res) {
+        try {
+            const userId = req.user.id;
+            const { currentPassword, newPassword } = req.body;
+            if (!currentPassword || !newPassword) {
+                return res.status(400).json({ error: "Current password and new password are required." });
+            }
+            if (newPassword.length < 6) {
+                return res.status(400).json({ error: "New password must be at least 6 characters." });
+            }
+            const user = await this.prisma.user.findUnique({
+                where: { id: userId }
+            });
+            if (!user) {
+                return res.status(404).json({ error: "User not found." });
+            }
+            const isValid = await bcrypt.compare(currentPassword, user.passwordHash);
+            if (!isValid) {
+                return res.status(400).json({ error: "Incorrect current password." });
+            }
+            const newPasswordHash = await bcrypt.hash(newPassword, 10);
+            await this.prisma.user.update({
+                where: { id: userId },
+                data: { passwordHash: newPasswordHash }
+            });
+            return res.json({ success: true, message: "Password changed successfully." });
+        }
+        catch (error) {
+            console.error('[Change Password Error]', error);
+            return res.status(500).json({ error: error.message || "Failed to update password." });
+        }
+    }
 };
 exports.AuthService = AuthService;
 exports.AuthService = AuthService = __decorate([

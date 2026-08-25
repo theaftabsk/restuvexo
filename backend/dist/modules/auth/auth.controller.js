@@ -61,6 +61,9 @@ let AuthController = class AuthController {
     async getRestaurant(req, res) {
         return this.authService.getRestaurant(req, res);
     }
+    async changePassword(req, res) {
+        return this.authService.changePassword(req, res);
+    }
 };
 exports.AuthController = AuthController;
 __decorate([
@@ -181,6 +184,15 @@ __decorate([
     __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "getRestaurant", null);
+__decorate([
+    (0, common_1.UseGuards)(auth_guard_1.AuthGuard),
+    (0, common_1.Post)('change-password'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "changePassword", null);
 exports.AuthController = AuthController = __decorate([
     (0, common_1.Controller)('api/auth'),
     __metadata("design:paramtypes", [auth_service_1.AuthService])

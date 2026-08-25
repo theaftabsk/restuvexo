@@ -22,10 +22,13 @@ model Restaurant {
   categories Category[]
   menuItems  MenuItem[]
   inventory  Inventory[]
+  inventoryTransactions InventoryTransaction[]
+  menuItemAddons        MenuItemAddon[]
   orders     Order[]
   expenses   Expense[]
   settings   RestaurantSetting?
   subscription RestaurantSubscription?
+  saasSubscription Subscription?
   usageMetrics UsageMetric[]
 
   @@map("restaurants")
@@ -86,9 +89,11 @@ enum TableStatus {
 model Table {
   id           Int         @id @default(autoincrement())
   restaurantId Int         @map("restaurant_id")
-  tableNo      String      @map("table_no") @db.VarChar(20)
+  tableNo      String      @map("table_no") @db.VarChar(50)
   qrCode       String?     @map("qr_code") @db.VarChar(255)
   status       TableStatus @default(free)
+  capacity     Int?        @default(4)
+  floor        String?     @default("Ground Floor") @db.VarChar(100)
 
   restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   orders     Order[]
@@ -108,49 +113,149 @@ model Category {
   @@map("categories")
 }
 
-model MenuItem {
-  id           Int     @id @default(autoincrement())
-  restaurantId Int     @map("restaurant_id")
-  categoryId   Int     @map("category_id")
-  name         String  @db.VarChar(150)
-  price        Decimal @db.Decimal(10, 2)
-  costPrice    Decimal @default(0.00) @map("cost_price") @db.Decimal(10, 2)
-  stockQty     Int     @default(999) @map("stock_qty")
-  isAvailable  Boolean @default(true) @map("is_available")
-  trackStock   Boolean @default(true) @map("track_stock")
-  imageUrl     String? @map("image_url") @db.VarChar(500)
+enum StockTrackingMode {
+  dont_track
+  item_stock
+  recipe_bom
+}
 
-  restaurant Restaurant  @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  category   Category    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  recipes    Recipe[]
-  orderItems OrderItem[]
+enum RecipeScope {
+  base_item
+  variant
+  addon
+}
+
+enum UnitDimension {
+  weight
+  volume
+  count
+}
+
+enum InventoryTxType {
+  purchase
+  recipe_consumption
+  wastage
+  stock_adjustment
+  cancellation_return
+}
+
+model MenuItem {
+  id           Int               @id @default(autoincrement())
+  restaurantId Int               @map("restaurant_id")
+  categoryId   Int               @map("category_id")
+  name         String            @db.VarChar(150)
+  description  String?           @db.VarChar(500)
+  price        Decimal           @db.Decimal(10, 2)
+  costPrice    Decimal           @default(0.00) @map("cost_price") @db.Decimal(10, 2)
+  isVeg        Boolean           @default(false) @map("is_veg")
+  stockMode    StockTrackingMode @default(dont_track) @map("stock_mode")
+  stockQty     Int               @default(999) @map("stock_qty")
+  lowStockAlert Int              @default(5) @map("low_stock_alert")
+  hasVariants  Boolean           @default(false) @map("has_variants")
+  allowSpice   Boolean           @default(true) @map("allow_spice")
+  isAvailable  Boolean           @default(true) @map("is_available")
+  trackStock   Boolean           @default(true) @map("track_stock")
+  imageUrl     String?           @map("image_url") @db.VarChar(500)
+  isArchived   Boolean           @default(false) @map("is_archived")
+  createdAt    DateTime          @default(now()) @map("created_at")
+  updatedAt    DateTime          @default(now()) @updatedAt @map("updated_at")
+
+  restaurant   Restaurant        @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  category     Category          @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  variants     MenuItemVariant[]
+  addons       MenuItemAddon[]
+  recipes      Recipe[]
+  orderItems   OrderItem[]
   kitchenTicketItems KitchenTicketItem[]
 
   @@map("menu_items")
 }
 
-model Inventory {
-  id            Int     @id @default(autoincrement())
-  restaurantId  Int     @map("restaurant_id")
-  itemName      String  @map("item_name") @db.VarChar(150)
-  qty           Decimal @db.Decimal(10, 2)
-  unit          String  @db.VarChar(20)
-  lowStockAlert Decimal @default(5.00) @map("low_stock_alert") @db.Decimal(10, 2)
+model MenuItemVariant {
+  id         Int        @id @default(autoincrement())
+  menuItemId Int        @map("menu_item_id")
+  name       String     @db.VarChar(100)
+  price      Decimal    @db.Decimal(10, 2)
+  isDefault  Boolean    @default(false) @map("is_default")
+  isArchived Boolean    @default(false) @map("is_archived")
 
-  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  menuItem   MenuItem   @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
   recipes    Recipe[]
+
+  @@map("menu_item_variants")
+}
+
+model MenuItemAddon {
+  id           Int        @id @default(autoincrement())
+  menuItemId   Int?       @map("menu_item_id")
+  restaurantId Int        @map("restaurant_id")
+  name         String     @db.VarChar(100)
+  price        Decimal    @db.Decimal(10, 2)
+  isArchived   Boolean    @default(false) @map("is_archived")
+
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  menuItem     MenuItem?  @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  recipes      Recipe[]
+
+  @@map("menu_item_addons")
+}
+
+model Inventory {
+  id            Int                    @id @default(autoincrement())
+  restaurantId  Int                    @map("restaurant_id")
+  itemName      String                 @map("item_name") @db.VarChar(150)
+  currentStock  Decimal                @default(0.000) @map("current_stock") @db.Decimal(10, 3)
+  reservedStock Decimal                @default(0.000) @map("reserved_stock") @db.Decimal(10, 3)
+  baseUnit      String                 @default("kg") @map("base_unit") @db.VarChar(20)
+  unitDimension UnitDimension          @default(weight) @map("unit_dimension")
+  reorderLevel  Decimal                @default(5.000) @map("reorder_level") @db.Decimal(10, 3)
+  minAlertQty   Decimal                @default(2.000) @map("min_alert_qty") @db.Decimal(10, 3)
+  costPerUnit   Decimal                @default(0.00) @map("cost_per_unit") @db.Decimal(10, 2)
+  isArchived    Boolean                @default(false) @map("is_archived")
+
+  restaurant    Restaurant             @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  recipes       Recipe[]
+  transactions  InventoryTransaction[]
 
   @@map("inventory")
 }
 
-model Recipe {
-  id          Int     @id @default(autoincrement())
-  menuItemId  Int     @map("menu_item_id")
-  inventoryId Int     @map("inventory_id")
-  qtyRequired Decimal @map("qty_required") @db.Decimal(10, 3)
+model InventoryTransaction {
+  id             Int             @id @default(autoincrement())
+  restaurantId   Int             @map("restaurant_id")
+  inventoryId    Int             @map("inventory_id")
+  txType         InventoryTxType @map("tx_type")
+  qtyDelta       Decimal         @map("qty_delta") @db.Decimal(10, 3)
+  balanceAfter   Decimal         @map("balance_after") @db.Decimal(10, 3)
+  costAtTx       Decimal         @default(0.00) @map("cost_at_tx") @db.Decimal(10, 2)
+  idempotencyKey String          @unique @map("idempotency_key") @db.VarChar(200)
+  sourceType     String?         @map("source_type") @db.VarChar(50)
+  sourceId       Int?            @map("source_id")
+  note           String?         @db.VarChar(255)
+  createdAt      DateTime        @default(now()) @map("created_at")
 
-  menuItem  MenuItem  @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
-  inventory Inventory @relation(fields: [inventoryId], references: [id], onDelete: Restrict)
+  restaurant     Restaurant      @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  inventory      Inventory       @relation(fields: [inventoryId], references: [id], onDelete: Restrict)
+
+  @@map("inventory_transactions")
+}
+
+model Recipe {
+  id           Int              @id @default(autoincrement())
+  restaurantId Int              @map("restaurant_id")
+  scope        RecipeScope      @default(base_item)
+  menuItemId   Int?             @map("menu_item_id")
+  variantId    Int?             @map("variant_id")
+  addonId      Int?             @map("addon_id")
+  inventoryId  Int              @map("inventory_id")
+  qtyRequired  Decimal          @map("qty_required") @db.Decimal(10, 3)
+  unit         String           @default("g") @db.VarChar(20)
+  yieldPercent Decimal          @default(100.00) @map("yield_percent") @db.Decimal(5, 2)
+
+  menuItem     MenuItem?        @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  variant      MenuItemVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  addon        MenuItemAddon?   @relation(fields: [addonId], references: [id], onDelete: Cascade)
+  inventory    Inventory        @relation(fields: [inventoryId], references: [id], onDelete: Restrict)
 
   @@map("recipes")
 }
@@ -213,17 +318,39 @@ model Order {
   @@map("orders")
 }
 
-model OrderItem {
-  id         Int     @id @default(autoincrement())
-  orderId    Int     @map("order_id")
-  menuItemId Int     @map("menu_item_id")
-  qty        Int
-  price      Decimal @db.Decimal(10, 2)
-  costPrice  Decimal @default(0.00) @map("cost_price") @db.Decimal(10, 2)
-  note       String? @db.VarChar(255)
+enum InventoryMode {
+  disabled
+  basic_stock
+  full_inventory
+}
 
-  order    Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  menuItem MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Restrict)
+enum StockDeductionTrigger {
+  on_kot_sent
+  on_order_completed
+}
+
+enum NegativeStockPolicy {
+  block_sale
+  allow_with_warning
+  allow_silent
+}
+
+model OrderItem {
+  id              Int      @id @default(autoincrement())
+  orderId         Int      @map("order_id")
+  menuItemId      Int      @map("menu_item_id")
+  variantId       Int?     @map("variant_id")
+  nameSnapshot    String   @default("") @map("name_snapshot") @db.VarChar(150)
+  variantSnapshot String?  @map("variant_snapshot") @db.VarChar(100)
+  addonsSnapshot  Json?    @map("addons_snapshot")
+  spiceLevel      String?  @map("spice_level") @db.VarChar(50)
+  qty             Int
+  price           Decimal  @db.Decimal(10, 2)
+  costPrice       Decimal  @default(0.00) @map("cost_price") @db.Decimal(10, 2)
+  note            String?  @db.VarChar(255)
+
+  order           Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItem        MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Restrict)
 
   @@map("order_items")
 }
@@ -243,29 +370,35 @@ model Expense {
 }
 
 model RestaurantSetting {
-  id                  Int        @id @default(autoincrement())
-  restaurantId        Int        @unique @map("restaurant_id")
-  qrOrderingEnabled   Boolean    @default(true) @map("qr_ordering_enabled")
-  customerTheme       String     @default("sunset") @map("customer_theme") @db.VarChar(50)
-  sidebarTheme        String     @default("light") @map("sidebar_theme") @db.VarChar(50)
-  sidebarQuickActions Boolean    @default(true) @map("sidebar_quick_actions")
-  sidebarStoreSwitch  Boolean    @default(true) @map("sidebar_store_switch")
-  sidebarCollapsible  Boolean    @default(true) @map("sidebar_collapsible")
-  sidebarHiddenItems  String[]   @default([]) @map("sidebar_hidden_items")
+  id                    Int                   @id @default(autoincrement())
+  restaurantId          Int                   @unique @map("restaurant_id")
+  qrOrderingEnabled     Boolean               @default(true) @map("qr_ordering_enabled")
+  customerTheme         String                @default("sunset") @map("customer_theme") @db.VarChar(50)
+  sidebarTheme          String                @default("light") @map("sidebar_theme") @db.VarChar(50)
+  sidebarQuickActions   Boolean               @default(true) @map("sidebar_quick_actions")
+  sidebarStoreSwitch    Boolean               @default(true) @map("sidebar_store_switch")
+  sidebarCollapsible    Boolean               @default(true) @map("sidebar_collapsible")
+  sidebarHiddenItems    String[]              @default([]) @map("sidebar_hidden_items")
 
-  vexoAiEnabled       Boolean    @default(true) @map("vexo_ai_enabled")
-  vexoAiNormalLimit   Int        @default(15) @map("vexo_ai_normal_limit")
-  vexoAiApiLimit      Int        @default(5) @map("vexo_ai_api_limit")
+  inventoryMode         InventoryMode         @default(full_inventory) @map("inventory_mode")
+  deductionTrigger      StockDeductionTrigger @default(on_kot_sent) @map("deduction_trigger")
+  negativeStockPolicy   NegativeStockPolicy   @default(block_sale) @map("negative_stock_policy")
+  lowStockAlertEnabled  Boolean               @default(true) @map("low_stock_alert_enabled")
+  autoOutOfStockEnabled Boolean               @default(true) @map("auto_out_of_stock_enabled")
 
-  subscriptionPlan    String     @default("trial") @map("subscription_plan") @db.VarChar(50)
-  subscriptionStatus  String     @default("active") @map("subscription_status") @db.VarChar(50)
-  trialEndsAt         DateTime?  @map("trial_ends_at")
+  vexoAiEnabled         Boolean               @default(true) @map("vexo_ai_enabled")
+  vexoAiNormalLimit     Int                   @default(15) @map("vexo_ai_normal_limit")
+  vexoAiApiLimit        Int                   @default(5) @map("vexo_ai_api_limit")
 
-  enabledFeatures     Json?      @map("enabled_features")
-  customPrice         Decimal    @default(0.00) @map("custom_price") @db.Decimal(10, 2)
-  customNotes         String?    @map("custom_notes") @db.Text
+  subscriptionPlan      String                @default("trial") @map("subscription_plan") @db.VarChar(50)
+  subscriptionStatus    String                @default("active") @map("subscription_status") @db.VarChar(50)
+  trialEndsAt           DateTime?             @map("trial_ends_at")
 
-  restaurant          Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  enabledFeatures       Json?                 @map("enabled_features")
+  customPrice           Decimal               @default(0.00) @map("custom_price") @db.Decimal(10, 2)
+  customNotes           String?               @map("custom_notes") @db.Text
+
+  restaurant            Restaurant            @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 
   @@map("restaurant_settings")
 }
@@ -560,4 +693,107 @@ model SubscriptionHistory {
   subscription   RestaurantSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
 
   @@map("subscription_histories")
+}
+
+// ==========================================
+// SIMPLE & STRONG SAAS SUBSCRIPTION ENGINE (V1)
+// ==========================================
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  GRACE
+  SUSPENDED
+  CANCELLED
+}
+
+model Plan {
+  id              Int            @id @default(autoincrement())
+  name            String         @unique @db.VarChar(50)
+  price           Decimal        @db.Decimal(10, 2)
+  billingDays     Int            @default(30) @map("billing_days")
+  firstMonthPrice Decimal        @default(1.00) @map("first_month_price") @db.Decimal(10, 2)
+  features        Json?
+  isActive        Boolean        @default(true) @map("is_active")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  subscriptions   Subscription[]
+
+  @@map("saas_plans")
+}
+
+model Subscription {
+  id                 Int                    @id @default(autoincrement())
+  restaurantId       Int                    @unique @map("restaurant_id")
+  planId             Int                    @map("plan_id")
+  status             SubscriptionStatus     @default(ACTIVE)
+  startedAt          DateTime               @default(now()) @map("started_at")
+  currentPeriodStart DateTime               @default(now()) @map("current_period_start")
+  currentPeriodEnd   DateTime               @map("current_period_end")
+  nextBillingAt      DateTime               @map("next_billing_at")
+  amount             Decimal                @default(1.00) @db.Decimal(10, 2)
+  renewalAmount      Decimal                @map("renewal_amount") @db.Decimal(10, 2)
+  graceDays          Int                    @default(7) @map("grace_days")
+  discountApplied    Decimal                @default(0.00) @map("discount_applied") @db.Decimal(10, 2)
+  notes              String?                @db.Text
+  createdAt          DateTime               @default(now()) @map("created_at")
+  updatedAt          DateTime               @updatedAt @map("updated_at")
+
+  restaurant         Restaurant             @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  plan               Plan                   @relation(fields: [planId], references: [id])
+  payments           SaasPayment[]
+  reminders          SubscriptionReminder[]
+  events             SubscriptionEvent[]
+
+  @@map("saas_subscriptions")
+}
+
+model SaasPayment {
+  id             Int          @id @default(autoincrement())
+  restaurantId   Int          @map("restaurant_id")
+  subscriptionId Int          @map("subscription_id")
+  amount         Decimal      @db.Decimal(10, 2)
+  paymentMethod  String       @default("UPI") @map("payment_method") @db.VarChar(50)
+  status         String       @default("SUCCESS") @db.VarChar(30)
+  transactionId  String?      @unique @map("transaction_id") @db.VarChar(100)
+  gateway        String?      @default("Cashfree") @db.VarChar(50)
+  gatewayEventId String?      @unique @map("gateway_event_id") @db.VarChar(150)
+  cfOrderId      String?      @map("cf_order_id") @db.VarChar(100)
+  cfPaymentId    String?      @map("cf_payment_id") @db.VarChar(100)
+  notes          String?      @db.Text
+  paidAt         DateTime?    @default(now()) @map("paid_at")
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@map("saas_payments")
+}
+
+model SubscriptionReminder {
+  id             Int          @id @default(autoincrement())
+  subscriptionId Int          @map("subscription_id")
+  type           String       @db.VarChar(30)
+  scheduledAt    DateTime     @map("scheduled_at")
+  sentAt         DateTime?    @map("sent_at")
+  status         String       @default("PENDING") @db.VarChar(20)
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@map("saas_subscription_reminders")
+}
+
+model SubscriptionEvent {
+  id             Int          @id @default(autoincrement())
+  subscriptionId Int          @map("subscription_id")
+  action         String       @db.VarChar(50)
+  actor          String       @default("System") @db.VarChar(100)
+  details        Json?
+  notes          String?      @db.Text
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@map("saas_subscription_events")
 }

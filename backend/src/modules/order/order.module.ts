@@ -7,8 +7,10 @@ import { OrderService } from './order.service';
 import { WebsocketModule } from '../../websocket/websocket.module';
 
 
+import { InventoryModule } from '../inventory/inventory.module';
+
 @Module({
-  imports: [DashboardModule, WebsocketModule, DashboardModule],
+  imports: [DashboardModule, WebsocketModule, InventoryModule],
   controllers: [OrderController],
   providers: [
     OrderService

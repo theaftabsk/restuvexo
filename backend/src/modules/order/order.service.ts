@@ -1,9 +1,10 @@
-
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SettingsService } from '../../shared/settings.service';
 import { WebsocketGateway } from '../../websocket/websocket.gateway';
 import { DashboardService } from '../dashboard/dashboard.service';
+import { StockLedgerService } from '../inventory/stock-ledger.service';
+import { Prisma } from '@prisma/client';
 import * as path from 'path';
 import * as fs from 'fs';
 
@@ -47,9 +48,9 @@ const readBlacklist = () => {
   }
 };
 
-const writeBlacklist = (blacklist: any) => {
+const writeBlacklist = (bl: any) => {
   try {
-    fs.writeFileSync(blacklistFilePath, JSON.stringify(blacklist, null, 2), 'utf8');
+    fs.writeFileSync(blacklistFilePath, JSON.stringify(bl, null, 2), 'utf8');
   } catch (e) {
     console.error(e);
   }
@@ -58,9 +59,13 @@ const writeBlacklist = (blacklist: any) => {
 
 @Injectable()
 export class OrderService {
-  constructor(private prisma: PrismaService, private settingsService: SettingsService, private websocketGateway: WebsocketGateway, private dashboardService: DashboardService) {
-    
-  }
+  constructor(
+    private prisma: PrismaService,
+    private settingsService: SettingsService,
+    private websocketGateway: WebsocketGateway,
+    private dashboardService: DashboardService,
+    private stockLedgerService: StockLedgerService
+  ) {}
 
   async generateTemplink(req, res: any) {
   const { qrCode, deviceId } = req.body;
@@ -120,29 +125,23 @@ async createOrder(req, res: any) {
           throw new Error(`Menu item with ID ${item.menuItemId} not found.`);
         }
 
-        const shouldTrackThisItem = menuItem.trackStock;
-
-        // Verify and deduct stock only if trackStock is active (USER REQUESTED STOCK TOGGLE BYPASS)
-        if (shouldTrackThisItem) {
-          if (menuItem.stockQty < item.qty) {
-            throw new Error(`Insufficient stock for item: ${menuItem.name}. Available: ${menuItem.stockQty}`);
-          }
-
-          // Deduct item stock qty
-          await tx.menuItem.update({
-            where: { id: menuItem.id },
-            data: { stockQty: menuItem.stockQty - item.qty }
-          });
-        }
-
-        const priceNum = parseFloat(menuItem.price.toString());
-        const itemTotal = priceNum * item.qty;
+        const variantId = item.variantId ? parseInt(item.variantId) : null;
+        const variantName = item.variantName || null;
+        const addons = Array.isArray(item.addons) ? item.addons : null;
+        const spiceLevel = item.spiceLevel || null;
+        const unitPrice = item.price !== undefined ? parseFloat(item.price) : parseFloat(menuItem.price.toString());
+        const itemTotal = unitPrice * item.qty;
         subtotal += itemTotal;
 
         orderItemsToCreate.push({
           menuItemId: menuItem.id,
+          variantId: variantId,
+          nameSnapshot: menuItem.name,
+          variantSnapshot: variantName,
+          addonsSnapshot: addons,
+          spiceLevel: spiceLevel,
           qty: item.qty,
-          price: menuItem.price,
+          price: new Prisma.Decimal(unitPrice),
           costPrice: menuItem.costPrice,
           note: item.note || ""
         });
@@ -231,6 +230,13 @@ async createOrder(req, res: any) {
 
       return newOrder;
     });
+
+    // Deduct stock idempotently based on item stock modes and BOM recipes
+    try {
+      await this.stockLedgerService.deductStockForOrder(restaurantId, order.id, 'ORDER');
+    } catch (stockErr) {
+      console.error('[Stock Deduction Warning]', stockErr);
+    }
 
     const formattedOrder = {
       ...order,
@@ -510,7 +516,7 @@ async getOrders(req, res: any) {
   // dateFilter === 'all' → no date restriction
 
   const pageNum  = Math.max(1, parseInt(page));
-  const limitNum = Math.min(100, Math.max(1, parseInt(limit))); // cap at 100
+  const limitNum = Math.min(1000, Math.max(1, parseInt(limit))); // allow up to 1000 for reports and analytics
   const skip     = (pageNum - 1) * limitNum;
 
   const whereClause: any = {
@@ -1144,8 +1150,13 @@ async settleOrder(req, res: any) {
   const restaurantId = req.user.restaurantId;
 
   try {
+    const orderId = parseInt(id);
+    if (isNaN(orderId)) {
+      return res.status(400).json({ error: "Invalid or missing Order ID parameter." });
+    }
+
     const order = await this.prisma.order.findUnique({
-      where: { id: parseInt(id) }
+      where: { id: orderId }
     });
 
     if (!order || order.restaurantId !== restaurantId) {
@@ -1977,6 +1988,13 @@ async voidOrder(req, res: any) {
 
       return updated;
     });
+
+    // Reverse any deducted ingredient stock
+    try {
+      await this.stockLedgerService.reverseStockForOrder(restaurantId, order.id, reason || 'Order Voided');
+    } catch (revErr) {
+      console.error('[Stock Reversal Warning]', revErr);
+    }
 
     const io = this.websocketGateway?.server;
     if (io) {

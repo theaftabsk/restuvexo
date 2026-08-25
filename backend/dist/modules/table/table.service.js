@@ -100,7 +100,7 @@ let TableService = class TableService {
     ;
     async createTable(req, res) {
         const restaurantId = parseInt(req.user.restaurantId);
-        const { tableNo } = req.body;
+        const { tableNo, capacity, floor } = req.body;
         if (!tableNo)
             return res.status(400).json({ error: "Table name/number is required." });
         try {
@@ -110,11 +110,17 @@ let TableService = class TableService {
             const newTable = await this.prisma.table.create({
                 data: {
                     restaurantId,
-                    tableNo,
+                    tableNo: String(tableNo).trim(),
+                    capacity: capacity ? parseInt(capacity) : 4,
+                    floor: floor ? String(floor).trim() : "Ground Floor",
                     qrCode,
                     status: "free"
                 }
             });
+            const io = this.websocketGateway?.server;
+            if (io) {
+                this.websocketGateway.server.to(`restaurant_${restaurantId}`).emit('table_updated', newTable);
+            }
             res.json(newTable);
         }
         catch (e) {
@@ -126,8 +132,8 @@ let TableService = class TableService {
     async updateTable(req, res) {
         const restaurantId = parseInt(req.user.restaurantId);
         const tableId = parseInt(req.params.id);
-        const { tableNo, status } = req.body;
-        if (tableNo === undefined && status === undefined) {
+        const { tableNo, status, capacity, floor } = req.body;
+        if (tableNo === undefined && status === undefined && capacity === undefined && floor === undefined) {
             return res.status(400).json({ error: "No fields provided to update." });
         }
         try {
@@ -137,16 +143,21 @@ let TableService = class TableService {
             }
             const updateData = {};
             if (tableNo !== undefined)
-                updateData.tableNo = tableNo;
+                updateData.tableNo = String(tableNo).trim();
             if (status !== undefined)
                 updateData.status = status;
+            if (capacity !== undefined)
+                updateData.capacity = parseInt(capacity) || 4;
+            if (floor !== undefined)
+                updateData.floor = String(floor).trim();
             const updatedTable = await this.prisma.table.update({
                 where: { id: tableId },
                 data: updateData
             });
             const io = this.websocketGateway?.server;
-            if (io)
+            if (io) {
                 this.websocketGateway.server.to(`restaurant_${restaurantId}`).emit('table_updated', updatedTable);
+            }
             res.json(updatedTable);
         }
         catch (e) {
@@ -340,6 +351,50 @@ let TableService = class TableService {
             writeBlacklist(blacklist);
         }
         res.json({ success: true, message: "Device unblocked successfully." });
+    }
+    ;
+    async getTableHistory(req, res) {
+        const restaurantId = parseInt(req.user.restaurantId);
+        const tableId = parseInt(req.params.id);
+        if (isNaN(tableId)) {
+            return res.status(400).json({ error: "Invalid table ID." });
+        }
+        try {
+            const table = await this.prisma.table.findFirst({
+                where: { id: tableId, restaurantId }
+            });
+            if (!table)
+                return res.status(404).json({ error: "Table not found." });
+            const orders = await this.prisma.order.findMany({
+                where: { tableId, restaurantId },
+                include: {
+                    orderItems: {
+                        include: { menuItem: true }
+                    }
+                },
+                orderBy: { createdAt: 'desc' },
+                take: 25
+            });
+            const startOfToday = new Date();
+            startOfToday.setHours(0, 0, 0, 0);
+            const todayOrders = orders.filter(o => new Date(o.createdAt) >= startOfToday && o.paymentStatus === 'paid');
+            const todayRevenue = todayOrders.reduce((sum, o) => sum + Number(o.totalAmount || 0), 0);
+            const todayTurnoverCount = todayOrders.length;
+            const allPaidOrders = orders.filter(o => o.paymentStatus === 'paid');
+            const lifetimeRevenue = allPaidOrders.reduce((sum, o) => sum + Number(o.totalAmount || 0), 0);
+            return res.json({
+                table,
+                todayRevenue,
+                todayTurnoverCount,
+                lifetimeRevenue,
+                totalOrdersCount: orders.length,
+                orders
+            });
+        }
+        catch (error) {
+            console.error('[Get Table History Error]', error);
+            res.status(500).json({ error: "Failed to load table history." });
+        }
     }
     ;
 };

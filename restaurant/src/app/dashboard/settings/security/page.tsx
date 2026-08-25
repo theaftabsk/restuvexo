@@ -1,56 +1,117 @@
 "use client";
+
 import { useState, useEffect } from "react";
+import {
+  ShieldAlert,
+  Lock,
+  KeyRound,
+  Trash2,
+  CheckCircle2,
+  AlertTriangle,
+  Smartphone,
+  ShieldCheck,
+  Save,
+  RotateCcw
+} from "lucide-react";
 import LoadingScreen from "@/components/LoadingScreen";
 
 export default function SecuritySettings() {
-  const BACKEND_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000");
-  const [blockedDevices, setBlockedDevices] = useState([]);
-  const [loadingBlacklist, setLoadingBlacklist] = useState(true);
-  const [toast, setToast] = useState(null);
+  const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
-  //  Premium Custom Confirmation Modal State
-  const [confirmModal, setConfirmModal] = useState({
+  const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
+
+  // 1. Password Change Form State
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: ""
+  });
+  const [passwordLoading, setPasswordLoading] = useState(false);
+
+  // 2. Blocked Devices State
+  const [blockedDevices, setBlockedDevices] = useState<any[]>([]);
+  const [confirmModal, setConfirmModal] = useState<{
+    show: boolean;
+    deviceId: string | null;
+    customerName: string;
+  }>({
     show: false,
     deviceId: null,
     customerName: ""
   });
 
-  const triggerToast = (msg, type = "success") => {
+  const triggerToast = (msg: string, type: "success" | "error" = "success") => {
     setToast({ msg, type });
-    setTimeout(() => setToast(null), 3000);
-  };
-
-  const fetchBlacklist = async () => {
-    setLoadingBlacklist(true);
-    const token = localStorage.getItem("authToken");
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/tables/blacklisted-devices`, {
-        headers: { "Authorization": `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        data.sort((a, b) => b.blockedAt - a.blockedAt);
-        setBlockedDevices(data);
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoadingBlacklist(false);
-    }
+    setTimeout(() => setToast(null), 3500);
   };
 
   useEffect(() => {
-    fetchBlacklist();
+    fetchSecurityData();
   }, []);
 
-  const triggerUnblockConfirm = (deviceId, customerName) => {
-    setConfirmModal({
-      show: true,
-      deviceId,
-      customerName
-    });
+  const fetchSecurityData = async () => {
+    setLoading(true);
+    const token = localStorage.getItem("authToken");
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/tables/blacklisted-devices`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        data.sort((a: any, b: any) => b.blockedAt - a.blockedAt);
+        setBlockedDevices(data);
+      }
+    } catch (e) {
+      console.error("Failed to load security data:", e);
+    } finally {
+      setLoading(false);
+    }
   };
 
+  // Password Change Handler
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      triggerToast("New passwords do not match.", "error");
+      return;
+    }
+    if (passwordForm.newPassword.length < 6) {
+      triggerToast("Password must be at least 6 characters.", "error");
+      return;
+    }
+
+    setPasswordLoading(true);
+    const token = localStorage.getItem("authToken");
+
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/auth/change-password`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          currentPassword: passwordForm.currentPassword,
+          newPassword: passwordForm.newPassword
+        })
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        triggerToast("Password updated successfully! Keep your credentials safe.", "success");
+        setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+      } else {
+        triggerToast(data.error || "Failed to update password.", "error");
+      }
+    } catch (err: any) {
+      triggerToast(err.message || "Network error", "error");
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
+
+  // Unblock Device Execution
   const executeUnblock = async () => {
     const token = localStorage.getItem("authToken");
     const { deviceId } = confirmModal;
@@ -59,160 +120,238 @@ export default function SecuritySettings() {
     try {
       const res = await fetch(`${BACKEND_URL}/api/tables/blacklisted-devices/${deviceId}`, {
         method: "DELETE",
-        headers: { "Authorization": `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
-        triggerToast("Device has been unblocked successfully.", "success");
-        setBlockedDevices(prev => prev.filter(d => d.deviceId !== deviceId));
+        triggerToast("Customer device has been unblocked successfully.", "success");
+        setBlockedDevices((prev) => prev.filter((d) => d.deviceId !== deviceId));
       } else {
-        throw new Error("Failed to unblock");
+        triggerToast("Failed to unblock device.", "error");
       }
     } catch (e) {
       triggerToast("Failed to unblock device.", "error");
     }
   };
 
-  if (loadingBlacklist) {
-    return <LoadingScreen message="Syncing anti-spam blacklist..." minHeight="50vh" />;
+  if (loading) {
+    return <LoadingScreen message="Securing restaurant network..." minHeight="50vh" />;
   }
 
   return (
-    <div className="space-y-8 animate-fade-in text-slate-800 font-sans">
-      {/* Toast */}
+    <div className="space-y-8 animate-fade-in max-w-4xl text-slate-800 font-sans pb-16 text-left">
+      {/* Toast Notification */}
       {toast && (
-        <div className={`fixed bottom-6 right-6 z-50 px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 transition-all duration-300 animate-slide-up border ${
-          toast.type === "error" ? "bg-rose-50 border-rose-200 text-rose-750" : "bg-slate-900 border-slate-700 text-white"
-        }`}>
+        <div
+          className={`fixed bottom-6 right-6 z-50 px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 transition-all duration-300 animate-slide-up border ${
+            toast.type === "error" ? "bg-rose-50 border-rose-200 text-rose-750" : "bg-slate-900 border-slate-700 text-white"
+          }`}
+        >
           <span className="w-2 h-2 rounded-full inline-block shrink-0 bg-current animate-pulse" />
           <span className="text-[11px] font-black tracking-wide uppercase">{toast.msg}</span>
         </div>
       )}
 
-      <div className="text-left">
-        <h2 className="text-2xl font-black text-rose-500 tracking-tight">Anti-Spam Firewall</h2>
-        <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">Manage blacklisted customer devices</p>
+      {/* Header */}
+      <div>
+        <h2 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+          <ShieldCheck className="w-7 h-7 text-rose-500" />
+          Security Console & Access Control
+        </h2>
+        <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">
+          Manage Owner credentials, Manager override PINs, and Anti-Spam Firewall
+        </p>
       </div>
-      
-      <div className="bg-slate-50 border-2 border-slate-100 rounded-[2.5rem] p-6 shadow-inner space-y-6">
-        <div className="flex items-center justify-between text-left">
-          <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
-            Blocked Devices
-            <span className="px-2.5 py-0.5 bg-rose-500/10 text-rose-500 rounded-full text-xs font-bold">
-              {blockedDevices.length}
-            </span>
-          </h3>
+
+      <div className="space-y-6">
+        {/* Section 1: Change Owner Password */}
+        <div className="bg-white border border-slate-200 p-6 md:p-8 rounded-[2rem] shadow-sm space-y-6">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-500">
+                <KeyRound className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-slate-900">Change Account Password</h3>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">
+                  Update your owner login credentials for this restaurant workspace
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <form onSubmit={handleChangePassword} className="space-y-4 max-w-xl">
+            <div>
+              <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1.5">
+                Current Password
+              </label>
+              <input
+                type="password"
+                required
+                value={passwordForm.currentPassword}
+                onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                placeholder="Enter current password"
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-rose-500 focus:bg-white transition"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1.5">
+                  New Password
+                </label>
+                <input
+                  type="password"
+                  required
+                  value={passwordForm.newPassword}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                  placeholder="Min. 6 characters"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-rose-500 focus:bg-white transition"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1.5">
+                  Confirm New Password
+                </label>
+                <input
+                  type="password"
+                  required
+                  value={passwordForm.confirmPassword}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                  placeholder="Re-enter new password"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-rose-500 focus:bg-white transition"
+                />
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <button
+                type="submit"
+                disabled={passwordLoading}
+                className="px-6 py-3 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300 text-white text-xs font-black uppercase tracking-widest rounded-xl transition shadow-md flex items-center gap-2 cursor-pointer"
+              >
+                <Lock className="w-3.5 h-3.5" />
+                {passwordLoading ? "Updating..." : "Update Password"}
+              </button>
+            </div>
+          </form>
         </div>
 
-        {loadingBlacklist ? (
-          <div className="flex justify-center p-12">
-            <div className="w-10 h-10 border-4 border-slate-200 border-t-rose-500 rounded-full animate-spin"></div>
-          </div>
-        ) : blockedDevices.length === 0 ? (
-          <div className="py-16 text-center space-y-4 bg-white rounded-3xl shadow-sm border border-slate-250">
-            <div className="w-20 h-20 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto border border-emerald-100">
-              <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-              </svg>
+        {/* Section 2: Anti-Spam QR Customer Firewall */}
+        <div className="bg-white border border-slate-200 p-6 md:p-8 rounded-[2rem] shadow-sm space-y-6">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-500">
+                <ShieldAlert className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-slate-900">Anti-Spam QR Order Firewall</h3>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">
+                  Blacklisted devices blocked from placing prank or fake QR self-orders
+                </p>
+              </div>
             </div>
-            <div className="space-y-1">
-              <h4 className="text-lg font-black text-slate-900 leading-none">System is Secure</h4>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pt-1">
-                No devices are currently blacklisted on your network.
-              </p>
-            </div>
+            <span className="px-3 py-1 bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-black uppercase rounded-full">
+              {blockedDevices.length} Blocked
+            </span>
           </div>
-        ) : (
-          <div className="overflow-x-auto rounded-3xl border border-slate-200 shadow-sm">
-            <table className="min-w-full divide-y divide-slate-200 text-left text-xs font-bold text-slate-700 bg-white">
-              <thead className="bg-slate-100/50 text-[9px] font-black uppercase text-slate-450 tracking-widest border-b border-slate-200">
-                <tr>
-                  <th className="px-6 py-4">Device ID</th>
-                  <th className="px-6 py-4">Customer Details</th>
-                  <th className="px-6 py-4">Block Reason</th>
-                  <th className="px-6 py-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 font-semibold text-slate-650">
-                {blockedDevices.map(device => (
-                  <tr key={device.deviceId} className="hover:bg-slate-50/50 transition">
-                    <td className="px-6 py-4 font-black text-slate-900 font-mono text-[10px]">
-                      {device.deviceId.substring(0, 16)}...
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="space-y-1">
-                        <p className="text-slate-900 font-black">{device.customerName}</p>
-                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
-                          <svg className="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                          </svg>
-                          {device.deviceInfo}
-                        </p>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 max-w-[200px]">
-                      <span className="px-2.5 py-1 bg-rose-500/10 border border-rose-500/20 text-rose-600 rounded-lg text-[9px] font-black uppercase tracking-wide">
-                        {device.reason}
-                      </span>
-                      <p className="text-[9px] text-slate-400 mt-2 font-bold uppercase">
-                        {new Date(device.blockedAt).toLocaleDateString()}
-                      </p>
-                    </td>
-                    <td className="px-6 py-4 text-right space-x-2">
-                      <button
-                        onClick={() => triggerUnblockConfirm(device.deviceId, device.customerName)}
-                        className="py-1.5 px-4 bg-white hover:bg-emerald-50 text-emerald-650 border border-emerald-500/30 text-[9px] font-black uppercase tracking-widest rounded-xl transition shadow-sm"
-                        title="Remove from Blacklist"
-                      >
-                        Unblock
-                      </button>
-                    </td>
+
+          {blockedDevices.length === 0 ? (
+            <div className="py-12 text-center space-y-3 bg-slate-50 border border-slate-200 rounded-2xl">
+              <div className="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto border border-emerald-100">
+                <CheckCircle2 className="w-7 h-7" />
+              </div>
+              <div>
+                <h4 className="text-sm font-black text-slate-900">Firewall is Active & Clean</h4>
+                <p className="text-[11px] font-semibold text-slate-400 mt-0.5">
+                  No suspicious or malicious devices are currently blacklisted on your restaurant network.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="overflow-x-auto border border-slate-200 rounded-2xl">
+              <table className="min-w-full divide-y divide-slate-200 text-left text-xs bg-white">
+                <thead className="bg-slate-50 text-[10px] font-black uppercase text-slate-400 tracking-wider">
+                  <tr>
+                    <th className="px-4 py-3">Device Signature</th>
+                    <th className="px-4 py-3">Customer Profile</th>
+                    <th className="px-4 py-3">Block Reason</th>
+                    <th className="px-4 py-3 text-right">Action</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-semibold text-slate-600">
+                  {blockedDevices.map((device) => (
+                    <tr key={device.deviceId} className="hover:bg-slate-50 transition">
+                      <td className="px-4 py-3 font-mono font-bold text-slate-900 text-[11px]">
+                        {device.deviceId.substring(0, 16)}...
+                      </td>
+                      <td className="px-4 py-3">
+                        <p className="font-black text-slate-900">{device.customerName || "Anonymous Diner"}</p>
+                        <p className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">
+                          <Smartphone className="w-3 h-3" />
+                          {device.deviceInfo || "Mobile Device"}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="px-2 py-0.5 bg-rose-50 text-rose-700 text-[10px] font-black rounded-md border border-rose-100">
+                          {device.reason || "Excessive Fake Orders"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          onClick={() =>
+                            setConfirmModal({
+                              show: true,
+                              deviceId: device.deviceId,
+                              customerName: device.customerName || "this device"
+                            })
+                          }
+                          className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-black uppercase rounded-lg transition cursor-pointer"
+                        >
+                          Unblock
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/*  PREMIUM CUSTOM CONFIRMATION OVERLAY MODAL */}
+      {/* Unblock Confirmation Modal */}
       {confirmModal.show && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-950/60 backdrop-blur-md p-4 animate-fade-in">
-          <div className="bg-white rounded-[2.2rem] p-8 w-full max-w-sm shadow-2xl relative border border-slate-100 text-slate-800 animate-slide-up">
-            
-            {/* Outline Shield Icon */}
-            <div className="w-14 h-14 bg-emerald-50 text-emerald-500 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-emerald-100">
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-              </svg>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl border border-slate-200 text-center space-y-4">
+            <div className="w-12 h-12 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center mx-auto">
+              <RotateCcw className="w-6 h-6" />
             </div>
-
-            <h3 className="text-xl font-black text-slate-900 text-center tracking-tight leading-none">
-              Unblock Device
-            </h3>
-            
-            <p className="text-slate-500 text-xs font-semibold text-center leading-relaxed mt-3.5 mb-6.5">
-              Are you sure you want to unblock {confirmModal.customerName}&apos;s device and allow them to browse and place QR orders again?
-            </p>
-
-            <div className="grid grid-cols-2 gap-3">
+            <div>
+              <h3 className="text-base font-black text-slate-900">Unblock Customer Device?</h3>
+              <p className="text-xs font-semibold text-slate-400 mt-1">
+                This will allow <strong className="text-slate-700">{confirmModal.customerName}</strong> to place QR
+                self-orders again from their phone.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-3 pt-2">
               <button
+                type="button"
                 onClick={() => setConfirmModal({ show: false, deviceId: null, customerName: "" })}
-                className="py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-650 font-black rounded-xl text-[10px] uppercase tracking-wider transition active:scale-95"
+                className="py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-black uppercase tracking-wider rounded-xl transition"
               >
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={executeUnblock}
-                className="py-3.5 bg-slate-900 hover:bg-slate-850 text-white font-black rounded-xl text-[10px] uppercase tracking-wider transition active:scale-95 shadow-md"
+                className="py-3 bg-rose-500 hover:bg-rose-600 text-white text-xs font-black uppercase tracking-wider rounded-xl shadow-md shadow-rose-500/20 transition"
               >
-                Allow Device
+                Unblock
               </button>
             </div>
-
           </div>
         </div>
       )}
-
     </div>
   );
 }

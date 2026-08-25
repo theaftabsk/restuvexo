@@ -15,6 +15,11 @@ export declare class SettingsService {
         sidebarStoreSwitch: boolean;
         sidebarCollapsible: boolean;
         sidebarHiddenItems: string[];
+        inventoryMode: import(".prisma/client").$Enums.InventoryMode;
+        deductionTrigger: import(".prisma/client").$Enums.StockDeductionTrigger;
+        negativeStockPolicy: import(".prisma/client").$Enums.NegativeStockPolicy;
+        lowStockAlertEnabled: boolean;
+        autoOutOfStockEnabled: boolean;
         vexoAiEnabled: boolean;
         vexoAiNormalLimit: number;
         vexoAiApiLimit: number;

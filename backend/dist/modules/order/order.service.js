@@ -15,6 +15,8 @@ const prisma_service_1 = require("../../prisma/prisma.service");
 const settings_service_1 = require("../../shared/settings.service");
 const websocket_gateway_1 = require("../../websocket/websocket.gateway");
 const dashboard_service_1 = require("../dashboard/dashboard.service");
+const stock_ledger_service_1 = require("../inventory/stock-ledger.service");
+const client_1 = require("@prisma/client");
 const path = require("path");
 const fs = require("fs");
 const sessionFilePath = path.join(__dirname, '../../guestSessions.json');
@@ -57,20 +59,21 @@ const readBlacklist = () => {
         return {};
     }
 };
-const writeBlacklist = (blacklist) => {
+const writeBlacklist = (bl) => {
     try {
-        fs.writeFileSync(blacklistFilePath, JSON.stringify(blacklist, null, 2), 'utf8');
+        fs.writeFileSync(blacklistFilePath, JSON.stringify(bl, null, 2), 'utf8');
     }
     catch (e) {
         console.error(e);
     }
 };
 let OrderService = class OrderService {
-    constructor(prisma, settingsService, websocketGateway, dashboardService) {
+    constructor(prisma, settingsService, websocketGateway, dashboardService, stockLedgerService) {
         this.prisma = prisma;
         this.settingsService = settingsService;
         this.websocketGateway = websocketGateway;
         this.dashboardService = dashboardService;
+        this.stockLedgerService = stockLedgerService;
     }
     async generateTemplink(req, res) {
         const { qrCode, deviceId } = req.body;
@@ -118,23 +121,22 @@ let OrderService = class OrderService {
                     if (!menuItem || menuItem.restaurantId !== restaurantId) {
                         throw new Error(`Menu item with ID ${item.menuItemId} not found.`);
                     }
-                    const shouldTrackThisItem = menuItem.trackStock;
-                    if (shouldTrackThisItem) {
-                        if (menuItem.stockQty < item.qty) {
-                            throw new Error(`Insufficient stock for item: ${menuItem.name}. Available: ${menuItem.stockQty}`);
-                        }
-                        await tx.menuItem.update({
-                            where: { id: menuItem.id },
-                            data: { stockQty: menuItem.stockQty - item.qty }
-                        });
-                    }
-                    const priceNum = parseFloat(menuItem.price.toString());
-                    const itemTotal = priceNum * item.qty;
+                    const variantId = item.variantId ? parseInt(item.variantId) : null;
+                    const variantName = item.variantName || null;
+                    const addons = Array.isArray(item.addons) ? item.addons : null;
+                    const spiceLevel = item.spiceLevel || null;
+                    const unitPrice = item.price !== undefined ? parseFloat(item.price) : parseFloat(menuItem.price.toString());
+                    const itemTotal = unitPrice * item.qty;
                     subtotal += itemTotal;
                     orderItemsToCreate.push({
                         menuItemId: menuItem.id,
+                        variantId: variantId,
+                        nameSnapshot: menuItem.name,
+                        variantSnapshot: variantName,
+                        addonsSnapshot: addons,
+                        spiceLevel: spiceLevel,
                         qty: item.qty,
-                        price: menuItem.price,
+                        price: new client_1.Prisma.Decimal(unitPrice),
                         costPrice: menuItem.costPrice,
                         note: item.note || ""
                     });
@@ -210,6 +212,12 @@ let OrderService = class OrderService {
                 });
                 return newOrder;
             });
+            try {
+                await this.stockLedgerService.deductStockForOrder(restaurantId, order.id, 'ORDER');
+            }
+            catch (stockErr) {
+                console.error('[Stock Deduction Warning]', stockErr);
+            }
             const formattedOrder = {
                 ...order,
                 creator: order.creator ? {
@@ -443,7 +451,7 @@ let OrderService = class OrderService {
             }
         }
         const pageNum = Math.max(1, parseInt(page));
-        const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
+        const limitNum = Math.min(1000, Math.max(1, parseInt(limit)));
         const skip = (pageNum - 1) * limitNum;
         const whereClause = {
             restaurantId,
@@ -979,8 +987,12 @@ let OrderService = class OrderService {
         const { paymentMethod, payments } = req.body;
         const restaurantId = req.user.restaurantId;
         try {
+            const orderId = parseInt(id);
+            if (isNaN(orderId)) {
+                return res.status(400).json({ error: "Invalid or missing Order ID parameter." });
+            }
             const order = await this.prisma.order.findUnique({
-                where: { id: parseInt(id) }
+                where: { id: orderId }
             });
             if (!order || order.restaurantId !== restaurantId) {
                 return res.status(404).json({ error: "Order not found." });
@@ -1692,6 +1704,12 @@ let OrderService = class OrderService {
                 }
                 return updated;
             });
+            try {
+                await this.stockLedgerService.reverseStockForOrder(restaurantId, order.id, reason || 'Order Voided');
+            }
+            catch (revErr) {
+                console.error('[Stock Reversal Warning]', revErr);
+            }
             const io = this.websocketGateway?.server;
             if (io) {
                 this.websocketGateway.server.to(`restaurant_${restaurantId}`).emit('order_updated');
@@ -1728,7 +1746,11 @@ let OrderService = class OrderService {
 exports.OrderService = OrderService;
 exports.OrderService = OrderService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService, settings_service_1.SettingsService, websocket_gateway_1.WebsocketGateway, dashboard_service_1.DashboardService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
+        settings_service_1.SettingsService,
+        websocket_gateway_1.WebsocketGateway,
+        dashboard_service_1.DashboardService,
+        stock_ledger_service_1.StockLedgerService])
 ], OrderService);
 ;
 //# sourceMappingURL=order.service.js.map

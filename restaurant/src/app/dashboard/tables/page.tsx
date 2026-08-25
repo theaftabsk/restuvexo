@@ -1,712 +1,1172 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { io } from "socket.io-client";
 import QRCode from "qrcode";
 import LoadingScreen from "@/components/LoadingScreen";
+import {
+  LayoutGrid,
+  Plus,
+  Search,
+  Download,
+  Printer,
+  History,
+  QrCode as QrIcon,
+  Trash2,
+  Edit2,
+  Users,
+  Clock,
+  IndianRupee,
+  ChevronRight,
+  X,
+  Sparkles,
+  ArrowUpRight,
+  TrendingUp,
+  Flame,
+  CheckCircle2,
+  Eye,
+  RefreshCw,
+  Building,
+  Maximize2,
+  UtensilsCrossed,
+  Calendar,
+  Filter,
+  Zap
+} from "lucide-react";
 
 export default function TableManagerDashboard() {
-  const [tables, setTables] = useState([]);
-  const [activeSessions, setActiveSessions] = useState([]);
+  const [tables, setTables] = useState<any[]>([]);
+  const [activeSessions, setActiveSessions] = useState<any[]>([]);
+  const [activeOrders, setActiveOrders] = useState<any[]>([]);
   const [qrOrderingEnabled, setQrOrderingEnabled] = useState(true);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
-  const [toast, setToast] = useState({ show: false, message: "", type: "info" });
-  const [restaurant, setRestaurant] = useState(null);
-  const [printThemeModal, setPrintThemeModal] = useState({ show: false, table: null });
-  
-  // Table Add/Edit Modal State
-  const [showModal, setShowModal] = useState(false);
-  const [modalType, setModalType] = useState("add"); // 'add' | 'edit'
-  const [activeTableId, setActiveTableId] = useState(null);
-  const [tableNameInput, setTableNameInput] = useState("");
-  const [qrUrls, setQrUrls] = useState({}); // Local 100% offline generated QR URLs
-
-  //  Premium Custom Confirmation Modal State (To eliminate ugly browser popups!)
-  const [confirmModal, setConfirmModal] = useState({
+  const [toast, setToast] = useState<{ show: boolean; message: string; type: "success" | "error" | "info" }>({
     show: false,
-    title: "",
     message: "",
-    confirmText: "Confirm",
-    confirmColor: "bg-slate-900 hover:bg-slate-800",
-    onConfirm: () => {}
+    type: "info"
+  });
+  const [restaurant, setRestaurant] = useState<any>(null);
+
+  // Floor Tabs & Filter State
+  const [selectedFloor, setSelectedFloor] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "free">("all");
+
+  // Table History Drawer Date Filter State
+  const [drawerDateFilter, setDrawerDateFilter] = useState<"all" | "today" | "yesterday" | "7days" | "month" | "custom">("all");
+  const [drawerCustomStartDate, setDrawerCustomStartDate] = useState("");
+  const [drawerCustomEndDate, setDrawerCustomEndDate] = useState("");
+
+  // Table Add / Edit Modal State
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [modalMode, setModalMode] = useState<"add" | "edit">("add");
+  const [editTableId, setEditTableId] = useState<number | null>(null);
+  const [tableNoInput, setTableNoInput] = useState("");
+  const [floorSectionInput, setFloorSectionInput] = useState("Ground Floor");
+  const [capacityInput, setCapacityInput] = useState<number>(4);
+
+  // Table Order History Drawer State
+  const [historyDrawer, setHistoryDrawer] = useState<{
+    open: boolean;
+    table: any | null;
+    loading: boolean;
+    data: any | null;
+  }>({
+    open: false,
+    table: null,
+    loading: false,
+    data: null
   });
 
-  const BACKEND_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000");
+  // Standee Theme Modal & Bulk Print Modal
+  const [printStandeeModal, setPrintStandeeModal] = useState<{
+    show: boolean;
+    table: any | null;
+    theme: "sunset" | "dark" | "gold";
+  }>({
+    show: false,
+    table: null,
+    theme: "sunset"
+  });
+  const [showBulkPrintModal, setShowBulkPrintModal] = useState(false);
+
+  // QR URLs cache
+  const [qrUrls, setQrUrls] = useState<{ [key: string]: string }>({});
+
+  const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
   const getCustomerOrigin = () => {
     if (typeof window !== "undefined") {
       if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
         return "http://localhost:3001";
       }
-      return window.location.origin.replace(':3000', ':3001');
+      return window.location.origin.replace(":3000", ":3001");
     }
     return "http://localhost:3001";
   };
 
-  const triggerToast = (message, type = "info") => {
+  const triggerToast = (message: string, type: "success" | "error" | "info" = "info") => {
     setToast({ show: true, message, type });
     setTimeout(() => {
-      setToast(prev => ({ ...prev, show: false }));
-    }, 3500);
+      setToast((prev) => ({ ...prev, show: false }));
+    }, 3200);
+  };
+
+  // 1. Fetch All Tables, Sessions, and Orders
+  const fetchTablesAndData = async (silent = false) => {
+    if (!silent) setLoading(true);
+    const token = localStorage.getItem("authToken");
+
+    try {
+      const [tablesRes, ordersRes, settingsRes] = await Promise.all([
+        fetch(`${BACKEND_URL}/api/tables?_=${Date.now()}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {}
+        }),
+        fetch(`${BACKEND_URL}/api/order?_=${Date.now()}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {}
+        }),
+        fetch(`${BACKEND_URL}/api/tables/settings?_=${Date.now()}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {}
+        })
+      ]);
+
+      if (tablesRes.ok) {
+        const tData = await tablesRes.json();
+        const tableList = Array.isArray(tData) ? tData : tData.data || [];
+        setTables(tableList);
+
+        // Generate QRs locally for offline reliability
+        const origin = getCustomerOrigin();
+        const urlsMap: { [key: string]: string } = {};
+        for (const t of tableList) {
+          const targetUrl = `${origin}/menu?qr=${t.qrCode}`;
+          try {
+            const dataUrl = await QRCode.toDataURL(targetUrl, {
+              width: 320,
+              margin: 1,
+              color: { dark: "#0f172a", light: "#ffffff" }
+            });
+            urlsMap[t.id] = dataUrl;
+          } catch (e) {}
+        }
+        setQrUrls(urlsMap);
+      }
+
+      if (ordersRes.ok) {
+        const oData = await ordersRes.json();
+        const allOrders = Array.isArray(oData) ? oData : oData.data || [];
+        const unpaid = allOrders.filter((o: any) => o.paymentStatus === "unpaid" && !o.isMerged);
+        setActiveOrders(unpaid);
+      }
+
+      if (settingsRes.ok) {
+        const sData = await settingsRes.json();
+        if (sData.qrOrderingEnabled !== undefined) {
+          setQrOrderingEnabled(sData.qrOrderingEnabled);
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching tables data:", err);
+      if (!silent) triggerToast("Could not connect to server", "error");
+    } finally {
+      if (!silent) setLoading(false);
+    }
   };
 
   useEffect(() => {
-    const storedRestaurant = localStorage.getItem("restaurant");
-    if (storedRestaurant) setRestaurant(JSON.parse(storedRestaurant));
-    fetchTablesAndSettings();
+    const storedRest = localStorage.getItem("restaurant");
+    if (storedRest) setRestaurant(JSON.parse(storedRest));
+    fetchTablesAndData();
 
-    // SOCKET.IO REAL-TIME CONNECTION
+    // Socket.io Real-time Live Connection
     const socket = io(BACKEND_URL, {
       transports: ["websocket"],
       reconnection: true
     });
 
     socket.on("connect", () => {
-      console.log("Tables Socket Connected:", socket.id);
-      const userStr = localStorage.getItem("user");
-      if (userStr) {
+      const storedUser = localStorage.getItem("user");
+      if (storedUser) {
         try {
-          const userObj = JSON.parse(userStr);
-          if (userObj.restaurantId) {
-            socket.emit("join_restaurant", userObj.restaurantId);
-          }
+          const u = JSON.parse(storedUser);
+          if (u.restaurantId) socket.emit("join_restaurant", u.restaurantId);
         } catch (e) {}
       }
     });
 
-    // Listen for instant updates
-    socket.on("table_updated", () => {
-      fetchTablesAndSettings(true);
-    });
-    
-    socket.on("new_order_placed", () => {
-      fetchTablesAndSettings(true); 
-    });
-
-    socket.on("order_status_updated", () => {
-      fetchTablesAndSettings(true);
-    });
-
-    socket.on("order_updated", () => {
-      fetchTablesAndSettings(true);
-    });
-
-    socket.on("order_deleted", () => {
-      fetchTablesAndSettings(true);
-    });
-
-    socket.on("sidebar_telemetry_updated", (data) => {
-      if (data && data.qrOrderingEnabled !== undefined) {
-        setQrOrderingEnabled(data.qrOrderingEnabled);
-      }
-    });
+    const handleSync = () => fetchTablesAndData(true);
+    socket.on("table_updated", handleSync);
+    socket.on("new_order_placed", handleSync);
+    socket.on("order_status_updated", handleSync);
+    socket.on("order_deleted", handleSync);
 
     return () => {
       socket.disconnect();
     };
   }, []);
 
-  // 100% Offline client-side QR generation hook
-  useEffect(() => {
-    const generateQrs = async () => {
-      const urls = {};
-      for (const table of tables) {
-        const link = `${getCustomerOrigin()}/scan/${table.qrCode || table.id}`;
-        try {
-          const url = await QRCode.toDataURL(link, {
-            margin: 2,
-            width: 250,
-            color: {
-              dark: "#0f172a", // sleek dark slate
-              light: "#ffffff"
-            }
-          });
-          urls[table.id] = url;
-        } catch (err) {
-          console.error("Offline QR generation failed:", err);
-        }
-      }
-      setQrUrls(urls);
-    };
-    if (tables.length > 0) {
-      generateQrs();
-    }
+  const formatTableTitle = (raw: string | number) => {
+    const str = String(raw || "").trim();
+    const cleanNum = str.replace(/^Table\s+/i, "");
+    return `Table ${cleanNum}`;
+  };
+
+  // Extract Floor / Section from Table Name or assign smart default
+  const getTableFloor = (table: any) => {
+    const name = String(table.tableNo || "").toLowerCase();
+    if (name.includes("ac") || name.includes("a/c")) return "1st Floor AC";
+    if (name.includes("roof") || name.includes("bar")) return "Rooftop Lounge";
+    if (name.includes("garden") || name.includes("patio")) return "Outdoor Patio";
+    
+    // Numeric partitioning if >= 12 tables
+    const num = parseInt(name.replace(/[^0-9]/g, "")) || 0;
+    if (num >= 21) return "Rooftop Lounge";
+    if (num >= 11) return "1st Floor AC";
+    return "Ground Floor";
+  };
+
+  // Distinct Floor Sections
+  const floorSections = useMemo(() => {
+    const floors = new Set<string>();
+    tables.forEach((t) => floors.add(getTableFloor(t)));
+    return ["all", ...Array.from(floors)];
   }, [tables]);
 
-  const fetchTablesAndSettings = async (isSilent = false) => {
-    const token = localStorage.getItem("authToken");
-    if (!token) {
-      if (!isSilent) setLoading(false);
-      window.location.href = "/auth/login";
-      return;
-    }
-
-    try {
-      const tableRes = await fetch(`${BACKEND_URL}/api/tables?_=${Date.now()}`, {
-        headers: { "Authorization": `Bearer ${token}` },
-        cache: 'no-store'
-      });
-      if (tableRes.ok) {
-        const tableData = await tableRes.json();
-        setTables(tableData);
-      }
-
-      const sessionsRes = await fetch(`${BACKEND_URL}/api/tables/active-sessions?_=${Date.now()}`, {
-        headers: { "Authorization": `Bearer ${token}` },
-        cache: 'no-store'
-      });
-      if (sessionsRes.ok) {
-        const sessionsData = await sessionsRes.json();
-        setActiveSessions(sessionsData);
-      }
-
-      if (!isSilent) {
-        const settingRes = await fetch(`${BACKEND_URL}/api/tables/settings?_=${Date.now()}`, {
-          headers: { "Authorization": `Bearer ${token}` },
-          cache: 'no-store'
-        });
-        if (settingRes.ok) {
-          const settingData = await settingRes.json();
-          setQrOrderingEnabled(settingData.qrOrderingEnabled);
-        }
-      }
-    } catch (e) {
-      console.error(e);
-      if (!isSilent) triggerToast("Failed to synchronize floor parameters.", "error");
-    } finally {
-      if (!isSilent) setLoading(false);
-    }
-  };
-
-  const handleToggleQrOrdering = async () => {
-    const token = localStorage.getItem("authToken");
-    setActionLoading(true);
-    const targetState = !qrOrderingEnabled;
-
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/tables/settings`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify({ qrOrderingEnabled: targetState })
-      });
-
-      if (!res.ok) throw new Error("Settings update failed.");
-      
-      setQrOrderingEnabled(targetState);
-      triggerToast(
-        targetState 
-          ? "QR Customer Self-Ordering is now ENABLED!"
-          : "QR Customer Self-Ordering is now DISABLED!",
-        "success"
+  // Filtered Tables
+  const filteredTables = useMemo(() => {
+    return tables.filter((t) => {
+      const orderOnTable = activeOrders.find(
+        (o) => (o.tableId === t.id || o.table?.id === t.id) && o.paymentStatus === "unpaid"
       );
-    } catch (e) {
-      triggerToast(`Failed: ${e.message}`, "error");
-    } finally {
-      setActionLoading(false);
-    }
-  };
+      const floor = getTableFloor(t);
 
-  const handleUpdateStatus = async (tableId, newStatus) => {
-    const token = localStorage.getItem("authToken");
-    setActionLoading(true);
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/tables/${tableId}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify({ status: newStatus })
-      });
-      if (!res.ok) throw new Error("Failed to update status.");
-      
-      triggerToast(`Table status updated to ${newStatus.toUpperCase()}`, "success");
-      fetchTablesAndSettings(true);
-    } catch (e) {
-      triggerToast(`Error: ${e.message}`, "error");
-    } finally {
-      setActionLoading(false);
-    }
-  };
+      if (selectedFloor !== "all" && floor !== selectedFloor) return false;
+      if (statusFilter === "active" && !orderOnTable) return false;
+      if (statusFilter === "free" && orderOnTable) return false;
 
-  // --- Trigger Custom Session Clear Confirmation ---
-  const triggerClearSessionConfirm = (sessionId, tableId, tableNo) => {
-    setConfirmModal({
-      show: true,
-      title: "Force-Free Table Session",
-      message: `Are you sure you want to FORCE-FREE ${tableNo}? This will expire their guest checkout session immediately.`,
-      confirmText: "Force Free",
-      confirmColor: "bg-rose-500 hover:bg-rose-600 focus:ring-rose-500/20",
-      onConfirm: () => executeClearTableSession(sessionId, tableId, tableNo)
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        const tNo = String(t.tableNo).toLowerCase();
+        if (!tNo.includes(q) && !floor.toLowerCase().includes(q)) return false;
+      }
+
+      return true;
     });
-  };
+  }, [tables, activeOrders, selectedFloor, statusFilter, searchQuery]);
 
-  const executeClearTableSession = async (sessionId, tableId, tableNo) => {
-    const token = localStorage.getItem("authToken");
-    setActionLoading(true);
-    setConfirmModal(prev => ({ ...prev, show: false }));
+  // Summary Metrics
+  const metrics = useMemo(() => {
+    const totalTables = tables.length;
+    const occupiedCount = activeOrders.length;
+    const freeCount = Math.max(0, totalTables - occupiedCount);
+    const occupancyRate = totalTables > 0 ? Math.round((occupiedCount / totalTables) * 100) : 0;
+    const totalCapacity = totalTables * 4; // Standard 4-seater estimate
+    const activeRevenue = activeOrders.reduce((sum, o) => sum + Number(o.totalAmount || 0), 0);
 
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/tables/active-sessions/${sessionId}`, {
-        method: "DELETE",
-        headers: { "Authorization": `Bearer ${token}` }
-      });
-      if (!res.ok) throw new Error("Failed to clear session.");
+    return {
+      totalTables,
+      occupiedCount,
+      freeCount,
+      occupancyRate,
+      totalCapacity,
+      activeRevenue
+    };
+  }, [tables, activeOrders]);
 
-      await fetch(`${BACKEND_URL}/api/tables/${tableId}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify({ status: "free" })
-      });
+  // Dynamic Date-Filtered Orders & Stats for Table History Drawer
+  const filteredDrawerOrders = useMemo(() => {
+    if (!historyDrawer.data?.orders) return [];
+    const orders: any[] = historyDrawer.data.orders;
+    if (drawerDateFilter === "all") return orders;
 
-      const label = tableNo.toLowerCase().startsWith('table') ? tableNo : `Table ${tableNo}`;
-      triggerToast(`${label} cleared and freed successfully!`, "success");
-      fetchTablesAndSettings(true);
-    } catch (e) {
-      triggerToast(`Error: ${e.message}`, "error");
-    } finally {
-      setActionLoading(false);
-    }
-  };
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const startOfYesterday = startOfToday - 86400000;
+    const startOf7Days = startOfToday - 6 * 86400000;
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
 
-  const openAddModal = () => {
-    setModalType("add");
-    setTableNameInput("");
-    setShowModal(true);
-  };
+    return orders.filter((o: any) => {
+      const oTime = new Date(o.createdAt).getTime();
+      if (drawerDateFilter === "today") return oTime >= startOfToday;
+      if (drawerDateFilter === "yesterday") return oTime >= startOfYesterday && oTime < startOfToday;
+      if (drawerDateFilter === "7days") return oTime >= startOf7Days;
+      if (drawerDateFilter === "month") return oTime >= startOfMonth;
+      if (drawerDateFilter === "custom") {
+        const s = drawerCustomStartDate ? new Date(drawerCustomStartDate).setHours(0, 0, 0, 0) : 0;
+        const e = drawerCustomEndDate ? new Date(drawerCustomEndDate).setHours(23, 59, 59, 999) : Infinity;
+        return oTime >= s && oTime <= e;
+      }
+      return true;
+    });
+  }, [historyDrawer.data, drawerDateFilter, drawerCustomStartDate, drawerCustomEndDate]);
 
-  const openEditModal = (table) => {
-    setModalType("edit");
-    setActiveTableId(table.id);
-    setTableNameInput(table.tableNo);
-    setShowModal(true);
-  };
+  const drawerStats = useMemo(() => {
+    const total = filteredDrawerOrders.reduce((sum: number, o: any) => sum + Number(o.totalAmount || 0), 0);
+    const paidCount = filteredDrawerOrders.filter((o: any) => o.paymentStatus === "paid").length;
+    const avgTicket = filteredDrawerOrders.length > 0 ? Math.round(total / filteredDrawerOrders.length) : 0;
+    return {
+      total,
+      paidCount,
+      avgTicket,
+      count: filteredDrawerOrders.length
+    };
+  }, [filteredDrawerOrders]);
 
-  const handleSaveTable = async () => {
-    if (!tableNameInput.trim()) {
-      triggerToast("Table name cannot be empty.", "error");
+  // 2. Add / Edit Table Action
+  const handleSaveTable = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!tableNoInput.trim()) {
+      triggerToast("Please enter table number or name", "error");
       return;
     }
-    const token = localStorage.getItem("authToken");
+
     setActionLoading(true);
+    const token = localStorage.getItem("authToken");
 
     try {
-      if (modalType === "add") {
+      if (modalMode === "add") {
         const res = await fetch(`${BACKEND_URL}/api/tables`, {
           method: "POST",
-          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-          body: JSON.stringify({ tableNo: tableNameInput })
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            tableNo: tableNoInput.trim(),
+            capacity: capacityInput,
+            floor: floorSectionInput
+          })
         });
-        if (!res.ok) throw new Error("Failed to add table.");
-        triggerToast("Table created successfully!", "success");
-      } else {
-        const res = await fetch(`${BACKEND_URL}/api/tables/${activeTableId}`, {
+        if (!res.ok) throw new Error("Failed to add table");
+        triggerToast(`Added ${tableNoInput} successfully!`, "success");
+      } else if (modalMode === "edit" && editTableId) {
+        const res = await fetch(`${BACKEND_URL}/api/tables/${editTableId}`, {
           method: "PUT",
-          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-          body: JSON.stringify({ tableNo: tableNameInput })
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            tableNo: tableNoInput.trim(),
+            capacity: capacityInput,
+            floor: floorSectionInput
+          })
         });
-        if (!res.ok) throw new Error("Failed to update table.");
-        triggerToast("Table updated successfully!", "success");
+        if (!res.ok) throw new Error("Failed to update table");
+        triggerToast(`Updated table successfully!`, "success");
       }
-      setShowModal(false);
-      fetchTablesAndSettings();
-    } catch (e) {
-      triggerToast(`Error: ${e.message}`, "error");
+
+      setShowAddModal(false);
+      setTableNoInput("");
+      fetchTablesAndData(true);
+    } catch (err: any) {
+      triggerToast(err.message || "Operation failed", "error");
     } finally {
       setActionLoading(false);
     }
   };
 
-  // --- Trigger Custom Table Deletion Confirmation ---
-  const triggerDeleteTableConfirm = (id, tableNo) => {
-    setConfirmModal({
-      show: true,
-      title: "Remove Dining Table",
-      message: `Are you sure you want to remove ${tableNo} from your floor layout? This action cannot be undone.`,
-      confirmText: "Delete Table",
-      confirmColor: "bg-rose-500 hover:bg-rose-600 focus:ring-rose-500/20",
-      onConfirm: () => executeDeleteTable(id)
-    });
-  };
+  // 3. Delete Table
+  const handleDeleteTable = async (table: any) => {
+    if (!confirm(`Are you sure you want to delete ${formatTableTitle(table.tableNo)}?`)) return;
 
-  const executeDeleteTable = async (id) => {
-    const token = localStorage.getItem("authToken");
     setActionLoading(true);
-    setConfirmModal(prev => ({ ...prev, show: false }));
-    
+    const token = localStorage.getItem("authToken");
+
     try {
-      const res = await fetch(`${BACKEND_URL}/api/tables/${id}`, {
+      const res = await fetch(`${BACKEND_URL}/api/tables/${table.id}`, {
         method: "DELETE",
-        headers: { "Authorization": `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` }
       });
-      if (!res.ok) throw new Error("Failed to delete table. Make sure no active orders exist.");
-      triggerToast("Table removed from floor.", "success");
-      fetchTablesAndSettings();
-    } catch (e) {
-      triggerToast(`Error: ${e.message}`, "error");
+      if (!res.ok) throw new Error("Failed to delete table");
+      triggerToast(`${formatTableTitle(table.tableNo)} deleted.`, "info");
+      fetchTablesAndData(true);
+    } catch (err: any) {
+      triggerToast(err.message || "Failed to delete", "error");
     } finally {
       setActionLoading(false);
     }
   };
 
-  const copyTableLink = (table) => {
-    const link = `${getCustomerOrigin()}/scan/${table.qrCode || table.id}`;
-    navigator.clipboard.writeText(link);
-    const label = table.tableNo.toLowerCase().startsWith('table') ? table.tableNo : `Table ${table.tableNo}`;
-    triggerToast(`${label} menu link copied!`, "success");
-  };
+  // 4. Fetch Detailed Table History Drawer
+  const handleOpenTableHistory = async (table: any) => {
+    setHistoryDrawer({
+      open: true,
+      table,
+      loading: true,
+      data: null
+    });
 
-  const printTableCard = async (table, theme = 'classic') => {
-    let printQrUrl = "";
+    const token = localStorage.getItem("authToken");
+
     try {
-      const link = `${getCustomerOrigin()}/scan/${table.qrCode || table.id}`;
-      const qrColor = theme === 'dark' ? "#ffffff" : "#0f172a";
-      const qrBg = theme === 'dark' ? "#0f172a" : "#ffffff";
-      printQrUrl = await QRCode.toDataURL(link, {
-        margin: 1,
-        width: 500,
-        color: { dark: qrColor, light: qrBg }
+      const res = await fetch(`${BACKEND_URL}/api/tables/${table.id}/history`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error("Failed to load history");
+      const historyJson = await res.json();
+      setHistoryDrawer({
+        open: true,
+        table,
+        loading: false,
+        data: historyJson
       });
     } catch (err) {
-      printQrUrl = qrUrls[table.id] || "";
+      setHistoryDrawer((prev) => ({ ...prev, loading: false }));
+      triggerToast("Could not load table history", "error");
+    }
+  };
+
+  // 5. Export Table Performance to CSV
+  const handleExportCSV = () => {
+    if (tables.length === 0) {
+      triggerToast("No table data to export", "info");
+      return;
     }
 
-    const restaurantName = restaurant?.name || "Our Restaurant";
+    const headers = ["Table ID", "Table Name", "Floor / Section", "Status", "Live Order Amount", "QR Code Slug"];
+    const rows = tables.map((t) => {
+      const order = activeOrders.find((o) => o.tableId === t.id && o.paymentStatus === "unpaid");
+      return [
+        t.id,
+        formatTableTitle(t.tableNo),
+        getTableFloor(t),
+        order ? "Occupied" : "Free",
+        order ? Number(order.totalAmount || 0) : 0,
+        t.qrCode || ""
+      ];
+    });
 
-    const themes = {
-      classic: {
-        body: `background: #fff;`,
-        card: `background: #ffffff; border: 3px solid #0f172a; border-radius: 32px; padding: 40px; width: 320px;`,
-        logo: `color: #ff5722; font-size: 20px; font-weight: 900; letter-spacing: -0.5px; margin: 0 0 4px 0;`,
-        poweredBy: `font-size: 8px; font-weight: 700; letter-spacing: 2px; color: #94a3b8; text-transform: uppercase; margin: 0 0 24px 0;`,
-        badge: `background: #0f172a; color: #fff; padding: 8px 24px; border-radius: 12px; font-size: 14px; font-weight: 900; display: inline-block; margin-bottom: 24px;`,
-        qrWrapper: `background: #fff; border: 2px solid #e2e8f0; border-radius: 20px; padding: 12px; width: 230px; height: 230px; margin: 0 auto 24px;`,
-        instr: `font-size: 11px; font-weight: 600; color: #334155; line-height: 1.5;`,
-        instrStrong: `color: #ff5722;`,
-        footer: `margin-top: 20px; font-size: 8px; color: #cbd5e1; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;`,
-      },
-      dark: {
-        body: `background: #0f172a;`,
-        card: `background: linear-gradient(145deg, #1e293b, #0f172a); border: 1px solid #334155; border-radius: 32px; padding: 40px; width: 320px; box-shadow: 0 25px 60px rgba(0,0,0,0.5);`,
-        logo: `color: #ff5722; font-size: 20px; font-weight: 900; letter-spacing: -0.5px; margin: 0 0 4px 0;`,
-        poweredBy: `font-size: 8px; font-weight: 700; letter-spacing: 2px; color: #475569; text-transform: uppercase; margin: 0 0 24px 0;`,
-        badge: `background: #ff5722; color: #fff; padding: 8px 24px; border-radius: 12px; font-size: 14px; font-weight: 900; display: inline-block; margin-bottom: 24px;`,
-        qrWrapper: `background: #0f172a; border: 2px solid #334155; border-radius: 20px; padding: 12px; width: 230px; height: 230px; margin: 0 auto 24px;`,
-        instr: `font-size: 11px; font-weight: 600; color: #94a3b8; line-height: 1.5;`,
-        instrStrong: `color: #ff5722;`,
-        footer: `margin-top: 20px; font-size: 8px; color: #334155; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;`,
-      },
-      elegant: {
-        body: `background: #faf7f4;`,
-        card: `background: linear-gradient(160deg, #fff8f5, #ffffff); border: 2px solid #fcd9c9; border-radius: 32px; padding: 40px; width: 320px; box-shadow: 0 10px 40px rgba(255,87,34,0.08);`,
-        logo: `color: #c2410c; font-size: 20px; font-weight: 900; letter-spacing: -0.5px; margin: 0 0 4px 0;`,
-        poweredBy: `font-size: 8px; font-weight: 700; letter-spacing: 2px; color: #d97706; text-transform: uppercase; margin: 0 0 24px 0;`,
-        badge: `background: linear-gradient(135deg, #ff5722, #f59e0b); color: #fff; padding: 8px 24px; border-radius: 12px; font-size: 14px; font-weight: 900; display: inline-block; margin-bottom: 24px;`,
-        qrWrapper: `background: #fff; border: 2px solid #fcd9c9; border-radius: 20px; padding: 12px; width: 230px; height: 230px; margin: 0 auto 24px;`,
-        instr: `font-size: 11px; font-weight: 600; color: #7c2d12; line-height: 1.5;`,
-        instrStrong: `color: #c2410c;`,
-        footer: `margin-top: 20px; font-size: 8px; color: #fcd9c9; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;`,
-      }
-    };
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `RESTUVEXO_Table_Performance_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 
-    const t = themes[theme];
-
-    const printWindow = window.open("", "_blank");
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Print Card - ${table.tableNo}</title>
-          <style>
-            @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;900&display=swap');
-            * { box-sizing: border-box; }
-            body { font-family: 'Outfit', sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; ${t.body} }
-            .tent-card { ${t.card} text-align: center; }
-            .rest-name { ${t.logo} }
-            .powered { ${t.poweredBy} }
-            .table-badge { ${t.badge} }
-            .qr-wrapper { ${t.qrWrapper} }
-            .qr-wrapper img { width: 100%; height: 100%; object-fit: contain; }
-            .instructions { ${t.instr} }
-            .instructions strong { ${t.instrStrong} }
-            .footer-brand { ${t.footer} }
-            @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
-          </style>
-        </head>
-        <body>
-          <div class="tent-card">
-            <div class="rest-name">${restaurantName.toUpperCase()}</div>
-            <div class="powered">Powered by RestroServe</div>
-            <div class="table-badge">${table.tableNo.toUpperCase()}</div>
-            <div class="qr-wrapper"><img src="${printQrUrl}" alt="QR" /></div>
-            <div class="instructions"><strong>SCAN QR TO ORDER FOOD</strong><br>Browse digital menu &amp; submit orders!</div>
-            <div class="footer-brand">restroserve &bull; smart dining</div>
-          </div>
-          <script>window.onload = function() { window.print(); setTimeout(function() { window.close(); }, 500); };<\/script>
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
+    triggerToast("Table Performance CSV downloaded!", "success");
   };
 
   if (loading) {
-    return <LoadingScreen message="Syncing floor plan..." minHeight="50vh" />;
+    return <LoadingScreen message="Loading Table Matrix & Floor Analytics..." fullScreen={true} />;
   }
 
   return (
-    <div className="space-y-8 text-slate-800 pb-16 relative min-h-screen font-sans">
+    <div className="w-full min-h-screen bg-[#f8fafc] text-slate-800 p-3 sm:p-5 font-sans space-y-4">
       
-      {/* Toast Notification */}
-      {toast.show && (
-        <div className="fixed top-6 right-6 z-[100] animate-slide-in-right">
-          <div className={`backdrop-blur-xl border px-5 py-4 rounded-2xl shadow-2xl flex items-center gap-3 min-w-[280px] max-w-sm ${
-            toast.type === "success" ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-700" : "bg-rose-500/10 border-rose-500/20 text-rose-700"
-          }`}>
-            <span className="w-2 h-2 rounded-full inline-block shrink-0 bg-current animate-pulse" />
-            <p className="text-[11px] font-black tracking-wide leading-relaxed truncate">{toast.message}</p>
+      {/* ========================================================
+          1. TOP HEADER & OPERATIONAL ACTIONS
+          ======================================================== */}
+      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <h1 className="text-lg font-black text-slate-900 tracking-tight">Tables & Floor Management</h1>
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              Live Sync
+            </span>
+          </div>
+          <p className="text-xs text-slate-500 font-medium">
+            Multi-floor table layout, live dining occupancy, and performance analytics.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={handleExportCSV}
+            className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-black flex items-center gap-1.5 transition cursor-pointer"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Export CSV</span>
+          </button>
+
+          <button
+            onClick={() => setShowBulkPrintModal(true)}
+            className="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-black flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
+          >
+            <Printer className="w-3.5 h-3.5 text-orange-400" />
+            <span>Bulk QR Standees</span>
+          </button>
+
+          <Link
+            href="/dashboard/pos"
+            className="px-3.5 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-black flex items-center gap-1.5 transition cursor-pointer shadow-xs"
+          >
+            <UtensilsCrossed className="w-3.5 h-3.5" />
+            <span>Open POS Terminal ⚡</span>
+          </Link>
+
+          <button
+            onClick={() => {
+              setModalMode("add");
+              setTableNoInput(`Table ${tables.length + 1}`);
+              setShowAddModal(true);
+            }}
+            className="px-4 py-2 rounded-xl bg-[#ff5722] hover:bg-[#e04c1d] text-white text-xs font-black flex items-center gap-1.5 transition cursor-pointer shadow-xs"
+          >
+            <Plus className="w-4 h-4 stroke-[3]" />
+            <span>+ Add Table</span>
+          </button>
+        </div>
+      </div>
+
+      {/* ========================================================
+          2. FLOOR SUMMARY METRICS (4 Real-Time Cards)
+          ======================================================== */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between">
+          <div className="space-y-1">
+            <span className="text-[10px] font-black uppercase text-slate-400">Total Capacity</span>
+            <h3 className="text-xl font-black text-slate-900">{metrics.totalCapacity} Seats</h3>
+            <span className="text-[10px] font-bold text-slate-500">{metrics.totalTables} Dining Tables</span>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+            <Users className="w-5 h-5" />
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between">
+          <div className="space-y-1">
+            <span className="text-[10px] font-black uppercase text-slate-400">Floor Occupancy</span>
+            <h3 className="text-xl font-black text-slate-900">{metrics.occupiedCount} / {metrics.totalTables}</h3>
+            <span className="text-[10px] font-bold text-emerald-600">{metrics.occupancyRate}% Occupied Now</span>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+            <TrendingUp className="w-5 h-5" />
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between">
+          <div className="space-y-1">
+            <span className="text-[10px] font-black uppercase text-slate-400">Active Live Tabs</span>
+            <h3 className="text-xl font-black text-orange-600">₹{metrics.activeRevenue.toLocaleString("en-IN")}</h3>
+            <span className="text-[10px] font-bold text-slate-500">Unsettled on Tables</span>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center">
+            <IndianRupee className="w-5 h-5" />
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between">
+          <div className="space-y-1">
+            <span className="text-[10px] font-black uppercase text-slate-400">Available Tables</span>
+            <h3 className="text-xl font-black text-slate-900">{metrics.freeCount} Free</h3>
+            <span className="text-[10px] font-bold text-slate-400">Ready for walk-ins</span>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center">
+            <LayoutGrid className="w-5 h-5" />
+          </div>
+        </div>
+
+      </div>
+
+      {/* ========================================================
+          3. FLOOR TABS & FILTER TOOLBAR
+          ======================================================== */}
+      <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-3">
+        
+        {/* Floor Section Tabs */}
+        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-thin">
+          {floorSections.map((fl) => {
+            const count = fl === "all" ? tables.length : tables.filter((t) => getTableFloor(t) === fl).length;
+            const isSelected = selectedFloor === fl;
+
+            return (
+              <button
+                key={fl}
+                onClick={() => setSelectedFloor(fl)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-black shrink-0 transition cursor-pointer flex items-center gap-1.5 ${
+                  isSelected
+                    ? "bg-[#ff5722] text-white shadow-xs"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                <span>{fl === "all" ? "All Floors" : fl}</span>
+                <span
+                  className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
+                    isSelected ? "bg-white/25 text-white" : "bg-slate-200 text-slate-700"
+                  }`}
+                >
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Status Filters & Search */}
+        <div className="flex items-center gap-2">
+          
+          <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-xl">
+            <button
+              onClick={() => setStatusFilter("all")}
+              className={`px-2.5 py-1 text-[11px] font-black rounded-lg transition cursor-pointer ${
+                statusFilter === "all" ? "bg-white text-slate-900 shadow-2xs" : "text-slate-600"
+              }`}
+            >
+              All ({tables.length})
+            </button>
+
+            <button
+              onClick={() => setStatusFilter("active")}
+              className={`px-2.5 py-1 text-[11px] font-black rounded-lg transition cursor-pointer flex items-center gap-1 ${
+                statusFilter === "active" ? "bg-rose-500 text-white shadow-2xs" : "text-slate-600"
+              }`}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-rose-300" />
+              <span>Active ({activeOrders.length})</span>
+            </button>
+
+            <button
+              onClick={() => setStatusFilter("free")}
+              className={`px-2.5 py-1 text-[11px] font-black rounded-lg transition cursor-pointer flex items-center gap-1 ${
+                statusFilter === "free" ? "bg-emerald-600 text-white shadow-2xs" : "text-slate-600"
+              }`}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-300" />
+              <span>Free ({metrics.freeCount})</span>
+            </button>
+          </div>
+
+          <div className="relative w-40 sm:w-52">
+            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search tables..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 text-xs font-semibold pl-8 pr-6 py-1.5 rounded-xl focus:outline-none focus:border-[#ff5722] focus:bg-white transition"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+
+        </div>
+
+      </div>
+
+      {/* ========================================================
+          4. INTERACTIVE TABLE CARDS GRID (Floor Plan)
+          ======================================================== */}
+      {filteredTables.length === 0 ? (
+        <div className="bg-white rounded-2xl border border-slate-200 p-16 text-center text-slate-400 text-xs font-bold space-y-2">
+          <LayoutGrid className="w-12 h-12 mx-auto text-slate-300 stroke-[1.5]" />
+          <p>No tables match your filter criteria.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3.5">
+          {filteredTables.map((table) => {
+            const orderOnTable = activeOrders.find(
+              (o) => (o.tableId === table.id || o.table?.id === table.id) && o.paymentStatus === "unpaid"
+            );
+            const tableTitle = formatTableTitle(table.tableNo);
+            const floorName = getTableFloor(table);
+            const qrImg = qrUrls[table.id];
+
+            return (
+              <div
+                key={table.id}
+                className={`bg-white rounded-2xl border transition-all duration-150 shadow-2xs hover:shadow-xs p-4 flex flex-col justify-between space-y-3 relative overflow-hidden ${
+                  orderOnTable ? "border-amber-300 ring-1 ring-amber-300/60" : "border-slate-200 hover:border-slate-300"
+                }`}
+              >
+                {/* Top Status Accent Bar */}
+                <div
+                  className={`absolute top-0 left-0 right-0 h-1.5 ${
+                    orderOnTable
+                      ? orderOnTable.status === "cooking"
+                        ? "bg-amber-500 animate-pulse"
+                        : "bg-rose-500"
+                      : "bg-emerald-500"
+                  }`}
+                />
+
+                {/* Table Header: Name + Floor Tag + Status Badge */}
+                <div className="flex items-start justify-between gap-2 pt-0.5">
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <h3 className="text-base font-black text-slate-900">{tableTitle}</h3>
+                      <span className="text-[10px] text-slate-400 font-bold">• {table.capacity || 4} Seats</span>
+                    </div>
+                    <span className="text-[10px] font-bold text-slate-400 block">{floorName}</span>
+                  </div>
+
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase flex items-center gap-1 ${
+                      orderOnTable
+                        ? orderOnTable.status === "cooking"
+                          ? "bg-amber-100 text-amber-900 animate-pulse"
+                          : "bg-rose-100 text-rose-900"
+                        : "bg-emerald-100 text-emerald-800"
+                    }`}
+                  >
+                    {orderOnTable ? (
+                      orderOnTable.status === "cooking" ? (
+                        <>
+                          <Flame className="w-2.5 h-2.5 text-amber-600" />
+                          <span>Cooking</span>
+                        </>
+                      ) : (
+                        <>
+                          <UtensilsCrossed className="w-2.5 h-2.5 text-rose-600" />
+                          <span>Dining</span>
+                        </>
+                      )
+                    ) : (
+                      "Free"
+                    )}
+                  </span>
+                </div>
+
+                {/* Middle: Live Order Info or QR Code Thumbnail */}
+                <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100 flex items-center justify-between gap-2">
+                  {orderOnTable ? (
+                    <div className="space-y-0.5">
+                      <span className="text-[9px] font-black uppercase text-slate-400 block">Active Tab</span>
+                      <span className="text-base font-black text-slate-900 block leading-tight">
+                        ₹{Number(orderOnTable.totalAmount || 0).toLocaleString("en-IN")}
+                      </span>
+                      <span className="text-[10px] font-bold text-amber-800 block">
+                        #{orderOnTable.receiptNo || orderOnTable.id} • {orderOnTable.orderItems?.length || 0} items
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="space-y-0.5">
+                      <span className="text-[9px] font-black uppercase text-emerald-600 block">Table Available</span>
+                      <span className="text-xs font-bold text-slate-500 block">Scan to Self-Order</span>
+                    </div>
+                  )}
+
+                  {qrImg && (
+                    <button
+                      onClick={() => setPrintStandeeModal({ show: true, table, theme: "sunset" })}
+                      title="Click to print Acrylic Standee"
+                      className="p-1 bg-white rounded-lg border border-slate-200 hover:border-orange-500 transition cursor-pointer shadow-2xs shrink-0"
+                    >
+                      <img src={qrImg} alt="QR" className="w-10 h-10 rounded" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Bottom Actions: History Drawer, Edit, QR Standee & Fast POS Billing */}
+                <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-1 text-xs">
+                  
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => handleOpenTableHistory(table)}
+                      className="flex items-center gap-1 text-[11px] font-bold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-2 py-1 rounded-lg transition cursor-pointer"
+                    >
+                      <History className="w-3 h-3 text-indigo-600" />
+                      <span>History</span>
+                    </button>
+
+                    <Link
+                      href={`/dashboard/pos?tableId=${table.id}`}
+                      className="px-2 py-1 bg-orange-50 hover:bg-orange-500 text-orange-700 hover:text-white rounded-lg font-black text-[10px] transition cursor-pointer flex items-center gap-1 shadow-2xs"
+                      title="Open in POS Terminal"
+                    >
+                      <Zap className="w-3 h-3" />
+                      <span>Bill</span>
+                    </Link>
+                  </div>
+
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => setPrintStandeeModal({ show: true, table, theme: "sunset" })}
+                      title="Print Table Standee"
+                      className="p-1 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition cursor-pointer"
+                    >
+                      <Printer className="w-3.5 h-3.5" />
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setModalMode("edit");
+                        setEditTableId(table.id);
+                        setTableNoInput(table.tableNo);
+                        setFloorSectionInput(table.floor || getTableFloor(table));
+                        setCapacityInput(table.capacity || 4);
+                        setShowAddModal(true);
+                      }}
+                      title="Edit Table Details"
+                      className="p-1 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition cursor-pointer"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+
+                    <button
+                      onClick={() => handleDeleteTable(table)}
+                      title="Delete Table"
+                      className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ========================================================
+          5. SLIDE-OVER DRAWER: TABLE PERFORMANCE & ORDER HISTORY
+          ======================================================== */}
+      {historyDrawer.open && (
+        <div className="fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-xs flex justify-end animate-fade-in">
+          <div className="bg-white w-full max-w-md h-full shadow-2xl p-5 flex flex-col space-y-4 overflow-y-auto font-sans">
+            
+            {/* Drawer Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 shrink-0">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-black text-slate-900">
+                    {historyDrawer.table ? formatTableTitle(historyDrawer.table.tableNo) : "Table"} History
+                  </h3>
+                  <span className="text-[10px] font-bold text-slate-400">
+                    • {historyDrawer.table ? getTableFloor(historyDrawer.table) : ""}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400 font-semibold">Turnover log and receipts for this table</p>
+              </div>
+
+              <button
+                onClick={() => setHistoryDrawer({ open: false, table: null, loading: false, data: null })}
+                className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {historyDrawer.loading ? (
+              <div className="py-24 text-center text-slate-400 text-xs font-bold space-y-2">
+                <RefreshCw className="w-8 h-8 mx-auto animate-spin text-[#ff5722]" />
+                <p>Loading table history and receipts...</p>
+              </div>
+            ) : (
+              <div className="space-y-3.5 flex-1">
+                
+                {/* 1. Interactive Date Filter Toolbar */}
+                <div className="space-y-1.5 bg-slate-50 p-2.5 rounded-xl border border-slate-200/80">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase text-slate-500 tracking-wider flex items-center gap-1">
+                      <Calendar className="w-3 h-3 text-[#ff5722]" />
+                      <span>Filter By Date:</span>
+                    </span>
+                    <span className="text-[10px] font-bold text-slate-400">
+                      {filteredDrawerOrders.length} orders found
+                    </span>
+                  </div>
+
+                  {/* Preset Filter Pills */}
+                  <div className="grid grid-cols-3 gap-1">
+                    {[
+                      { id: "all", label: "All Time" },
+                      { id: "today", label: "Today 📅" },
+                      { id: "yesterday", label: "Yesterday" },
+                      { id: "7days", label: "Last 7 Days" },
+                      { id: "month", label: "This Month" },
+                      { id: "custom", label: "Custom 📆" }
+                    ].map((btn) => (
+                      <button
+                        key={btn.id}
+                        onClick={() => setDrawerDateFilter(btn.id as any)}
+                        className={`py-1 px-1.5 rounded-lg text-[10px] font-black transition cursor-pointer text-center ${
+                          drawerDateFilter === btn.id
+                            ? "bg-[#ff5722] text-white shadow-2xs"
+                            : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-100"
+                        }`}
+                      >
+                        {btn.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Custom Date Pickers */}
+                  {drawerDateFilter === "custom" && (
+                    <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-200/60 mt-1">
+                      <div>
+                        <label className="text-[9px] font-bold text-slate-400 block">From Date:</label>
+                        <input
+                          type="date"
+                          value={drawerCustomStartDate}
+                          onChange={(e) => setDrawerCustomStartDate(e.target.value)}
+                          className="w-full bg-white border border-slate-200 rounded-lg p-1 text-[10px] font-bold text-slate-700 focus:outline-none focus:border-[#ff5722]"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[9px] font-bold text-slate-400 block">To Date:</label>
+                        <input
+                          type="date"
+                          value={drawerCustomEndDate}
+                          onChange={(e) => setDrawerCustomEndDate(e.target.value)}
+                          className="w-full bg-white border border-slate-200 rounded-lg p-1 text-[10px] font-bold text-slate-700 focus:outline-none focus:border-[#ff5722]"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* 2. Dynamic Summary Metric Chips for Selected Date Range */}
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="bg-emerald-50/70 p-2.5 rounded-xl border border-emerald-100 space-y-0.5">
+                    <span className="text-[9px] font-black uppercase text-emerald-800">Period Revenue</span>
+                    <h4 className="text-base font-black text-emerald-700 leading-tight">
+                      ₹{drawerStats.total.toLocaleString("en-IN")}
+                    </h4>
+                    <span className="text-[9px] font-bold text-emerald-600 block">
+                      {drawerStats.paidCount} Paid Bills
+                    </span>
+                  </div>
+
+                  <div className="bg-sky-50/70 p-2.5 rounded-xl border border-sky-100 space-y-0.5">
+                    <span className="text-[9px] font-black uppercase text-sky-800">Total Orders</span>
+                    <h4 className="text-base font-black text-sky-700 leading-tight">
+                      {drawerStats.count}
+                    </h4>
+                    <span className="text-[9px] font-bold text-sky-600 block">
+                      Table Turnovers
+                    </span>
+                  </div>
+
+                  <div className="bg-amber-50/70 p-2.5 rounded-xl border border-amber-100 space-y-0.5">
+                    <span className="text-[9px] font-black uppercase text-amber-800">Avg Ticket</span>
+                    <h4 className="text-base font-black text-amber-700 leading-tight">
+                      ₹{drawerStats.avgTicket}
+                    </h4>
+                    <span className="text-[9px] font-bold text-amber-600 block">
+                      Per Order Avg
+                    </span>
+                  </div>
+                </div>
+
+                {/* 3. Filtered Orders Log */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black text-slate-900 block">
+                      Dining Orders ({filteredDrawerOrders.length})
+                    </span>
+                    {drawerDateFilter !== "all" && (
+                      <button
+                        onClick={() => {
+                          setDrawerDateFilter("all");
+                          setDrawerCustomStartDate("");
+                          setDrawerCustomEndDate("");
+                        }}
+                        className="text-[9px] font-bold text-rose-500 hover:underline cursor-pointer"
+                      >
+                        Reset Filter
+                      </button>
+                    )}
+                  </div>
+
+                  {filteredDrawerOrders.length === 0 ? (
+                    <div className="py-12 text-center text-slate-400 text-xs font-semibold bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                      No orders found for the selected date period.
+                    </div>
+                  ) : (
+                    <div className="space-y-2 max-h-[50vh] overflow-y-auto scrollbar-thin pr-1">
+                      {filteredDrawerOrders.map((order: any) => (
+                        <div
+                          key={order.id}
+                          className="bg-slate-50/70 p-3 rounded-xl border border-slate-200/80 space-y-1.5 hover:bg-white hover:border-orange-300 transition"
+                        >
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-black text-slate-900">#{order.receiptNo || order.id}</span>
+                            <span
+                              className={`px-2 py-0.2 rounded-full text-[9px] font-black uppercase ${
+                                order.paymentStatus === "paid"
+                                  ? "bg-emerald-100 text-emerald-800"
+                                  : "bg-amber-100 text-amber-800"
+                              }`}
+                            >
+                              {order.paymentStatus}
+                            </span>
+                          </div>
+
+                          {/* Items Breakdown */}
+                          <div className="text-[11px] text-slate-600 font-medium space-y-0.5">
+                            {order.orderItems?.map((it: any) => (
+                              <div key={it.id} className="flex justify-between">
+                                <span>• {it.menuItem?.name || "Dish"} x{it.qty}</span>
+                                <span className="font-bold text-slate-800">₹{it.price * it.qty}</span>
+                              </div>
+                            ))}
+                          </div>
+
+                          <div className="pt-1.5 border-t border-slate-200 flex items-center justify-between text-xs">
+                            <span className="text-[10px] text-slate-400 font-semibold">
+                              {new Date(order.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })},{" "}
+                              {new Date(order.createdAt).toLocaleDateString([], { month: "short", day: "numeric" })}
+                            </span>
+                            <span className="font-black text-slate-900">Total: ₹{order.totalAmount}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+              </div>
+            )}
+
+            <button
+              onClick={() => setHistoryDrawer({ open: false, table: null, loading: false, data: null })}
+              className="w-full bg-slate-900 hover:bg-slate-800 text-white text-xs font-black py-2.5 rounded-xl cursor-pointer"
+            >
+              Close History Drawer
+            </button>
+
           </div>
         </div>
       )}
 
-      {/* SECTION ACTION BAR */}
-      <div className="flex justify-between items-center pb-2 text-left">
-        <div>
-          <h3 className="text-sm font-black text-slate-900 leading-tight">Dine-In Floor Map</h3>
-          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5">
-            Configure dynamic physical seating cards and manage active dining room sessions
-          </p>
-        </div>
-        <button
-          onClick={openAddModal}
-          className="px-5 py-3 bg-slate-900 hover:bg-slate-850 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl shadow-md transition active:scale-95 whitespace-nowrap"
-        >
-          Add New Table
-        </button>
-      </div>
+      {/* ========================================================
+          6. MODAL: ADD / EDIT TABLE MODAL
+          ======================================================== */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white max-w-sm w-full rounded-2xl shadow-2xl p-5 space-y-4 animate-fade-in border border-slate-200">
+            <div>
+              <h3 className="text-base font-black text-slate-900">
+                {modalMode === "add" ? "Add New Dining Table" : "Edit Table Details"}
+              </h3>
+              <p className="text-xs text-slate-400 font-semibold">Create table number, assign floor, and generate QR</p>
+            </div>
 
-      {/* GUEST QR ORDERING SETTINGS CARD */}
-      <div className="bg-white border border-slate-150 p-6 rounded-[2.5rem] shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-        <div className="space-y-1.5 max-w-xl text-left">
-          <h3 className="text-slate-900 font-black text-sm flex items-center gap-2">
-            <svg className="w-4 h-4 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
-            </svg>
-            Customer QR Self-Ordering Portal
-          </h3>
-          <p className="text-slate-500 text-[10px] font-semibold leading-relaxed">
-            When ENABLED, visitors scanning their table QR code can place in-store food orders directly from their phones. If DISABLED, it acts as a View-Only digital menu.
-          </p>
-        </div>
-        <button
-          onClick={handleToggleQrOrdering}
-          disabled={actionLoading}
-          className={`relative inline-flex h-9 w-20 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-255 focus:outline-none ${qrOrderingEnabled ? "bg-[#ff5722]" : "bg-slate-200"} disabled:opacity-50`}
-        >
-          <span className={`pointer-events-none inline-block h-8 w-8 transform rounded-full bg-white shadow-lg transition duration-255 ${qrOrderingEnabled ? "translate-x-11" : "translate-x-0"}`} />
-        </button>
-      </div>
-
-      {/* TABLE CARDS GRID */}
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {tables.map(table => {
-          const activeSession = activeSessions.find(s => s.tableId === table.id);
-
-          return (
-            <div key={table.id} className="bg-white border border-slate-200 p-6 rounded-[2.2rem] shadow-xl hover:shadow-2xl hover:border-slate-350 transition duration-300 relative group flex flex-col items-center text-center space-y-4">
-              
-              {/* Top Controls (Edit/Delete - Outlined and clean) */}
-              <div className="absolute top-4 right-4 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button 
-                  onClick={() => openEditModal(table)} 
-                  className="w-8 h-8 rounded-xl bg-slate-50 hover:bg-slate-105 border border-slate-200 flex items-center justify-center text-slate-500 transition" 
-                  title="Edit Table"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                  </svg>
-                </button>
-                <button 
-                  onClick={() => triggerDeleteTableConfirm(table.id, table.tableNo)} 
-                  className="w-8 h-8 rounded-xl bg-rose-50 hover:bg-rose-500 hover:text-white border border-rose-100 flex items-center justify-center text-rose-500 transition" 
-                  title="Delete Table"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                </button>
+            <form onSubmit={handleSaveTable} className="space-y-3">
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase text-slate-400">Table Name / Number</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Table 7, AC-04, Rooftop-2"
+                  value={tableNoInput}
+                  onChange={(e) => setTableNoInput(e.target.value)}
+                  className="w-full p-2.5 border rounded-xl text-xs font-bold focus:outline-none focus:border-[#ff5722]"
+                  required
+                />
               </div>
 
-              {/* Branding details */}
-              <div className="space-y-1 pt-1">
-                <span className="text-[8px] font-black tracking-widest text-[#ff5722] uppercase">{restaurant?.name || "RestroServe"}</span>
-                <h4 className="font-black text-slate-900 text-sm leading-none">{table.tableNo}</h4>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase text-slate-400">Floor / Section</label>
+                <select
+                  value={floorSectionInput}
+                  onChange={(e) => setFloorSectionInput(e.target.value)}
+                  className="w-full p-2.5 border rounded-xl text-xs font-bold bg-white"
+                >
+                  <option value="Ground Floor">Ground Floor (Main Hall)</option>
+                  <option value="1st Floor AC">1st Floor (A/C Family Hall)</option>
+                  <option value="Rooftop Lounge">Rooftop / Bar Lounge</option>
+                  <option value="Outdoor Patio">Outdoor Garden Patio</option>
+                </select>
               </div>
 
-              {/* QR Image Frame - 100% Offline local render */}
-              <div className="w-44 h-44 bg-slate-50 border border-slate-100 rounded-[1.8rem] flex items-center justify-center p-3.5 shadow-inner">
-                {qrUrls[table.id] ? (
-                  <img src={qrUrls[table.id]} alt="QR" className="w-full h-full object-contain" />
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase text-slate-400">Seating Capacity</label>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {[2, 4, 6, 8].map((cap) => (
+                    <button
+                      type="button"
+                      key={cap}
+                      onClick={() => setCapacityInput(cap)}
+                      className={`py-1.5 rounded-xl text-xs font-black border transition cursor-pointer ${
+                        capacityInput === cap
+                          ? "bg-[#ff5722] border-[#ff5722] text-white"
+                          : "bg-slate-50 border-slate-200 text-slate-700"
+                      }`}
+                    >
+                      {cap} Seats
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={actionLoading}
+                  className="flex-1 bg-[#ff5722] hover:bg-[#e04c1d] disabled:opacity-50 text-white text-xs font-black py-2.5 rounded-xl shadow-xs cursor-pointer"
+                >
+                  {modalMode === "add" ? "+ Create Table" : "Save Changes"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================
+          7. MODAL: ACRYLIC TABLE QR STANDEE GENERATOR
+          ======================================================== */}
+      {printStandeeModal.show && printStandeeModal.table && (
+        <div className="fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white max-w-sm w-full rounded-2xl shadow-2xl p-5 space-y-4 animate-fade-in border border-slate-200">
+            
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <h3 className="text-sm font-black text-slate-900">Table QR Standee Preview</h3>
+              <button
+                onClick={() => setPrintStandeeModal({ show: false, table: null, theme: "sunset" })}
+                className="p-1 text-slate-400 hover:text-slate-700"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Acrylic Card Visual Mockup */}
+            <div className="bg-gradient-to-br from-amber-500 via-[#ff5722] to-rose-600 p-6 rounded-2xl text-center text-white space-y-3 shadow-lg">
+              <div className="space-y-0.5">
+                <h4 className="text-sm font-black tracking-wider uppercase">{restaurant?.name || "RESTUVEXO"}</h4>
+                <span className="text-[10px] opacity-90 font-semibold">Contactless Digital Menu & Self-Ordering</span>
+              </div>
+
+              <div className="bg-white p-3 rounded-2xl w-36 h-36 mx-auto shadow-md flex items-center justify-center">
+                {qrUrls[printStandeeModal.table.id] ? (
+                  <img
+                    src={qrUrls[printStandeeModal.table.id]}
+                    alt="QR"
+                    className="w-full h-full object-contain rounded-lg"
+                  />
                 ) : (
-                  <div className="w-10 h-10 rounded-full border-2 border-slate-200 border-t-slate-800 animate-spin" />
+                  <QrIcon className="w-12 h-12 text-slate-400" />
                 )}
               </div>
 
-              {/* Live status drop down selector */}
-              <div className="w-full">
-                <div className="flex items-center justify-center gap-2 bg-slate-50 border border-slate-200 rounded-2xl px-3 py-2 text-xs font-black text-slate-600">
-                  <span className={`w-2 h-2 rounded-full inline-block shrink-0 ${
-                    table.status === "free" ? "bg-emerald-500 animate-pulse" :
-                    table.status === "reserved" ? "bg-amber-500" : "bg-rose-500"
-                  }`} />
-                  <select
-                    value={table.status}
-                    onChange={(e) => handleUpdateStatus(table.id, e.target.value)}
-                    className="bg-transparent focus:outline-none cursor-pointer uppercase text-[9px] font-black text-slate-700 w-full"
-                  >
-                    <option value="free">Free</option>
-                    <option value="occupied">Occupied</option>
-                    <option value="reserved">Reserved</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Active Session details if Occupied */}
-              {activeSession && (
-                <div className="w-full bg-rose-50/40 border border-rose-150 p-4 rounded-2xl text-left space-y-2">
-                  <div className="flex items-center gap-1.5 text-[8px] font-black text-rose-500 uppercase tracking-widest">
-                    <svg className="w-3 h-3 text-rose-455" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                    Active Guest Session
-                  </div>
-                  <p className="text-[10px] font-black text-slate-800 truncate">
-                    {activeSession.customerName || "Walk-in Guest"}
-                  </p>
-                  <div className="flex items-center justify-between text-[8px] font-bold text-slate-400 uppercase tracking-wider pt-0.5">
-                    <span>{activeSession.deviceInfo || "Device"}</span>
-                    <span>{activeSession.customerPhone || "No Phone"}</span>
-                  </div>
-                  
-                  <button
-                    onClick={() => triggerClearSessionConfirm(activeSession.sessionId, table.id, table.tableNo)}
-                    className="w-full mt-2 py-2 px-3 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-[8px] font-black uppercase tracking-wider transition text-center shadow-sm"
-                  >
-                    Force Clear Session
-                  </button>
-                </div>
-              )}
-
-              {/* Actions */}
-              <div className="grid grid-cols-3 gap-2.5 w-full pt-1.5">
-                <button 
-                  onClick={() => copyTableLink(table)} 
-                  className="py-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-slate-650 transition flex items-center justify-center" 
-                  title="Copy QR Menu URL"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
-                  </svg>
-                </button>
-                
-                <button 
-                  onClick={() => setPrintThemeModal({ show: true, table })} 
-                  className="col-span-2 py-3 bg-slate-900 hover:bg-slate-800 text-white text-[10px] font-extrabold uppercase tracking-widest rounded-xl shadow-sm transition active:scale-95 flex items-center justify-center gap-1.5"
-                >
-                  <svg className="w-3.5 h-3.5 text-slate-350" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17 17h2a2 2 0 002-2v-5a2 2 0 00-2-2H5a2 2 0 00-2 2v5a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                  </svg>
-                  Print Card
-                </button>
+              <div className="space-y-0.5">
+                <span className="text-xl font-black block tracking-tight">
+                  {formatTableTitle(printStandeeModal.table.tableNo)}
+                </span>
+                <span className="text-[10px] bg-white/20 px-2.5 py-0.5 rounded-full font-black uppercase inline-block">
+                  Scan QR with camera to order
+                </span>
               </div>
             </div>
-          );
-        })}
-      </div>
 
-      {/* TABLE ADD/EDIT MODAL */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-fade-in text-slate-800">
-          <div className="bg-white rounded-[2rem] p-8 w-full max-w-md shadow-2xl relative border border-slate-200">
-            <button onClick={() => setShowModal(false)} className="absolute top-5 right-5 text-slate-400 hover:text-slate-900 text-xl font-bold">×</button>
-            
-            <div className="text-center space-y-2 mb-8">
-              <div className="w-16 h-16 bg-slate-50 text-slate-700 rounded-3xl flex items-center justify-center mx-auto mb-4 border border-slate-100">
-                <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-                </svg>
-              </div>
-              <h2 className="text-2xl font-black text-slate-900 tracking-tight">
-                {modalType === "add" ? "Create New Table" : "Edit Table Details"}
-              </h2>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                {modalType === "add" ? "Add a new table to your floor plan" : "Update table name or identifier"}
-              </p>
-            </div>
-
-            <div className="space-y-6">
-              <div className="space-y-2 text-left">
-                <label className="text-[9px] font-black uppercase text-slate-450 tracking-widest pl-2">Table Identifier</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Table 7 or VIP Lounge"
-                  value={tableNameInput}
-                  onChange={(e) => setTableNameInput(e.target.value)}
-                  className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-900 placeholder-slate-450 focus:outline-none focus:border-slate-800 transition"
-                  autoFocus
-                />
-              </div>
-              
+            <div className="flex gap-2 pt-1">
               <button
-                onClick={handleSaveTable}
-                disabled={actionLoading}
-                className="w-full py-4 bg-slate-900 hover:bg-slate-850 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg transition active:scale-95 disabled:opacity-50"
+                onClick={() => window.print()}
+                className="flex-1 bg-slate-900 hover:bg-slate-800 text-white text-xs font-black py-2.5 rounded-xl flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
               >
-                {actionLoading ? "Saving..." : modalType === "add" ? "Create Table" : "Save Changes"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/*  PREMIUM CUSTOM CONFIRMATION OVERLAY MODAL */}
-      {confirmModal.show && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-950/60 backdrop-blur-md p-4 animate-fade-in">
-          <div className="bg-white rounded-[2.2rem] p-8 w-full max-w-sm shadow-2xl relative border border-slate-100 text-slate-800 animate-slide-up">
-            
-            {/* Outline Warning / Action Icon */}
-            <div className="w-14 h-14 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-rose-100">
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-            </div>
-
-            <h3 className="text-xl font-black text-slate-900 text-center tracking-tight leading-none">
-              {confirmModal.title}
-            </h3>
-            
-            <p className="text-slate-500 text-xs font-semibold text-center leading-relaxed mt-3.5 mb-6.5">
-              {confirmModal.message}
-            </p>
-
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                onClick={() => setConfirmModal(prev => ({ ...prev, show: false }))}
-                className="py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-650 font-black rounded-xl text-[10px] uppercase tracking-wider transition active:scale-95"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmModal.onConfirm}
-                className={`py-3.5 text-white font-black rounded-xl text-[10px] uppercase tracking-wider transition active:scale-95 shadow-md ${confirmModal.confirmColor}`}
-              >
-                {confirmModal.confirmText}
+                <Printer className="w-3.5 h-3.5" />
+                <span>Print Acrylic Standee</span>
               </button>
             </div>
 
@@ -714,45 +1174,65 @@ export default function TableManagerDashboard() {
         </div>
       )}
 
-      {/* PRINT THEME SELECTOR MODAL */}
-      {printThemeModal.show && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-fade-in text-slate-800">
-          <div className="bg-white rounded-[2rem] p-8 w-full max-w-md shadow-2xl border border-slate-100">
-            <div className="text-center mb-6">
-              <h2 className="text-xl font-black text-slate-900 tracking-tight">Choose Print Theme</h2>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Select a design for your QR table card</p>
+      {/* ========================================================
+          8. MODAL: BULK PRINT QR STANDEES SHEET
+          ======================================================== */}
+      {showBulkPrintModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white max-w-3xl w-full max-h-[85vh] rounded-2xl shadow-2xl p-5 space-y-4 overflow-y-auto border border-slate-200">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div>
+                <h3 className="text-base font-black text-slate-900">Bulk Print Table QR Standees</h3>
+                <p className="text-xs text-slate-400 font-semibold">Print all {tables.length} table cards on A4 sheets for lamination</p>
+              </div>
+              <button onClick={() => setShowBulkPrintModal(false)} className="p-1 text-slate-400 hover:text-slate-700">
+                <X className="w-4 h-4" />
+              </button>
             </div>
 
-            <div className="grid grid-cols-3 gap-3 mb-6">
-              {[
-                { id: 'classic', label: 'Classic', bg: 'bg-white border-slate-900', text: 'text-slate-900', accent: 'bg-slate-900', desc: 'Clean & Minimal' },
-                { id: 'dark', label: 'Dark', bg: 'bg-slate-900', text: 'text-white', accent: 'bg-[#ff5722]', desc: 'Bold & Modern' },
-                { id: 'elegant', label: 'Elegant', bg: 'bg-orange-50 border-orange-200', text: 'text-orange-900', accent: 'bg-gradient-to-r from-orange-500 to-amber-400', desc: 'Warm & Premium' },
-              ].map(theme => (
-                <button
-                  key={theme.id}
-                  onClick={() => { printTableCard(printThemeModal.table, theme.id); setPrintThemeModal({ show: false, table: null }); }}
-                  className={`${theme.bg} border-2 rounded-2xl p-4 flex flex-col items-center gap-2 hover:scale-105 transition-all duration-200 shadow-sm hover:shadow-md`}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {tables.map((t) => (
+                <div
+                  key={t.id}
+                  className="bg-gradient-to-br from-amber-500 to-[#ff5722] p-4 rounded-xl text-center text-white space-y-2 shadow-xs"
                 >
-                  <div className="w-14 h-14 rounded-xl border border-current/10 flex flex-col items-center justify-center gap-1 overflow-hidden">
-                    <div className={`w-8 h-1.5 rounded-full ${theme.accent}`} />
-                    <div className="w-10 h-10 rounded-lg bg-current/10 flex items-center justify-center">
-                      <svg className={`w-5 h-5 ${theme.text}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4L4 8l8 4 8-4-8-4zM4 12l8 4 8-4M4 16l8 4 8-4" /></svg>
-                    </div>
+                  <h5 className="text-xs font-black uppercase truncate">{restaurant?.name || "RESTUVEXO"}</h5>
+                  <div className="bg-white p-2 rounded-lg w-24 h-24 mx-auto">
+                    {qrUrls[t.id] && <img src={qrUrls[t.id]} alt="QR" className="w-full h-full object-contain" />}
                   </div>
-                  <span className={`text-[10px] font-black ${theme.text} uppercase tracking-wide`}>{theme.label}</span>
-                  <span className={`text-[8px] font-bold ${theme.text} opacity-60`}>{theme.desc}</span>
-                </button>
+                  <span className="text-xs font-black block">{formatTableTitle(t.tableNo)}</span>
+                </div>
               ))}
             </div>
 
-            <button
-              onClick={() => setPrintThemeModal({ show: false, table: null })}
-              className="w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-[10px] font-black uppercase tracking-widest transition"
-            >
-              Cancel
-            </button>
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                onClick={() => setShowBulkPrintModal(false)}
+                className="px-4 py-2 bg-slate-100 text-slate-700 text-xs font-bold rounded-xl cursor-pointer"
+              >
+                Close
+              </button>
+              <button
+                onClick={() => window.print()}
+                className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-black rounded-xl shadow-xs cursor-pointer flex items-center gap-1.5"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>Print All Standees</span>
+              </button>
+            </div>
           </div>
+        </div>
+      )}
+
+      {/* Toast Feedback */}
+      {toast.show && (
+        <div
+          className={`fixed bottom-4 right-4 z-50 px-3.5 py-2 rounded-xl shadow-lg text-xs font-black text-white flex items-center gap-2 animate-fade-in ${
+            toast.type === "success" ? "bg-emerald-600" : toast.type === "error" ? "bg-rose-600" : "bg-slate-900"
+          }`}
+        >
+          <Sparkles className="w-3.5 h-3.5" />
+          <span>{toast.message}</span>
         </div>
       )}
 

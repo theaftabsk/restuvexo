@@ -153,13 +153,14 @@ export default function LoadingScreen({
           </div>
         </div>
 
-        {/* Status Text Block */}
-        <div className="text-center space-y-1.5 z-10 px-4">
-          <p className="animate-text-fade-in-up text-[10px] font-black uppercase tracking-widest block max-w-xs md:max-w-md mx-auto text-[#ff5a5f]" style={{ animationDelay: '0.5s' }}>
-            {message}
-          </p>
-          <div className="h-[1px] bg-gradient-to-r from-transparent via-[#ff5a5f]/40 to-transparent mx-auto rounded-full animate-pulse-line" />
-        </div>
+        {/* Minimal clean spinner if needed */}
+        {message && (
+          <div className="text-center z-10 px-4">
+            <p className="animate-text-fade-in-up text-[10px] font-bold text-slate-400 block max-w-xs mx-auto" style={{ animationDelay: '0.2s' }}>
+              {message}
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

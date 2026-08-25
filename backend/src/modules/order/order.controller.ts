@@ -44,20 +44,44 @@ export class OrderController {
   }
 
   @UseGuards(AuthGuard)
+  @Post(':id/items')
+  async addOrderItems(@Req() req: Request, @Res() res: Response) {
+    return this.orderService.updateOrder(req, res);
+  }
+
+  @UseGuards(AuthGuard)
   @Patch(':id/status')
-  async updateOrderStatus(@Req() req: Request, @Res() res: Response) {
+  async updateOrderStatusPatch(@Req() req: Request, @Res() res: Response) {
+    return this.orderService.updateOrderStatus(req, res);
+  }
+
+  @UseGuards(AuthGuard)
+  @Put(':id/status')
+  async updateOrderStatusPut(@Req() req: Request, @Res() res: Response) {
     return this.orderService.updateOrderStatus(req, res);
   }
 
   @UseGuards(AuthGuard)
   @Patch(':id/approve')
-  async approveQrOrder(@Req() req: Request, @Res() res: Response) {
+  async approveQrOrderPatch(@Req() req: Request, @Res() res: Response) {
+    return this.orderService.approveQrOrder(req, res);
+  }
+
+  @UseGuards(AuthGuard)
+  @Put(':id/approve')
+  async approveQrOrderPut(@Req() req: Request, @Res() res: Response) {
     return this.orderService.approveQrOrder(req, res);
   }
 
   @UseGuards(AuthGuard)
   @Patch(':id/settle')
-  async settleOrder(@Req() req: Request, @Res() res: Response) {
+  async settleOrderPatch(@Req() req: Request, @Res() res: Response) {
+    return this.orderService.settleOrder(req, res);
+  }
+
+  @UseGuards(AuthGuard)
+  @Put(':id/settle')
+  async settleOrderPut(@Req() req: Request, @Res() res: Response) {
     return this.orderService.settleOrder(req, res);
   }
 

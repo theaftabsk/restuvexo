@@ -2,12 +2,14 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { SettingsService } from '../../shared/settings.service';
 import { WebsocketGateway } from '../../websocket/websocket.gateway';
 import { DashboardService } from '../dashboard/dashboard.service';
+import { StockLedgerService } from '../inventory/stock-ledger.service';
 export declare class OrderService {
     private prisma;
     private settingsService;
     private websocketGateway;
     private dashboardService;
-    constructor(prisma: PrismaService, settingsService: SettingsService, websocketGateway: WebsocketGateway, dashboardService: DashboardService);
+    private stockLedgerService;
+    constructor(prisma: PrismaService, settingsService: SettingsService, websocketGateway: WebsocketGateway, dashboardService: DashboardService, stockLedgerService: StockLedgerService);
     generateTemplink(req: any, res: any): Promise<any>;
     createOrder(req: any, res: any): Promise<any>;
     updateOrder(req: any, res: any): Promise<any>;

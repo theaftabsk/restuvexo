@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@cashfreepayments/cashfree-js": "^1.0.7",
     "@prisma/client": "^7.8.0",
     "bcryptjs": "^3.0.3",
     "chart.js": "^4.5.1",

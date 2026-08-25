@@ -35,6 +35,12 @@ export class TableController {
   }
 
   @UseGuards(AuthGuard)
+  @Get(':id/history')
+  async getTableHistory(@Req() req: Request, @Res() res: Response) {
+    return this.tableService.getTableHistory(req, res);
+  }
+
+  @UseGuards(AuthGuard)
   @Get('active-sessions')
   async getActiveSessions(@Req() req: Request, @Res() res: Response) {
     return this.tableService.getActiveSessions(req, res);

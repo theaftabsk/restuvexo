@@ -250,17 +250,48 @@ let DashboardService = class DashboardService {
                 name: menuItemsMap.get(item.menuItemId) || "Delicious Item",
                 soldCount: item._sum.qty || 0
             }));
+            const salesMap = new Map();
+            for (let i = 0; i < 7; i++) {
+                const d = new Date();
+                d.setDate(d.getDate() - i);
+                const dateStr = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                salesMap.set(dateStr, 0);
+            }
+            const sortedDates = Array.from(salesMap.keys()).reverse();
+            let last7DaysTotal = 0;
+            last7DaysOrdersRaw.forEach(order => {
+                const dateStr = new Date(order.createdAt).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                if (salesMap.has(dateStr)) {
+                    const orderAmt = parseFloat(String(order.totalAmount)) || 0;
+                    salesMap.set(dateStr, salesMap.get(dateStr) + orderAmt);
+                    last7DaysTotal += orderAmt;
+                }
+            });
+            const last7DaysFormatted = sortedDates.map(date => {
+                const salesVal = parseFloat((salesMap.get(date) || 0).toFixed(2));
+                return {
+                    date,
+                    sales: salesVal,
+                    revenue: salesVal
+                };
+            });
             res.json({
                 todayRevenue: parseFloat(todayRevenue.toFixed(2)),
                 todayCost: parseFloat(todayCost.toFixed(2)),
                 todayProfit: parseFloat(todayProfit.toFixed(2)),
                 activeOrdersCount,
                 completedTodayCount: completedOrdersTodayCount,
+                completedOrdersTodayCount,
+                totalOrdersTodayCount: allOrdersToday.length,
+                tablesTotal: totalTablesCount,
+                tablesOccupied: busyTablesCount,
+                tablesFree: Math.max(0, totalTablesCount - busyTablesCount),
                 outOfStockCount: outOfStockCount || 0,
                 lowStockCount: lowStockCount || 0,
                 busyTables: {
                     busy: busyTablesCount,
-                    total: totalTablesCount
+                    total: totalTablesCount,
+                    free: Math.max(0, totalTablesCount - busyTablesCount)
                 },
                 fulfillments: {
                     dineIn: {
@@ -292,27 +323,11 @@ let DashboardService = class DashboardService {
                     }
                 },
                 kitchenFeed,
+                recentKots: kitchenFeed,
                 popularItems,
-                last7DaysSales: (() => {
-                    const salesMap = new Map();
-                    for (let i = 0; i < 7; i++) {
-                        const d = new Date();
-                        d.setDate(d.getDate() - i);
-                        const dateStr = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-                        salesMap.set(dateStr, 0);
-                    }
-                    const sortedDates = Array.from(salesMap.keys()).reverse();
-                    last7DaysOrdersRaw.forEach(order => {
-                        const dateStr = new Date(order.createdAt).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-                        if (salesMap.has(dateStr)) {
-                            salesMap.set(dateStr, salesMap.get(dateStr) + parseFloat(String(order.totalAmount)));
-                        }
-                    });
-                    return sortedDates.map(date => ({
-                        date,
-                        sales: parseFloat(salesMap.get(date).toFixed(2))
-                    }));
-                })()
+                last7Days: last7DaysFormatted,
+                last7DaysSales: last7DaysFormatted,
+                last7DaysTotal: parseFloat(last7DaysTotal.toFixed(2))
             });
         }
         catch (error) {

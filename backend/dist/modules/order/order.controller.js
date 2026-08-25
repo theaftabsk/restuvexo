@@ -38,13 +38,25 @@ let OrderController = class OrderController {
     async updateOrder(req, res) {
         return this.orderService.updateOrder(req, res);
     }
-    async updateOrderStatus(req, res) {
+    async addOrderItems(req, res) {
+        return this.orderService.updateOrder(req, res);
+    }
+    async updateOrderStatusPatch(req, res) {
         return this.orderService.updateOrderStatus(req, res);
     }
-    async approveQrOrder(req, res) {
+    async updateOrderStatusPut(req, res) {
+        return this.orderService.updateOrderStatus(req, res);
+    }
+    async approveQrOrderPatch(req, res) {
         return this.orderService.approveQrOrder(req, res);
     }
-    async settleOrder(req, res) {
+    async approveQrOrderPut(req, res) {
+        return this.orderService.approveQrOrder(req, res);
+    }
+    async settleOrderPatch(req, res) {
+        return this.orderService.settleOrder(req, res);
+    }
+    async settleOrderPut(req, res) {
         return this.orderService.settleOrder(req, res);
     }
     async deleteOrder(req, res) {
@@ -129,13 +141,31 @@ __decorate([
 ], OrderController.prototype, "updateOrder", null);
 __decorate([
     (0, common_1.UseGuards)(auth_guard_1.AuthGuard),
+    (0, common_1.Post)(':id/items'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], OrderController.prototype, "addOrderItems", null);
+__decorate([
+    (0, common_1.UseGuards)(auth_guard_1.AuthGuard),
     (0, common_1.Patch)(':id/status'),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Res)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", Promise)
-], OrderController.prototype, "updateOrderStatus", null);
+], OrderController.prototype, "updateOrderStatusPatch", null);
+__decorate([
+    (0, common_1.UseGuards)(auth_guard_1.AuthGuard),
+    (0, common_1.Put)(':id/status'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], OrderController.prototype, "updateOrderStatusPut", null);
 __decorate([
     (0, common_1.UseGuards)(auth_guard_1.AuthGuard),
     (0, common_1.Patch)(':id/approve'),
@@ -144,7 +174,16 @@ __decorate([
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", Promise)
-], OrderController.prototype, "approveQrOrder", null);
+], OrderController.prototype, "approveQrOrderPatch", null);
+__decorate([
+    (0, common_1.UseGuards)(auth_guard_1.AuthGuard),
+    (0, common_1.Put)(':id/approve'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], OrderController.prototype, "approveQrOrderPut", null);
 __decorate([
     (0, common_1.UseGuards)(auth_guard_1.AuthGuard),
     (0, common_1.Patch)(':id/settle'),
@@ -153,7 +192,16 @@ __decorate([
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", Promise)
-], OrderController.prototype, "settleOrder", null);
+], OrderController.prototype, "settleOrderPatch", null);
+__decorate([
+    (0, common_1.UseGuards)(auth_guard_1.AuthGuard),
+    (0, common_1.Put)(':id/settle'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], OrderController.prototype, "settleOrderPut", null);
 __decorate([
     (0, common_1.UseGuards)(auth_guard_1.AuthGuard),
     (0, common_1.Delete)(':id'),

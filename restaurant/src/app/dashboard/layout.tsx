@@ -251,33 +251,46 @@ export default function DashboardLayout({ children }) {
   }, []);
 
   useEffect(() => {
-    // Check authentication
+    // Check authentication strictly
     const token = localStorage.getItem("authToken");
     const storedUser = localStorage.getItem("user");
     const storedRestaurant = localStorage.getItem("restaurant");
 
     if (!token || !storedUser) {
-      window.location.href = "/auth/login";
+      localStorage.clear();
+      window.location.replace("/auth/login");
       return;
     }
 
-    setUser(JSON.parse(storedUser));
-    setRestaurant(JSON.parse(storedRestaurant));
+    try {
+      setUser(JSON.parse(storedUser));
+      if (storedRestaurant) setRestaurant(JSON.parse(storedRestaurant));
+    } catch (e) {
+      localStorage.clear();
+      window.location.replace("/auth/login");
+      return;
+    }
 
-    // Silent Session Health check to recover from database seeding drift
-    fetch(`${process.env.NEXT_PUBLIC_API_URL || (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000")}/api/menu/categories`, {
+    // Verify token with backend database
+    fetch(`${BACKEND_URL}/api/auth/restaurant`, {
       headers: { "Authorization": `Bearer ${token}` }
-    }).then(res => {
-      if (res.status === 401) {
-        console.warn(" Global Layout detected expired or seeded session. Auto-redirecting to auth sync...");
+    }).then(async res => {
+      if (!res.ok) {
+        console.warn("Session check failed, status:", res.status);
         localStorage.clear();
-        window.location.href = "/auth/login";
+        window.location.replace("/auth/login");
       } else {
+        const data = await res.json();
+        if (data.restaurant) {
+          setRestaurant(data.restaurant);
+          localStorage.setItem("restaurant", JSON.stringify(data.restaurant));
+        }
         setLoading(false);
       }
     }).catch(err => {
-      console.error("Global session check failed:", err);
-      setLoading(false);
+      console.error("Session check network failure:", err);
+      localStorage.clear();
+      window.location.replace("/auth/login");
     });
   }, []);
 
@@ -385,6 +398,13 @@ export default function DashboardLayout({ children }) {
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
           </svg>
         );
+      case "Subscription":
+        return (
+          <svg className="w-5 h-5 smooth-transition" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+            <rect x="2" y="5" width="20" height="14" rx="2" />
+            <line x1="2" y1="10" x2="22" y2="10" />
+          </svg>
+        );
       default:
         return null;
     }
@@ -400,40 +420,32 @@ export default function DashboardLayout({ children }) {
       ]
     },
     {
-      title: "LIVE TERMINALS",
+      title: "OPERATIONS",
       activeGradient: "from-[#ff5722] to-[#ff7a47]",
       items: [
         { name: "POS Billing", path: "/dashboard/pos", icon: "POS Billing", allowed: user?.role === "owner" || user?.role === "waiter", badge: "FAST" },
-        { name: "Order Create", path: "/dashboard/orders/create", icon: "POS Billing", allowed: user?.role === "owner" || user?.role === "waiter" },
-        { name: "Orders Manager", path: "/dashboard/orders", icon: "Orders Manager", allowed: user?.role === "owner" || user?.role === "waiter" },
-        { name: "QR Code Approvals", path: "/dashboard/qr", icon: "QR Code Order Management", allowed: user?.role === "owner" || user?.role === "waiter", badge: enabledFeatures.qrOrdering === false ? "LOCKED" : null },
-        { name: "Kitchen Display (KDS)", path: "/dashboard/kds", icon: "Kitchen", allowed: user?.role === "owner" || user?.role === "kitchen" }
-      ]
-    },
-    {
-      title: "REPORTS",
-      activeGradient: "from-[#ff5722] to-[#ff7a47]",
-      items: [
-        { name: "Analytics & Reports", path: "/dashboard/reports", icon: "Analytics & Reports", allowed: user?.role === "owner", badge: enabledFeatures.analytics === false ? "LOCKED" : null }
+        { name: "Orders", path: "/dashboard/orders", icon: "Orders Manager", allowed: user?.role === "owner" || user?.role === "waiter" },
+        { name: "Kitchen (KDS)", path: "/dashboard/kds", icon: "Kitchen", allowed: user?.role === "owner" || user?.role === "kitchen" },
+        { name: "Tables & QR", path: "/dashboard/tables", icon: "Table Manager", allowed: user?.role === "owner" }
       ]
     },
     {
       title: "MANAGEMENT",
       activeGradient: "from-[#ff5722] to-[#ff7a47]",
       items: [
-        { name: "Menu Catalog", path: "/dashboard/menu", icon: "Menu", allowed: user?.role === "owner" },
-        { name: "Menu Stock Control", path: "/dashboard/menu/stock", icon: "StockControl", allowed: user?.role === "owner" },
-        { name: "Table Settings", path: "/dashboard/tables", icon: "Table Manager", allowed: user?.role === "owner" },
-        { name: "Inventory Stock", path: "/dashboard/inventory", icon: "Inventory", allowed: user?.role === "owner", badge: enabledFeatures.inventory === false ? "LOCKED" : null },
-        { name: "Expenses Tracker", path: "/dashboard/expenses", icon: "Expenses", allowed: user?.role === "owner", badge: enabledFeatures.analytics === false ? "LOCKED" : null }
+        { name: "Menu", path: "/dashboard/menu", icon: "Menu", allowed: user?.role === "owner" },
+        { name: "Inventory", path: "/dashboard/inventory", icon: "Inventory", allowed: user?.role === "owner", badge: enabledFeatures.inventory === false ? "LOCKED" : null },
+        { name: "Expenses", path: "/dashboard/expenses", icon: "Expenses", allowed: user?.role === "owner", badge: enabledFeatures.analytics === false ? "LOCKED" : null },
+        { name: "Reports", path: "/dashboard/reports", icon: "Analytics & Reports", allowed: user?.role === "owner", badge: enabledFeatures.analytics === false ? "LOCKED" : null }
       ]
     },
     {
-      title: "SYSTEM SETTINGS",
+      title: "SETTINGS",
       activeGradient: "from-[#ff5722] to-[#ff7a47]",
       items: [
-        { name: "Staff & Security", path: "/dashboard/staff", icon: "Staff", allowed: user?.role === "owner", badge: enabledFeatures.staffManagement === false ? "LOCKED" : null },
-        { name: "Settings Console", path: "/dashboard/settings", icon: "Security", allowed: user?.role === "owner" }
+        { name: "Staff", path: "/dashboard/staff", icon: "Staff", allowed: user?.role === "owner", badge: enabledFeatures.staffManagement === false ? "LOCKED" : null },
+        { name: "Subscription", path: "/dashboard/subscription", icon: "Subscription", allowed: user?.role === "owner" },
+        { name: "Settings", path: "/dashboard/settings", icon: "Security", allowed: user?.role === "owner" }
       ]
     }
   ];
@@ -615,8 +627,21 @@ export default function DashboardLayout({ children }) {
 
   const headerDetails = getPageHeaderDetails();
 
-  if (loading) {
+  if (loading || !user || !restaurant) {
     return <LoadingScreen message="Securing session..." minHeight="100vh" fullScreen={true} />;
+  }
+
+  const isPosPage = pathname === "/dashboard/pos";
+
+  if (isPosPage) {
+    return (
+      <div className="h-screen w-full bg-[#f8fafc] flex flex-col text-slate-800 overflow-hidden font-sans relative">
+        <main className="flex-1 w-full h-full overflow-hidden p-2 sm:p-3">
+          {children}
+        </main>
+        {vexoAiEnabled && <Chatbot />}
+      </div>
+    );
   }
 
   return (
@@ -678,8 +703,8 @@ export default function DashboardLayout({ children }) {
                   disabled={updatingStoreStatus}
                   title={qrOrderingEnabled ? "Accepting Orders (Click to Pause)" : "Ordering Paused (Click to Accept)"}
                   className={`w-6 h-6 rounded-full flex items-center justify-center border transition-all cursor-pointer ${qrOrderingEnabled
-                      ? "bg-emerald-50 border-emerald-100 text-emerald-600 hover:bg-emerald-100"
-                      : "bg-amber-50 border-amber-100 text-amber-600 hover:bg-amber-100"
+                    ? "bg-emerald-50 border-emerald-100 text-emerald-600 hover:bg-emerald-100"
+                    : "bg-amber-50 border-amber-100 text-amber-600 hover:bg-amber-100"
                     }`}
                 >
                   <span className={`w-2 h-2 rounded-full ${qrOrderingEnabled ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500 animate-ping'}`} />
@@ -736,8 +761,8 @@ export default function DashboardLayout({ children }) {
                   onClick={handleToggleStoreStatus}
                   disabled={updatingStoreStatus}
                   className={`w-full flex items-center justify-between px-3 py-2 rounded-xl border text-[9px] font-black uppercase tracking-wider transition-all duration-300 shadow-sm cursor-pointer ${qrOrderingEnabled
-                      ? "bg-emerald-50/70 border-emerald-100 text-emerald-700 hover:bg-emerald-100/60"
-                      : "bg-amber-50/70 border-amber-100 text-amber-700 hover:bg-amber-100/60"
+                    ? "bg-emerald-50/70 border-emerald-100 text-emerald-700 hover:bg-emerald-100/60"
+                    : "bg-amber-50/70 border-amber-100 text-amber-700 hover:bg-amber-100/60"
                     }`}
                 >
                   <span className="flex items-center gap-1.5">
@@ -815,8 +840,8 @@ export default function DashboardLayout({ children }) {
                     className={`w-full flex items-center justify-between px-3 py-1 text-left select-none group/hdr ${sidebarCollapsible ? 'cursor-pointer' : ''}`}
                   >
                     <h4 className={`text-[9px] font-black uppercase tracking-widest transition-colors ${sidebarTheme === 'midnight'
-                        ? 'text-slate-500 group-hover/hdr:text-slate-300'
-                        : 'text-slate-400 group-hover/hdr:text-slate-600'
+                      ? 'text-slate-500 group-hover/hdr:text-slate-300'
+                      : 'text-slate-400 group-hover/hdr:text-slate-600'
                       }`}>
                       {group.title}
                     </h4>
@@ -862,8 +887,8 @@ export default function DashboardLayout({ children }) {
                         {/* Telemetry dynamic badges */}
                         {item.name === "QR Code Approvals" && pendingQrCount > 0 && (
                           <span className={`bg-rose-500 text-white rounded-full text-[8.5px] font-black tracking-wide animate-pulse flex items-center justify-center ${isCollapsed
-                              ? 'absolute top-1.5 right-1.5 w-4 h-4 shadow-sm shadow-rose-500/20'
-                              : 'px-2 py-0.5'
+                            ? 'absolute top-1.5 right-1.5 w-4 h-4 shadow-sm shadow-rose-500/20'
+                            : 'px-2 py-0.5'
                             }`}>
                             {pendingQrCount}
                           </span>
@@ -871,8 +896,8 @@ export default function DashboardLayout({ children }) {
 
                         {item.name === "Kitchen Display (KDS)" && activeKdsCount > 0 && (
                           <span className={`bg-amber-500 text-slate-950 rounded-full text-[8px] font-black tracking-wide flex items-center justify-center ${isCollapsed
-                              ? 'absolute top-1.5 right-1.5 w-4 h-4'
-                              : 'px-1.5 py-0.5'
+                            ? 'absolute top-1.5 right-1.5 w-4 h-4'
+                            : 'px-1.5 py-0.5'
                             }`}>
                             {activeKdsCount}
                           </span>

@@ -2,60 +2,101 @@
 
 import { useEffect, useState } from "react";
 import { io } from "socket.io-client";
-import LoadingScreen from "@/components/LoadingScreen";
+import {
+  Package,
+  Plus,
+  Search,
+  AlertTriangle,
+  RotateCcw,
+  Trash2,
+  Edit2,
+  TrendingDown,
+  ShoppingBag,
+  History,
+  Layers,
+  ArrowUpRight,
+  ArrowDownLeft,
+  Filter,
+  CheckCircle2,
+  XCircle,
+  HelpCircle,
+  Sparkles,
+  DollarSign,
+  Scale
+} from "lucide-react";
 
 export default function InventoryManagement() {
-  const [user, setUser] = useState(null);
-  const [inventoryList, setInventoryList] = useState([]);
-  const [paginationMeta, setPaginationMeta] = useState({ total: 0, totalPages: 1 });
+  const [user, setUser] = useState<any>(null);
+  const [inventoryList, setInventoryList] = useState<any[]>([]);
+  const [transactionsList, setTransactionsList] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<"stock" | "transactions">("stock");
+  const [paginationMeta, setPaginationMeta] = useState({ total: 0, totalPages: 1, page: 1 });
   const [currentPage, setCurrentPage] = useState(1);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterStatus, setFilterStatus] = useState<"all" | "low_stock" | "out_of_stock">("all");
   const [loading, setLoading] = useState(true);
 
-  // Form states for adding new ingredient
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [formData, setFormData] = useState({
+  // Form Modals
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showPurchaseModal, setShowPurchaseModal] = useState(false);
+  const [showWastageModal, setShowWastageModal] = useState(false);
+  const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
+  const [selectedItemForAction, setSelectedItemForAction] = useState<any>(null);
+
+  // Form Fields
+  const [addFormData, setAddFormData] = useState({
     itemName: "",
-    qty: "",
-    unit: "kg",
-    lowStockAlert: "5"
+    currentStock: "0",
+    baseUnit: "kg",
+    reorderLevel: "5",
+    minAlertQty: "2",
+    costPerUnit: "0"
   });
 
-  // Editing stock states
-  const [editingItemId, setEditingItemId] = useState(null);
-  const [editQty, setEditQty] = useState("");
-  const [editAlert, setEditAlert] = useState("");
+  const [purchaseData, setPurchaseData] = useState({
+    inventoryId: "",
+    qtyPurchased: "",
+    costPerUnit: "",
+    invoiceNo: "",
+    supplierName: ""
+  });
 
-  const [formError, setFormError] = useState("");
-  const [formSuccess, setFormSuccess] = useState("");
+  const [wastageData, setWastageData] = useState({
+    inventoryId: "",
+    qtyWasted: "",
+    reason: "Spoilage"
+  });
+
+  const [adjustmentData, setAdjustmentData] = useState({
+    inventoryId: "",
+    newPhysicalCount: "",
+    reason: "Physical count mismatch"
+  });
+
   const [formLoading, setFormLoading] = useState(false);
+  const [toast, setToast] = useState<{ msg: string; type: "success" | "error" | "info" } | null>(null);
 
-  //  Premium Toast and Custom Modal States
-  const [toast, setToast] = useState(null);
-  const [confirmModal, setConfirmModal] = useState({
-    show: false,
-    itemId: null,
-    itemName: ""
-  });
+  const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
-  const BACKEND_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000");
-
-  const triggerToast = (msg, type = "success") => {
+  const triggerToast = (msg: string, type: "success" | "error" | "info" = "success") => {
     setToast({ msg, type });
-    setTimeout(() => setToast(null), 3000);
+    setTimeout(() => setToast(null), 3500);
   };
 
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
-    if (storedUser) setUser(JSON.parse(storedUser));
-    
-    // SOCKET.IO REAL-TIME CONNECTION
+    if (storedUser) {
+      try {
+        setUser(JSON.parse(storedUser));
+      } catch (e) {}
+    }
+
     const socket = io(BACKEND_URL, {
       transports: ["websocket"],
       reconnection: true
     });
 
     socket.on("connect", () => {
-      console.log("Inventory Socket Connected:", socket.id);
       const userStr = localStorage.getItem("user");
       if (userStr) {
         try {
@@ -69,23 +110,34 @@ export default function InventoryManagement() {
 
     socket.on("inventory_updated", () => {
       fetchInventory(currentPage, true);
+      if (activeTab === "transactions") {
+        fetchTransactions(1, true);
+      }
     });
 
     return () => {
       socket.disconnect();
     };
-  }, []);
+  }, [activeTab]);
 
   useEffect(() => {
-    fetchInventory(currentPage);
-  }, [currentPage]);
+    if (activeTab === "stock") {
+      fetchInventory(currentPage);
+    } else {
+      fetchTransactions(currentPage);
+    }
+  }, [currentPage, activeTab, filterStatus]);
 
   const fetchInventory = async (page = 1, isSilent = false) => {
+    if (!isSilent) setLoading(true);
     const token = localStorage.getItem("authToken");
     try {
-      const res = await fetch(`${BACKEND_URL}/api/inventory?page=${page}&limit=20`, {
-        headers: { "Authorization": `Bearer ${token}` }
-      });
+      const res = await fetch(
+        `${BACKEND_URL}/api/inventory?page=${page}&limit=50&search=${encodeURIComponent(searchQuery)}`,
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
       if (res.ok) {
         const json = await res.json();
         setInventoryList(json.data || []);
@@ -98,487 +150,897 @@ export default function InventoryManagement() {
     }
   };
 
-  // Add new raw ingredient
-  const handleAddIngredient = async (e) => {
-    e.preventDefault();
-    setFormError("");
-    setFormSuccess("");
-    setFormLoading(true);
-
+  const fetchTransactions = async (page = 1, isSilent = false) => {
+    if (!isSilent) setLoading(true);
     const token = localStorage.getItem("authToken");
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/inventory/transactions?page=${page}&limit=50`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const json = await res.json();
+        setTransactionsList(json.data || []);
+        if (json.pagination) setPaginationMeta(json.pagination);
+      }
+    } catch (error) {
+      console.error("Failed to load transactions:", error);
+    } finally {
+      if (!isSilent) setLoading(false);
+    }
+  };
 
+  // 1. Handle Add New Raw Material
+  const handleAddSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!addFormData.itemName || !addFormData.baseUnit) {
+      triggerToast("Please enter material name and measurement unit", "error");
+      return;
+    }
+
+    setFormLoading(true);
+    const token = localStorage.getItem("authToken");
     try {
       const res = await fetch(`${BACKEND_URL}/api/inventory`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
+          Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({
-          itemName: formData.itemName,
-          qty: parseFloat(formData.qty),
-          unit: formData.unit,
-          lowStockAlert: parseFloat(formData.lowStockAlert)
+          itemName: addFormData.itemName.trim(),
+          currentStock: parseFloat(addFormData.currentStock) || 0,
+          baseUnit: addFormData.baseUnit.trim(),
+          reorderLevel: parseFloat(addFormData.reorderLevel) || 5,
+          minAlertQty: parseFloat(addFormData.minAlertQty) || 2,
+          costPerUnit: parseFloat(addFormData.costPerUnit) || 0
         })
       });
 
       const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to add raw ingredient.");
+      if (res.ok) {
+        triggerToast("Raw material added successfully!", "success");
+        setShowAddModal(false);
+        setAddFormData({
+          itemName: "",
+          currentStock: "0",
+          baseUnit: "kg",
+          reorderLevel: "5",
+          minAlertQty: "2",
+          costPerUnit: "0"
+        });
+        fetchInventory(1);
+      } else {
+        triggerToast(data.error || "Failed to add raw material", "error");
       }
-
-      triggerToast(`Ingredient "${formData.itemName}" registered successfully!`, "success");
-      setFormData({ itemName: "", qty: "", unit: "kg", lowStockAlert: "5" });
-      setShowAddForm(false);
-      fetchInventory();
-
-    } catch (error) {
-      setFormError(error.message);
-      triggerToast(error.message, "error");
+    } catch (err: any) {
+      triggerToast(err.message || "Network error", "error");
     } finally {
       setFormLoading(false);
     }
   };
 
-  // Save stock adjustment
-  const handleSaveAdjustment = async (itemId) => {
+  // 2. Handle Purchase Submission
+  const handlePurchaseSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!purchaseData.inventoryId || !purchaseData.qtyPurchased) {
+      triggerToast("Please select material and enter purchased quantity", "error");
+      return;
+    }
+
+    setFormLoading(true);
     const token = localStorage.getItem("authToken");
-    
     try {
-      const res = await fetch(`${BACKEND_URL}/api/inventory/${itemId}`, {
-        method: "PATCH",
+      const res = await fetch(`${BACKEND_URL}/api/inventory/purchase`, {
+        method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
+          Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({
-          qty: parseFloat(editQty),
-          lowStockAlert: parseFloat(editAlert)
+          inventoryId: purchaseData.inventoryId,
+          qtyPurchased: parseFloat(purchaseData.qtyPurchased),
+          costPerUnit: parseFloat(purchaseData.costPerUnit || "0"),
+          invoiceNo: purchaseData.invoiceNo,
+          supplierName: purchaseData.supplierName
         })
       });
 
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed to adjust stock.");
+      const data = await res.json();
+      if (res.ok) {
+        triggerToast("Stock purchase recorded to ledger!", "success");
+        setShowPurchaseModal(false);
+        setPurchaseData({
+          inventoryId: "",
+          qtyPurchased: "",
+          costPerUnit: "",
+          invoiceNo: "",
+          supplierName: ""
+        });
+        fetchInventory(currentPage);
+      } else {
+        triggerToast(data.error || "Failed to record purchase", "error");
       }
-
-      setInventoryList(inventoryList.map(item => 
-        item.id === itemId 
-          ? { ...item, qty: parseFloat(editQty), lowStockAlert: parseFloat(editAlert) } 
-          : item
-      ));
-
-      setEditingItemId(null);
-      setEditQty("");
-      setEditAlert("");
-      triggerToast("Inventory level adjusted successfully.", "success");
-
-    } catch (error) {
-      triggerToast(error.message, "error");
+    } catch (err: any) {
+      triggerToast(err.message || "Network error", "error");
+    } finally {
+      setFormLoading(false);
     }
   };
 
-  const triggerDeleteConfirm = (itemId, itemName) => {
-    setConfirmModal({
-      show: true,
-      itemId,
-      itemName
-    });
-  };
+  // 3. Handle Wastage Submission
+  const handleWastageSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!wastageData.inventoryId || !wastageData.qtyWasted) {
+      triggerToast("Please select material and enter wastage quantity", "error");
+      return;
+    }
 
-  // Delete raw ingredient from catalog
-  const executeDeleteIngredient = async () => {
-    const { itemId } = confirmModal;
-    setConfirmModal({ show: false, itemId: null, itemName: "" });
+    setFormLoading(true);
     const token = localStorage.getItem("authToken");
-
     try {
-      const res = await fetch(`${BACKEND_URL}/api/inventory/${itemId}`, {
-        method: "DELETE",
-        headers: { "Authorization": `Bearer ${token}` }
+      const res = await fetch(`${BACKEND_URL}/api/inventory/wastage`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          inventoryId: wastageData.inventoryId,
+          qtyWasted: parseFloat(wastageData.qtyWasted),
+          reason: wastageData.reason
+        })
       });
 
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed to remove ingredient.");
+      const data = await res.json();
+      if (res.ok) {
+        triggerToast("Wastage logged and stock updated!", "success");
+        setShowWastageModal(false);
+        setWastageData({ inventoryId: "", qtyWasted: "", reason: "Spoilage" });
+        fetchInventory(currentPage);
+      } else {
+        triggerToast(data.error || "Failed to log wastage", "error");
       }
-
-      setInventoryList(inventoryList.filter(item => item.id !== itemId));
-      triggerToast("Ingredient removed from ledger.", "success");
-
-    } catch (error) {
-      triggerToast(error.message, "error");
+    } catch (err: any) {
+      triggerToast(err.message || "Network error", "error");
+    } finally {
+      setFormLoading(false);
     }
   };
 
-  if (loading) {
-    return <LoadingScreen message="Syncing inventory ledger..." minHeight="50vh" />;
-  }
+  // 4. Handle Adjustment Submission
+  const handleAdjustmentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adjustmentData.inventoryId || adjustmentData.newPhysicalCount === "") {
+      triggerToast("Please enter audited physical stock count", "error");
+      return;
+    }
 
-  // Calculate high level metrics
-  const lowStockItems = inventoryList.filter(item => item.qty <= item.lowStockAlert);
+    setFormLoading(true);
+    const token = localStorage.getItem("authToken");
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/inventory/adjustment`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          inventoryId: adjustmentData.inventoryId,
+          newPhysicalCount: parseFloat(adjustmentData.newPhysicalCount),
+          reason: adjustmentData.reason
+        })
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        triggerToast("Stock count adjusted and audited!", "success");
+        setShowAdjustmentModal(false);
+        setAdjustmentData({
+          inventoryId: "",
+          newPhysicalCount: "",
+          reason: "Physical count mismatch"
+        });
+        fetchInventory(currentPage);
+      } else {
+        triggerToast(data.error || "Failed to adjust stock", "error");
+      }
+    } catch (err: any) {
+      triggerToast(err.message || "Network error", "error");
+    } finally {
+      setFormLoading(false);
+    }
+  };
+
+  // Filtered List
+  const filteredInventory = inventoryList.filter((item) => {
+    if (filterStatus === "low_stock") return item.status === "low_stock" || item.status === "critical";
+    if (filterStatus === "out_of_stock") return item.status === "out_of_stock";
+    return true;
+  });
+
+  const lowStockCount = inventoryList.filter((i) => i.status === "low_stock" || i.status === "critical").length;
+  const outOfStockCount = inventoryList.filter((i) => i.status === "out_of_stock").length;
 
   return (
-    <div className="space-y-8 animate-fade-in relative text-slate-800 font-sans">
+    <div className="w-full min-h-screen bg-[#f8fafc] p-4 lg:p-6 text-slate-800 font-sans">
       
-      {/* Toast Alert Feedback */}
-      {toast && (
-        <div className={`fixed bottom-6 right-6 z-50 px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 transition-all duration-300 animate-slide-up border ${
-          toast.type === "error" ? "bg-rose-50 border-rose-200 text-rose-750" : "bg-slate-900 border-slate-700 text-white"
-        }`}>
-          <span className="w-2 h-2 rounded-full inline-block shrink-0 bg-current animate-pulse" />
-          <span className="text-[11px] font-black tracking-wide uppercase">{toast.msg}</span>
-        </div>
-      )}
-
-      {/* Header bar */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 border-b border-slate-100 pb-6 text-left">
+      {/* HEADER BAR */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Recipe &amp; Raw Inventory</h1>
-          <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mt-1">
-            Manage raw kitchen catalog and configure dynamic alerts on low levels
-          </p>
-        </div>
-        
-        <button
-          onClick={() => setShowAddForm(!showAddForm)}
-          className={`px-5 py-3 font-extrabold rounded-2xl text-[10px] uppercase tracking-wider shadow-md transition whitespace-nowrap active:scale-95 ${
-            showAddForm 
-              ? "bg-slate-100 hover:bg-slate-200 text-slate-700" 
-              : "bg-slate-900 hover:bg-slate-850 text-white"
-          }`}
-        >
-          {showAddForm ? "Close Form" : "Register Raw Stock"}
-        </button>
-      </div>
-
-      {/* high level metrics cards */}
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 text-left">
-        <div className="bg-white border border-slate-100 p-6 rounded-3xl flex items-center gap-4 shadow-xl shadow-slate-100/40">
-          <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-100 text-emerald-600 flex items-center justify-center">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-            </svg>
-          </div>
-          <div>
-            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Total Raw Items</span>
-            <span className="text-xl font-black text-slate-950">{inventoryList.length} Ingredients</span>
+          <div className="flex items-center gap-2">
+            <div className="p-2 rounded-xl bg-orange-100 text-[#ff5722]">
+              <Package className="w-6 h-6" />
+            </div>
+            <div>
+              <h1 className="text-xl font-black text-slate-900 tracking-tight">Smart Inventory & Recipe BOM</h1>
+              <p className="text-xs text-slate-500 font-medium">Real-time raw ingredient tracking, purchase orders & audit ledger</p>
+            </div>
           </div>
         </div>
 
-        <div className={`border p-6 rounded-3xl flex items-center gap-4 shadow-xl shadow-slate-100/40 ${
-          lowStockItems.length > 0 ? "bg-rose-50/40 border-rose-200" : "bg-white border-slate-100"
-        }`}>
-          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
-            lowStockItems.length > 0 ? "bg-rose-100 border border-rose-200 text-rose-600 animate-pulse" : "bg-slate-100 border border-slate-200 text-slate-500"
-          }`}>
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-          </div>
-          <div>
-            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Low Stock Alerts</span>
-            <span className={`text-xl font-black ${lowStockItems.length > 0 ? "text-rose-600" : "text-slate-950"}`}>
-              {lowStockItems.length} Warnings
-            </span>
-          </div>
+        {/* TOP ACTION BUTTONS */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => {
+              setPurchaseData({ inventoryId: inventoryList[0]?.id?.toString() || "", qtyPurchased: "", costPerUnit: "", invoiceNo: "", supplierName: "" });
+              setShowPurchaseModal(true);
+            }}
+            className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black flex items-center gap-1.5 shadow-xs transition cursor-pointer"
+          >
+            <ArrowDownLeft className="w-4 h-4" />
+            <span>+ Purchase Stock</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setWastageData({ inventoryId: inventoryList[0]?.id?.toString() || "", qtyWasted: "", reason: "Spoilage" });
+              setShowWastageModal(true);
+            }}
+            className="px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-black flex items-center gap-1.5 shadow-xs transition cursor-pointer"
+          >
+            <TrendingDown className="w-4 h-4" />
+            <span>Log Wastage</span>
+          </button>
+
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-black flex items-center gap-1.5 shadow-xs transition cursor-pointer"
+          >
+            <Plus className="w-4 h-4 text-orange-400" />
+            <span>+ New Material</span>
+          </button>
         </div>
       </div>
 
-      {/* REGISTER NEW RAW STOCK FORM */}
-      {showAddForm && (
-        <div className="bg-white border border-slate-100 p-8 rounded-[2.5rem] shadow-2xl shadow-slate-100/60 max-w-xl animate-slide-up space-y-6 text-left">
-          <div>
-            <h3 className="font-black text-slate-900 text-lg">Register New Raw Stock Item</h3>
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">Define measurement systems and default safety alert parameters</p>
+      {/* KPI STATS ROW */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
+          <span className="text-[11px] font-bold uppercase text-slate-400">Total Materials</span>
+          <div className="flex items-baseline justify-between mt-1">
+            <span className="text-2xl font-black text-slate-900">{inventoryList.length}</span>
+            <span className="text-xs font-bold text-slate-500">Tracked</span>
           </div>
-          
-          <form onSubmit={handleAddIngredient} className="space-y-5 text-xs font-bold text-slate-600">
-            
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div className="flex flex-col gap-2">
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-1">Ingredient Name</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Cottage Paneer Blocks"
-                  value={formData.itemName}
-                  onChange={(e) => setFormData({ ...formData, itemName: e.target.value })}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:bg-white focus:border-emerald-500 rounded-2xl text-slate-800 text-xs font-semibold focus:outline-none transition"
-                  required
-                />
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-1">Measurement Unit</label>
-                <select
-                  value={formData.unit}
-                  onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:bg-white focus:border-emerald-500 rounded-2xl text-slate-800 text-xs font-black focus:outline-none transition"
-                  required
-                >
-                  <option value="kg">Kilograms (kg)</option>
-                  <option value="ltr">Liters (ltr)</option>
-                  <option value="pcs">Pieces (pcs)</option>
-                  <option value="pkt">Packets (pkt)</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div className="flex flex-col gap-2">
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-1">Initial Stock Qty</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  placeholder="e.g. 50.00"
-                  value={formData.qty}
-                  onChange={(e) => setFormData({ ...formData, qty: e.target.value })}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:bg-white focus:border-emerald-500 rounded-2xl text-slate-800 text-xs font-semibold focus:outline-none transition"
-                  required
-                />
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-1">Low Stock Threshold</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  placeholder="e.g. 10.00"
-                  value={formData.lowStockAlert}
-                  onChange={(e) => setFormData({ ...formData, lowStockAlert: e.target.value })}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:bg-white focus:border-emerald-500 rounded-2xl text-slate-800 text-xs font-semibold focus:outline-none transition"
-                  required
-                />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={formLoading}
-              className="w-full bg-slate-900 hover:bg-slate-850 text-white font-extrabold py-4 px-4 rounded-2xl text-[10px] uppercase tracking-wider transition disabled:opacity-50 active:scale-95 shadow-md mt-2"
-            >
-              {formLoading ? "Saving Ingredient..." : "Register Ingredient"}
-            </button>
-
-          </form>
-        </div>
-      )}
-
-      {/* INVENTORY DATA TABLE */}
-      <div className="bg-white border border-slate-100 rounded-[2.5rem] overflow-hidden shadow-xl shadow-slate-100/40">
-        
-        <div className="p-6 border-b border-slate-50 flex items-center justify-between">
-          <h3 className="font-black text-slate-950 text-base">Raw Stocks Audit Ledger</h3>
-          <span className="px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-100 text-[9px] font-black uppercase text-slate-500 tracking-wider">
-            {inventoryList.length} Items Listed
-          </span>
         </div>
 
-        {inventoryList.length === 0 ? (
-          <div className="py-20 text-center space-y-4 max-w-sm mx-auto">
-            <div className="w-16 h-16 bg-slate-50 border border-slate-150 rounded-2xl flex items-center justify-center mx-auto text-slate-500">
-              <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-              </svg>
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
+          <span className="text-[11px] font-bold uppercase text-amber-500">Low Stock Alert</span>
+          <div className="flex items-baseline justify-between mt-1">
+            <span className="text-2xl font-black text-amber-600">{lowStockCount}</span>
+            <span className="text-xs font-bold text-amber-600">Reorder soon</span>
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
+          <span className="text-[11px] font-bold uppercase text-rose-500">Out of Stock</span>
+          <div className="flex items-baseline justify-between mt-1">
+            <span className="text-2xl font-black text-rose-600">{outOfStockCount}</span>
+            <span className="text-xs font-bold text-rose-600">Blocking POS</span>
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
+          <span className="text-[11px] font-bold uppercase text-emerald-600">Stock Security</span>
+          <div className="flex items-baseline justify-between mt-1">
+            <span className="text-2xl font-black text-emerald-700">100%</span>
+            <span className="text-xs font-bold text-emerald-600">Idempotent</span>
+          </div>
+        </div>
+      </div>
+
+      {/* TABS & SEARCH BAR */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs p-3 mb-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
+        {/* Navigation Tabs */}
+        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
+          <button
+            onClick={() => { setActiveTab("stock"); setCurrentPage(1); }}
+            className={`px-4 py-1.5 rounded-lg text-xs font-black transition cursor-pointer flex items-center gap-1.5 ${
+              activeTab === "stock" ? "bg-white text-slate-900 shadow-xs" : "text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            <Package className="w-3.5 h-3.5 text-[#ff5722]" />
+            <span>Live Stock Matrix ({inventoryList.length})</span>
+          </button>
+          <button
+            onClick={() => { setActiveTab("transactions"); setCurrentPage(1); }}
+            className={`px-4 py-1.5 rounded-lg text-xs font-black transition cursor-pointer flex items-center gap-1.5 ${
+              activeTab === "transactions" ? "bg-white text-slate-900 shadow-xs" : "text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            <History className="w-3.5 h-3.5 text-blue-500" />
+            <span>Audit Transaction Ledger</span>
+          </button>
+        </div>
+
+        {/* Filter & Search */}
+        {activeTab === "stock" && (
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs">
+              <button
+                onClick={() => setFilterStatus("all")}
+                className={`px-2.5 py-1 rounded-lg font-bold transition cursor-pointer ${
+                  filterStatus === "all" ? "bg-white text-slate-800 shadow-xs" : "text-slate-500"
+                }`}
+              >
+                All
+              </button>
+              <button
+                onClick={() => setFilterStatus("low_stock")}
+                className={`px-2.5 py-1 rounded-lg font-bold transition cursor-pointer ${
+                  filterStatus === "low_stock" ? "bg-amber-100 text-amber-900 shadow-xs" : "text-slate-500"
+                }`}
+              >
+                Low ({lowStockCount})
+              </button>
+              <button
+                onClick={() => setFilterStatus("out_of_stock")}
+                className={`px-2.5 py-1 rounded-lg font-bold transition cursor-pointer ${
+                  filterStatus === "out_of_stock" ? "bg-rose-100 text-rose-900 shadow-xs" : "text-slate-500"
+                }`}
+              >
+                Zero ({outOfStockCount})
+              </button>
             </div>
-            <div className="space-y-1">
-              <h4 className="font-black text-slate-900 text-sm leading-none">No raw ingredients tracked</h4>
-              <p className="text-slate-400 text-[10px] font-semibold leading-relaxed pt-1.5">
-                Add your first stock item (e.g. Paneer or Basmati) using the button above.
-              </p>
+
+            <div className="relative">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search raw material..."
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  fetchInventory(1);
+                }}
+                className="pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-orange-500/20"
+              />
             </div>
           </div>
-        ) : (
+        )}
+      </div>
+
+      {/* TAB 1: LIVE STOCK TABLE */}
+      {activeTab === "stock" && (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs font-bold text-slate-600 bg-white">
+            <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="bg-slate-50/50 border-b border-slate-100 text-[9px] font-black text-slate-450 uppercase tracking-widest">
-                  <th className="p-5 pl-8">Ingredient Name</th>
-                  <th className="p-5">Current Stock Level</th>
-                  <th className="p-5">Alert Level</th>
-                  <th className="p-5 text-center">Stock status</th>
-                  <th className="p-5 text-right pr-8">Manage Actions</th>
+                <tr className="bg-slate-50/80 border-b border-slate-200 text-[11px] font-black uppercase text-slate-500 tracking-wider">
+                  <th className="py-3 px-4">Ingredient Name</th>
+                  <th className="py-3 px-4">Current Stock</th>
+                  <th className="py-3 px-4">Unit</th>
+                  <th className="py-3 px-4">Cost / Unit</th>
+                  <th className="py-3 px-4">Reorder Level</th>
+                  <th className="py-3 px-4">Status</th>
+                  <th className="py-3 px-4 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-50">
-                {inventoryList.map((item) => {
-                  const isLow = item.qty <= item.lowStockAlert;
-                  const isEditing = editingItemId === item.id;
-
-                  return (
-                    <tr key={item.id} className="hover:bg-slate-50/30 transition">
-                      
-                      {/* Name */}
-                      <td className="p-5 pl-8 font-black text-slate-900 text-sm leading-snug">
-                        {item.itemName}
+              <tbody className="divide-y divide-slate-100">
+                {loading ? (
+                  <tr>
+                    <td colSpan={7} className="py-12 text-center text-slate-400 font-bold">
+                      Syncing inventory balances...
+                    </td>
+                  </tr>
+                ) : filteredInventory.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="py-12 text-center text-slate-400 font-bold">
+                      No ingredients found. Click "+ New Material" to add.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredInventory.map((item) => (
+                    <tr key={item.id} className="hover:bg-slate-50/60 transition">
+                      <td className="py-3 px-4 font-black text-slate-900">{item.itemName}</td>
+                      <td className="py-3 px-4">
+                        <span className="text-sm font-black text-slate-900">
+                          {Number(item.currentStock).toFixed(3)}
+                        </span>
                       </td>
-
-                      {/* Current Stock */}
-                      <td className="p-5">
-                        {isEditing ? (
-                          <div className="flex items-center gap-1.5">
-                            <input
-                              type="number"
-                              step="0.01"
-                              value={editQty}
-                              onChange={(e) => setEditQty(e.target.value)}
-                              className="w-20 px-2 py-1 bg-slate-50 border border-slate-200 focus:bg-white focus:border-emerald-500 rounded-lg text-slate-800 text-xs focus:outline-none transition"
-                            />
-                            <span className="text-slate-400 text-[10px] uppercase font-black tracking-wider">{item.unit}</span>
-                          </div>
-                        ) : (
-                          <span className={`text-sm ${isLow ? "text-rose-600 font-extrabold" : "text-slate-800 font-black"}`}>
-                            {item.qty.toFixed(2)} {item.unit}
+                      <td className="py-3 px-4 font-bold text-slate-500 uppercase">{item.baseUnit}</td>
+                      <td className="py-3 px-4 font-bold text-slate-700">₹{Number(item.costPerUnit).toFixed(2)}</td>
+                      <td className="py-3 px-4 font-bold text-slate-500">{Number(item.reorderLevel).toFixed(2)} {item.baseUnit}</td>
+                      <td className="py-3 px-4">
+                        {item.status === "out_of_stock" ? (
+                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 text-[10px] font-black uppercase">
+                            <span className="w-1.5 h-1.5 rounded-full bg-rose-600 animate-pulse" />
+                            <span>Out of Stock</span>
                           </span>
-                        )}
-                      </td>
-
-                      {/* Alert Level */}
-                      <td className="p-5">
-                        {isEditing ? (
-                          <div className="flex items-center gap-1.5">
-                            <input
-                              type="number"
-                              step="0.01"
-                              value={editAlert}
-                              onChange={(e) => setEditAlert(e.target.value)}
-                              className="w-20 px-2 py-1 bg-slate-50 border border-slate-200 focus:bg-white focus:border-emerald-500 rounded-lg text-slate-800 text-xs focus:outline-none transition"
-                            />
-                            <span className="text-slate-400 text-[10px] uppercase font-black tracking-wider">{item.unit}</span>
-                          </div>
-                        ) : (
-                          <span className="text-slate-500 font-bold">{item.lowStockAlert.toFixed(2)} {item.unit}</span>
-                        )}
-                      </td>
-
-                      {/* Status badge */}
-                      <td className="p-5 text-center">
-                        {isLow ? (
-                          <span className="px-2.5 py-1.5 rounded-lg bg-rose-50 border border-rose-100 text-[9px] text-rose-600 uppercase font-black flex items-center justify-center gap-1.5 w-24 mx-auto animate-pulse">
-                            <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-                            Low Stock
+                        ) : item.status === "critical" || item.status === "low_stock" ? (
+                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-black uppercase">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                            <span>Low Stock</span>
                           </span>
                         ) : (
-                          <span className="px-2.5 py-1.5 rounded-lg bg-emerald-50 border border-emerald-100 text-[9px] text-emerald-700 uppercase font-black flex items-center justify-center gap-1.5 w-24 mx-auto">
+                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-black uppercase">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                            Healthy
+                            <span>Normal</span>
                           </span>
                         )}
                       </td>
+                      <td className="py-3 px-4 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            title="Audit / Count Adjust"
+                            onClick={() => {
+                              setAdjustmentData({
+                                inventoryId: item.id.toString(),
+                                newPhysicalCount: item.currentStock.toString(),
+                                reason: "Physical count mismatch"
+                              });
+                              setSelectedItemForAction(item);
+                              setShowAdjustmentModal(true);
+                            }}
+                            className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer"
+                          >
+                            <Scale className="w-3.5 h-3.5" />
+                          </button>
 
-                      {/* Actions */}
-                      <td className="p-5 text-right pr-8">
-                        {isEditing ? (
-                          <div className="flex justify-end gap-3.5">
-                            <button
-                              onClick={() => handleSaveAdjustment(item.id)}
-                              className="text-emerald-600 hover:text-emerald-750 font-black uppercase text-[10px] tracking-wider"
-                            >
-                              Save
-                            </button>
-                            <button
-                              onClick={() => setEditingItemId(null)}
-                              className="text-slate-400 hover:text-slate-500 font-black uppercase text-[10px] tracking-wider"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="flex justify-end gap-4">
-                            <button
-                              onClick={() => {
-                                setEditingItemId(item.id);
-                                setEditQty(item.qty.toString());
-                                setEditAlert(item.lowStockAlert.toString());
-                              }}
-                              className="text-slate-800 hover:text-emerald-600 font-black uppercase text-[10px] tracking-wider"
-                            >
-                              Adjust Stock
-                            </button>
-                            {user.role === "owner" && (
-                              <button
-                                onClick={() => triggerDeleteConfirm(item.id, item.itemName)}
-                                className="text-rose-500 hover:text-rose-600 font-black uppercase text-[10px] tracking-wider"
-                              >
-                                Delete
-                              </button>
-                            )}
-                          </div>
-                        )}
+                          <button
+                            title="Purchase Stock"
+                            onClick={() => {
+                              setPurchaseData({
+                                inventoryId: item.id.toString(),
+                                qtyPurchased: "",
+                                costPerUnit: item.costPerUnit.toString(),
+                                invoiceNo: "",
+                                supplierName: ""
+                              });
+                              setSelectedItemForAction(item);
+                              setShowPurchaseModal(true);
+                            }}
+                            className="p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 transition cursor-pointer"
+                          >
+                            <ArrowDownLeft className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </td>
-
                     </tr>
-                  );
-                })}
+                  ))
+                )}
               </tbody>
             </table>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* PAGINATION CONTROLS */}
-        {paginationMeta.totalPages > 1 && inventoryList.length > 0 && (
-          <div className="p-5 pl-8 pr-8 border-t border-slate-50 flex items-center justify-between bg-slate-50/50">
-            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-              Showing Page {currentPage} of {paginationMeta.totalPages}
-            </span>
-            <div className="flex gap-2">
-              <button
-                disabled={currentPage === 1}
-                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                className="px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-[9px] font-black uppercase tracking-wider text-slate-650 hover:bg-slate-50 transition disabled:opacity-50 active:scale-95"
-              >
-                Previous
-              </button>
-              <button
-                disabled={currentPage === paginationMeta.totalPages}
-                onClick={() => setCurrentPage(prev => Math.min(paginationMeta.totalPages, prev + 1))}
-                className="px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-[9px] font-black uppercase tracking-wider text-slate-650 hover:bg-slate-50 transition disabled:opacity-50 active:scale-95"
-              >
-                Next
-              </button>
-            </div>
+      {/* TAB 2: AUDIT TRANSACTION LEDGER */}
+      {activeTab === "transactions" && (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="bg-slate-50/80 border-b border-slate-200 text-[11px] font-black uppercase text-slate-500 tracking-wider">
+                  <th className="py-3 px-4">Date & Time</th>
+                  <th className="py-3 px-4">Ingredient</th>
+                  <th className="py-3 px-4">Movement Type</th>
+                  <th className="py-3 px-4">Qty Delta</th>
+                  <th className="py-3 px-4">Balance After</th>
+                  <th className="py-3 px-4">Cost @ Tx</th>
+                  <th className="py-3 px-4">Note / Source</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {loading ? (
+                  <tr>
+                    <td colSpan={7} className="py-12 text-center text-slate-400 font-bold">
+                      Loading audit ledger...
+                    </td>
+                  </tr>
+                ) : transactionsList.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="py-12 text-center text-slate-400 font-bold">
+                      No stock movements recorded yet.
+                    </td>
+                  </tr>
+                ) : (
+                  transactionsList.map((tx) => {
+                    const isPositive = Number(tx.qtyDelta) > 0;
+                    return (
+                      <tr key={tx.id} className="hover:bg-slate-50/60 transition">
+                        <td className="py-3 px-4 font-medium text-slate-500">
+                          {new Date(tx.createdAt).toLocaleString()}
+                        </td>
+                        <td className="py-3 px-4 font-black text-slate-900">
+                          {tx.inventory?.itemName || "Ingredient"}
+                        </td>
+                        <td className="py-3 px-4">
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                              tx.txType === "purchase"
+                                ? "bg-emerald-100 text-emerald-800"
+                                : tx.txType === "recipe_consumption"
+                                ? "bg-blue-100 text-blue-800"
+                                : tx.txType === "wastage"
+                                ? "bg-rose-100 text-rose-800"
+                                : "bg-purple-100 text-purple-800"
+                            }`}
+                          >
+                            {tx.txType.replace("_", " ")}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 font-black">
+                          <span className={isPositive ? "text-emerald-600" : "text-rose-600"}>
+                            {isPositive ? `+${Number(tx.qtyDelta).toFixed(3)}` : Number(tx.qtyDelta).toFixed(3)}{" "}
+                            {tx.inventory?.baseUnit || "kg"}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 font-bold text-slate-800">
+                          {Number(tx.balanceAfter).toFixed(3)} {tx.inventory?.baseUnit || "kg"}
+                        </td>
+                        <td className="py-3 px-4 font-medium text-slate-600">
+                          ₹{Number(tx.costAtTx || 0).toFixed(2)}
+                        </td>
+                        <td className="py-3 px-4 text-slate-500 font-medium">{tx.note || tx.sourceType || "-"}</td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
           </div>
-        )}
+        </div>
+      )}
 
-      </div>
+      {/* MODAL 1: ADD NEW RAW MATERIAL */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl border border-slate-100">
+            <h3 className="text-lg font-black text-slate-900 mb-1">Add Raw Material</h3>
+            <p className="text-xs text-slate-500 mb-4">Register raw ingredient for recipe BOM linking</p>
 
-      {/*  PREMIUM CUSTOM CONFIRMATION OVERLAY MODAL */}
-      {confirmModal.show && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-950/60 backdrop-blur-md p-4 animate-fade-in">
-          <div className="bg-white rounded-[2.2rem] p-8 w-full max-w-sm shadow-2xl relative border border-slate-100 text-slate-800 animate-slide-up text-center">
-            
-            {/* Outline Box Icon */}
-            <div className="w-14 h-14 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-rose-100">
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
-            </div>
+            <form onSubmit={handleAddSubmit} className="space-y-3">
+              <div>
+                <label className="text-[11px] font-black uppercase text-slate-600">Material Name *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Raw Chicken, Mozzarella Cheese"
+                  value={addFormData.itemName}
+                  onChange={(e) => setAddFormData({ ...addFormData, itemName: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-orange-500/30"
+                />
+              </div>
 
-            <h3 className="text-xl font-black text-slate-900 tracking-tight leading-none">
-              Remove Ingredient
-            </h3>
-            
-            <p className="text-slate-550 text-xs font-semibold leading-relaxed mt-3.5 mb-6.5">
-              Are you sure you want to permanently delete &quot;{confirmModal.itemName}&quot;? This action cannot be undone.
-            </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[11px] font-black uppercase text-slate-600">Opening Stock</label>
+                  <input
+                    type="number"
+                    step="0.001"
+                    value={addFormData.currentStock}
+                    onChange={(e) => setAddFormData({ ...addFormData, currentStock: e.target.value })}
+                    className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-black uppercase text-slate-600">Base Unit *</label>
+                  <select
+                    value={addFormData.baseUnit}
+                    onChange={(e) => setAddFormData({ ...addFormData, baseUnit: e.target.value })}
+                    className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none"
+                  >
+                    <option value="kg">kg (Kilograms)</option>
+                    <option value="ltr">ltr (Liters)</option>
+                    <option value="pcs">pcs (Pieces / Units)</option>
+                  </select>
+                </div>
+              </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                onClick={() => setConfirmModal({ show: false, itemId: null, itemName: "" })}
-                className="py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-650 font-black rounded-xl text-[10px] uppercase tracking-wider transition active:scale-95"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={executeDeleteIngredient}
-                className="py-3.5 bg-rose-600 hover:bg-rose-700 text-white font-black rounded-xl text-[10px] uppercase tracking-wider transition active:scale-95 shadow-md"
-              >
-                Delete Stock
-              </button>
-            </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[11px] font-black uppercase text-slate-600">Reorder Level</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={addFormData.reorderLevel}
+                    onChange={(e) => setAddFormData({ ...addFormData, reorderLevel: e.target.value })}
+                    className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-black uppercase text-slate-600">Cost per Unit (₹)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={addFormData.costPerUnit}
+                    onChange={(e) => setAddFormData({ ...addFormData, costPerUnit: e.target.value })}
+                    className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none"
+                  />
+                </div>
+              </div>
 
+              <div className="flex items-center gap-2 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={formLoading}
+                  className="flex-1 py-2.5 rounded-xl bg-[#ff5722] hover:bg-[#e64a19] text-white text-xs font-black transition shadow-xs cursor-pointer"
+                >
+                  {formLoading ? "Saving..." : "Save Material"}
+                </button>
+              </div>
+            </form>
           </div>
+        </div>
+      )}
+
+      {/* MODAL 2: LOG PURCHASE */}
+      {showPurchaseModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl border border-slate-100">
+            <div className="flex items-center gap-2 mb-1">
+              <ArrowDownLeft className="w-5 h-5 text-emerald-600" />
+              <h3 className="text-lg font-black text-slate-900">Log Stock Purchase</h3>
+            </div>
+            <p className="text-xs text-slate-500 mb-4">Increases ingredient inventory and computes weighted average cost</p>
+
+            <form onSubmit={handlePurchaseSubmit} className="space-y-3">
+              <div>
+                <label className="text-[11px] font-black uppercase text-slate-600">Select Material *</label>
+                <select
+                  required
+                  value={purchaseData.inventoryId}
+                  onChange={(e) => setPurchaseData({ ...purchaseData, inventoryId: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none"
+                >
+                  {inventoryList.map((i) => (
+                    <option key={i.id} value={i.id}>
+                      {i.itemName} (Current: {Number(i.currentStock).toFixed(2)} {i.baseUnit})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[11px] font-black uppercase text-slate-600">Quantity Purchased *</label>
+                  <input
+                    type="number"
+                    step="0.001"
+                    required
+                    placeholder="e.g. 10.0"
+                    value={purchaseData.qtyPurchased}
+                    onChange={(e) => setPurchaseData({ ...purchaseData, qtyPurchased: e.target.value })}
+                    className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-black uppercase text-slate-600">Purchase Rate / Unit (₹)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    placeholder="e.g. 260"
+                    value={purchaseData.costPerUnit}
+                    onChange={(e) => setPurchaseData({ ...purchaseData, costPerUnit: e.target.value })}
+                    className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[11px] font-black uppercase text-slate-600">Supplier Name</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Metro Wholesale"
+                    value={purchaseData.supplierName}
+                    onChange={(e) => setPurchaseData({ ...purchaseData, supplierName: e.target.value })}
+                    className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-black uppercase text-slate-600">Invoice #</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. INV-2026-90"
+                    value={purchaseData.invoiceNo}
+                    onChange={(e) => setPurchaseData({ ...purchaseData, invoiceNo: e.target.value })}
+                    className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setShowPurchaseModal(false)}
+                  className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={formLoading}
+                  className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black transition shadow-xs cursor-pointer"
+                >
+                  {formLoading ? "Recording..." : "Record Purchase"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 3: LOG WASTAGE */}
+      {showWastageModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl border border-slate-100">
+            <div className="flex items-center gap-2 mb-1">
+              <TrendingDown className="w-5 h-5 text-rose-600" />
+              <h3 className="text-lg font-black text-slate-900">Log Kitchen Wastage</h3>
+            </div>
+            <p className="text-xs text-slate-500 mb-4">Record spoilage, burnt or expired ingredients</p>
+
+            <form onSubmit={handleWastageSubmit} className="space-y-3">
+              <div>
+                <label className="text-[11px] font-black uppercase text-slate-600">Select Material *</label>
+                <select
+                  required
+                  value={wastageData.inventoryId}
+                  onChange={(e) => setWastageData({ ...wastageData, inventoryId: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none"
+                >
+                  {inventoryList.map((i) => (
+                    <option key={i.id} value={i.id}>
+                      {i.itemName} (Current: {Number(i.currentStock).toFixed(2)} {i.baseUnit})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-black uppercase text-slate-600">Wasted Quantity *</label>
+                <input
+                  type="number"
+                  step="0.001"
+                  required
+                  placeholder="e.g. 1.2"
+                  value={wastageData.qtyWasted}
+                  onChange={(e) => setWastageData({ ...wastageData, qtyWasted: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-black uppercase text-slate-600">Reason</label>
+                <select
+                  value={wastageData.reason}
+                  onChange={(e) => setWastageData({ ...wastageData, reason: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none"
+                >
+                  <option value="Spoilage / Expired">Spoilage / Expired</option>
+                  <option value="Burnt during preparation">Burnt during preparation</option>
+                  <option value="Customer Return">Customer Return</option>
+                  <option value="Storage Leakage">Storage Leakage</option>
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setShowWastageModal(false)}
+                  className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={formLoading}
+                  className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-black transition shadow-xs cursor-pointer"
+                >
+                  {formLoading ? "Recording..." : "Log Wastage"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 4: PHYSICAL AUDIT ADJUSTMENT */}
+      {showAdjustmentModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl border border-slate-100">
+            <div className="flex items-center gap-2 mb-1">
+              <Scale className="w-5 h-5 text-purple-600" />
+              <h3 className="text-lg font-black text-slate-900">Physical Stock Count Adjustment</h3>
+            </div>
+            <p className="text-xs text-slate-500 mb-4">Reconcile physical stock count with system ledger</p>
+
+            <form onSubmit={handleAdjustmentSubmit} className="space-y-3">
+              <div>
+                <label className="text-[11px] font-black uppercase text-slate-600">Material</label>
+                <input
+                  type="text"
+                  disabled
+                  value={selectedItemForAction?.itemName || ""}
+                  className="w-full mt-1 px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-600"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-black uppercase text-slate-600">Audited Physical Count *</label>
+                <input
+                  type="number"
+                  step="0.001"
+                  required
+                  placeholder="e.g. 7.5"
+                  value={adjustmentData.newPhysicalCount}
+                  onChange={(e) => setAdjustmentData({ ...adjustmentData, newPhysicalCount: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-black uppercase text-slate-600">Adjustment Reason</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Monthly physical audit count"
+                  value={adjustmentData.reason}
+                  onChange={(e) => setAdjustmentData({ ...adjustmentData, reason: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setShowAdjustmentModal(false)}
+                  className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={formLoading}
+                  className="flex-1 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-black transition shadow-xs cursor-pointer"
+                >
+                  {formLoading ? "Adjusting..." : "Commit Adjustment"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* TOAST */}
+      {toast && (
+        <div
+          className={`fixed bottom-4 right-4 z-50 px-4 py-2.5 rounded-2xl shadow-xl text-xs font-black text-white flex items-center gap-2 animate-fade-in ${
+            toast.type === "success"
+              ? "bg-emerald-600"
+              : toast.type === "error"
+              ? "bg-rose-600"
+              : "bg-slate-900"
+          }`}
+        >
+          <Sparkles className="w-4 h-4" />
+          <span>{toast.msg}</span>
         </div>
       )}
 

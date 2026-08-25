@@ -9,9 +9,13 @@ export declare class OrderController {
     createOrder(req: Request, res: Response): Promise<any>;
     getOrders(req: Request, res: Response): Promise<void>;
     updateOrder(req: Request, res: Response): Promise<any>;
-    updateOrderStatus(req: Request, res: Response): Promise<any>;
-    approveQrOrder(req: Request, res: Response): Promise<any>;
-    settleOrder(req: Request, res: Response): Promise<any>;
+    addOrderItems(req: Request, res: Response): Promise<any>;
+    updateOrderStatusPatch(req: Request, res: Response): Promise<any>;
+    updateOrderStatusPut(req: Request, res: Response): Promise<any>;
+    approveQrOrderPatch(req: Request, res: Response): Promise<any>;
+    approveQrOrderPut(req: Request, res: Response): Promise<any>;
+    settleOrderPatch(req: Request, res: Response): Promise<any>;
+    settleOrderPut(req: Request, res: Response): Promise<any>;
     deleteOrder(req: Request, res: Response): Promise<any>;
     mergeOrders(req: Request, res: Response): Promise<any>;
     splitOrder(req: Request, res: Response): Promise<any>;

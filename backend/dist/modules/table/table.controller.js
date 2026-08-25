@@ -32,6 +32,9 @@ let TableController = class TableController {
     async deleteTable(req, res) {
         return this.tableService.deleteTable(req, res);
     }
+    async getTableHistory(req, res) {
+        return this.tableService.getTableHistory(req, res);
+    }
     async getActiveSessions(req, res) {
         return this.tableService.getActiveSessions(req, res);
     }
@@ -91,6 +94,15 @@ __decorate([
     __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", Promise)
 ], TableController.prototype, "deleteTable", null);
+__decorate([
+    (0, common_1.UseGuards)(auth_guard_1.AuthGuard),
+    (0, common_1.Get)(':id/history'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], TableController.prototype, "getTableHistory", null);
 __decorate([
     (0, common_1.UseGuards)(auth_guard_1.AuthGuard),
     (0, common_1.Get)('active-sessions'),

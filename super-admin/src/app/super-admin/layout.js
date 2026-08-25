@@ -111,6 +111,16 @@ const NAV = [
     )
   },
   {
+    href: "/super-admin/subscriptions",
+    label: "SaaS Subscriptions",
+    icon: (
+      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <rect x="2" y="5" width="20" height="14" rx="2" />
+        <line x1="2" y1="10" x2="22" y2="10" />
+      </svg>
+    )
+  },
+  {
     href: "/super-admin/demo-requests",
     label: "Demo Requests",
     icon: (

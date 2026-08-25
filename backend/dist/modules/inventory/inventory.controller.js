@@ -32,6 +32,24 @@ let InventoryController = class InventoryController {
     async deleteInventoryItem(req, res) {
         return this.inventoryService.deleteInventoryItem(req, res);
     }
+    async recordPurchase(req, res) {
+        return this.inventoryService.recordPurchase(req, res);
+    }
+    async recordWastage(req, res) {
+        return this.inventoryService.recordWastage(req, res);
+    }
+    async recordAdjustment(req, res) {
+        return this.inventoryService.recordAdjustment(req, res);
+    }
+    async getTransactions(req, res) {
+        return this.inventoryService.getTransactions(req, res);
+    }
+    async getStockSettings(req, res) {
+        return this.inventoryService.getStockSettings(req, res);
+    }
+    async updateStockSettings(req, res) {
+        return this.inventoryService.updateStockSettings(req, res);
+    }
 };
 exports.InventoryController = InventoryController;
 __decorate([
@@ -70,6 +88,60 @@ __decorate([
     __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", Promise)
 ], InventoryController.prototype, "deleteInventoryItem", null);
+__decorate([
+    (0, common_1.UseGuards)(auth_guard_1.AuthGuard),
+    (0, common_1.Post)('purchase'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], InventoryController.prototype, "recordPurchase", null);
+__decorate([
+    (0, common_1.UseGuards)(auth_guard_1.AuthGuard),
+    (0, common_1.Post)('wastage'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], InventoryController.prototype, "recordWastage", null);
+__decorate([
+    (0, common_1.UseGuards)(auth_guard_1.AuthGuard),
+    (0, common_1.Post)('adjustment'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], InventoryController.prototype, "recordAdjustment", null);
+__decorate([
+    (0, common_1.UseGuards)(auth_guard_1.AuthGuard),
+    (0, common_1.Get)('transactions'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], InventoryController.prototype, "getTransactions", null);
+__decorate([
+    (0, common_1.UseGuards)(auth_guard_1.AuthGuard),
+    (0, common_1.Get)('settings'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], InventoryController.prototype, "getStockSettings", null);
+__decorate([
+    (0, common_1.UseGuards)(auth_guard_1.AuthGuard),
+    (0, common_1.Post)('settings'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], InventoryController.prototype, "updateStockSettings", null);
 exports.InventoryController = InventoryController = __decorate([
     (0, common_1.Controller)('api/inventory'),
     __metadata("design:paramtypes", [inventory_service_1.InventoryService])

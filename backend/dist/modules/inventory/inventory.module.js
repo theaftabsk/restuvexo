@@ -10,6 +10,8 @@ exports.InventoryModule = void 0;
 const common_1 = require("@nestjs/common");
 const inventory_controller_1 = require("./inventory.controller");
 const inventory_service_1 = require("./inventory.service");
+const recipe_engine_service_1 = require("./recipe-engine.service");
+const stock_ledger_service_1 = require("./stock-ledger.service");
 const websocket_module_1 = require("../../websocket/websocket.module");
 let InventoryModule = class InventoryModule {
 };
@@ -19,9 +21,11 @@ exports.InventoryModule = InventoryModule = __decorate([
         imports: [websocket_module_1.WebsocketModule],
         controllers: [inventory_controller_1.InventoryController],
         providers: [
-            inventory_service_1.InventoryService
+            inventory_service_1.InventoryService,
+            recipe_engine_service_1.RecipeEngineService,
+            stock_ledger_service_1.StockLedgerService
         ],
-        exports: [inventory_service_1.InventoryService]
+        exports: [inventory_service_1.InventoryService, recipe_engine_service_1.RecipeEngineService, stock_ledger_service_1.StockLedgerService]
     })
 ], InventoryModule);
 //# sourceMappingURL=inventory.module.js.map

@@ -16,4 +16,5 @@ export declare class AuthController {
     updateRestaurant(req: Request, res: Response): Promise<void>;
     updateProfile(req: Request, res: Response): Promise<any>;
     getRestaurant(req: Request, res: Response): Promise<any>;
+    changePassword(req: Request, res: Response): Promise<any>;
 }

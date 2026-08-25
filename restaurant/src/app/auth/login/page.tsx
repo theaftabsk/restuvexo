@@ -62,139 +62,10 @@ export default function UnifiedLogin() {
         } else {
           window.location.href = "/dashboard";
         }
-      }, 1500);
+      }, 1000);
 
     } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleQuickDemoLogin = async () => {
-    setError("");
-    setSuccess("");
-    setLoading(true);
-
-    const BACKEND_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000");
-    const demoData = {
-      phoneOrEmail: "demo@restuvexo.shop",
-      credential: "password123"
-    };
-
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/auth/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(demoData)
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || "Demo login failed.");
-      }
-
-      setSuccess("Authentic Owner Session active! Welcome back...");
-      
-      localStorage.setItem("authToken", data.token);
-      localStorage.setItem("restaurant", JSON.stringify(data.restaurant));
-      localStorage.setItem("user", JSON.stringify(data.user));
-
-      setTimeout(() => {
-        window.location.href = "/dashboard";
-      }, 1200);
-
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleQuickDemoWaiterLogin = async () => {
-    setError("");
-    setSuccess("");
-    setLoading(true);
-
-    const BACKEND_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000");
-    const demoWaiterData = {
-      phoneOrEmail: "01700000000",
-      credential: "0000"
-    };
-
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/auth/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(demoWaiterData)
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || "Demo Waiter login failed.");
-      }
-
-      setSuccess("Authentic Waiter Session active! Launching Mobile Terminal...");
-      
-      localStorage.setItem("authToken", data.token);
-      localStorage.setItem("restaurant", JSON.stringify(data.restaurant));
-      localStorage.setItem("user", JSON.stringify(data.user));
-
-      setTimeout(() => {
-        window.location.href = "/dashboard";
-      }, 1200);
-
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleQuickDemoKitchenLogin = async () => {
-    setError("");
-    setSuccess("");
-    setLoading(true);
-
-    const BACKEND_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000");
-    const demoKitchenData = {
-      phoneOrEmail: "01800000000",
-      credential: "0000"
-    };
-
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/auth/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(demoKitchenData)
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || "Demo Chef login failed.");
-      }
-
-      setSuccess("Authentic Chef Session active! Launching Kitchen Monitor...");
-      
-      localStorage.setItem("authToken", data.token);
-      localStorage.setItem("restaurant", JSON.stringify(data.restaurant));
-      localStorage.setItem("user", JSON.stringify(data.user));
-
-      setTimeout(() => {
-        window.location.href = "/kds";
-      }, 1200);
-
-    } catch (err) {
-      setError(err.message);
+      setError(err.message || "Unable to connect to authentication server");
     } finally {
       setLoading(false);
     }
@@ -213,7 +84,7 @@ export default function UnifiedLogin() {
             alt="RESTUVEXO Culinary Flat Lay Banner" 
             className="absolute inset-0 w-full h-full object-cover opacity-90 transition-transform duration-700 hover:scale-102"
           />
-          {/* Custom herbal/warm overlay tint to match signature vermilion dashboard style */}
+          {/* Custom herbal/warm overlay tint */}
           <div className="absolute inset-0 bg-gradient-to-b from-orange-950/50 via-slate-950/20 to-slate-950/80 z-10" />
 
           {/* Logo Brand Header */}
@@ -245,57 +116,47 @@ export default function UnifiedLogin() {
                 </div>
               </div>
             </div>
-            
-            <div className="bg-white/95 backdrop-blur-md p-3.5 rounded-2xl shadow-lg border border-white/20 transform rotate-1.5 hover:rotate-0 transition duration-300 ml-6">
-              <p className="text-[10px] font-black text-slate-800 leading-snug">"Zero server polling load and dynamic customer themes look stunning."</p>
-              <div className="flex justify-between items-center mt-2">
-                <p className="text-[8px] font-black text-[#ff5722] uppercase tracking-wider">— Restro Operator</p>
-                <div className="flex gap-0.5 text-amber-400">
-                  {[...Array(5)].map((_, i) => (
-                    <svg key={i} className="w-2.5 h-2.5 fill-current" viewBox="0 0 24 24">
-                      <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/>
-                    </svg>
-                  ))}
-                </div>
+          </div>
+
+          {/* Bottom Security / Copyright Specs */}
+          <div className="relative z-20 flex justify-between items-center text-[9px] font-black tracking-widest text-slate-300 uppercase">
+            <span>Enterprise ROS Edition</span>
+            <span>RESTUVEXO Cloud</span>
+          </div>
+
+        </div>
+
+        {/* RIGHT COLUMN: LOGIN FORM */}
+        <div className="col-span-12 lg:col-span-7 flex flex-col justify-between p-6 sm:p-12 lg:p-16 bg-white min-h-full overflow-y-auto">
+          
+          {/* Header Mobile Brand */}
+          <div className="flex justify-between items-center lg:justify-end">
+            <div className="flex items-center gap-2 lg:hidden">
+              <div className="w-8 h-8 rounded-xl bg-orange-500/10 flex items-center justify-center p-1 border border-orange-500/20">
+                <img src="/restuvexo_logo.png" alt="RESTUVEXO Logo" className="w-full h-full object-cover" />
+              </div>
+              <span className="font-black text-base text-slate-900 tracking-tight">RESTUVEXO</span>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <span className="text-[10px] font-bold text-slate-400 hidden sm:inline">Protected System</span>
+              <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-200/80 px-2.5 py-1 rounded-full text-[9px] font-black text-emerald-700 uppercase tracking-widest">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Live Cloud Sync
               </div>
             </div>
           </div>
 
-          {/* Footer Info details */}
-          <div className="relative z-20 space-y-2.5 text-left border-t border-white/10 pt-6">
-            <span className="px-2.5 py-1 bg-white/20 border border-white/10 text-white rounded-full text-[8px] font-black uppercase tracking-widest leading-none inline-block">Enterprise Safe</span>
-            <h3 className="text-sm font-black text-white leading-tight">Next-Gen Multi-Tenant POS</h3>
-            <p className="text-[9.5px] text-orange-100/80 leading-relaxed font-semibold">Join thousands of premier bistros, bars, and dark kitchens coordinating orders in real-time.</p>
-          </div>
-        </div>
-
-        {/* RIGHT COLUMN: PROFESSIONAL SECURE LOGIN FORM */}
-        <div className="col-span-12 lg:col-span-7 flex flex-col justify-between p-8 sm:p-16 md:p-20 relative bg-white h-full overflow-y-auto">
-          
-          {/* Top navigation row */}
-          <div className="flex justify-between items-center">
-            <Link 
-              href="/" 
-              className="inline-flex items-center gap-1.5 text-[9px] font-black text-slate-450 hover:text-slate-800 uppercase tracking-wider transition"
-            >
-              <span>←</span>
-              <span>Back to home</span>
-            </Link>
-
-            <span className="px-3 py-1 bg-orange-500/10 border border-orange-500/15 text-[#ff5722] rounded-full text-[8.5px] font-black uppercase tracking-wider flex items-center gap-1 shadow-sm">
-              <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#ff5722] animate-pulse" />
-              Secure Terminal 256-Bit
-            </span>
-          </div>
-
-          {/* Core Content Form Canvas */}
-          <div className="space-y-6 my-auto py-8">
+          {/* Form Content Wrapper */}
+          <div className="max-w-md w-full mx-auto my-auto py-8 space-y-6">
             
-            {/* Header titles */}
-            <div className="text-left space-y-1.5">
-              <h1 className="text-2xl font-black text-slate-900 tracking-tight">Welcome to RESTUVEXO!</h1>
-              <p className="text-slate-450 text-[10.5px] font-bold uppercase tracking-wider leading-relaxed">
-                Log in to access your custom restaurant dashboard, waiter panel, or kitchen monitor.
+            {/* Title Header */}
+            <div className="space-y-1.5 text-left">
+              <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                Sign in to Restaurant
+              </h1>
+              <p className="text-xs text-slate-500 font-semibold">
+                Enter your registered restaurant owner credentials or staff PIN.
               </p>
             </div>
 
@@ -376,65 +237,12 @@ export default function UnifiedLogin() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-[#ff5722] hover:bg-[#e04c1d] text-white text-xs font-black tracking-widest uppercase py-4.5 rounded-2xl shadow-lg shadow-orange-500/10 transition-all active:scale-[0.98] mt-2 disabled:opacity-60 flex items-center justify-center gap-2"
+                className="w-full bg-[#ff5722] hover:bg-[#e04c1d] text-white text-xs font-black tracking-widest uppercase py-4.5 rounded-2xl shadow-lg shadow-orange-500/10 transition-all active:scale-[0.98] mt-2 disabled:opacity-60 flex items-center justify-center gap-2 cursor-pointer"
               >
                 {loading ? "Authenticating Session..." : "Verify & Enter Workspace"}
               </button>
 
             </form>
-
-            <div className="border-t border-dashed border-slate-150 pt-5 space-y-3">
-              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5 text-left">
-                <svg className="w-3.5 h-3.5 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="4 17 10 11 4 5" />
-                  <line x1="12" y1="19" x2="20" y2="19" />
-                </svg>
-                Sandbox Demo Bypass Sessions
-              </span>
-              
-              <button
-                onClick={handleQuickDemoLogin}
-                disabled={loading}
-                type="button"
-                className="w-full py-3.5 border border-orange-200/80 bg-orange-50/10 hover:bg-orange-50 text-[#ff5722] font-extrabold rounded-2xl text-[10px] uppercase tracking-wider flex items-center justify-center gap-2 transition active:scale-[0.99] disabled:opacity-50"
-              >
-                <svg className="w-3.5 h-3.5 text-[#ff5722]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M2 4l3 12h14l3-12-6 7-4-7-4 7-6-7z" />
-                  <path d="M5 20h14" />
-                </svg>
-                Launch Owner Workspace (Demo Owner)
-              </button>
-              
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={handleQuickDemoWaiterLogin}
-                  disabled={loading}
-                  type="button"
-                  className="py-3.5 border border-indigo-200/80 bg-indigo-50/10 hover:bg-indigo-50 text-indigo-700 font-extrabold rounded-2xl text-[9px] uppercase tracking-wider flex items-center justify-center gap-1.5 transition active:scale-[0.99] disabled:opacity-50"
-                >
-                  <svg className="w-3.5 h-3.5 text-indigo-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                    <circle cx="9" cy="7" r="4" />
-                    <path d="M19 8v6" />
-                    <path d="M22 11h-6" />
-                  </svg>
-                  Waiter Terminal
-                </button>
-                
-                <button
-                  onClick={handleQuickDemoKitchenLogin}
-                  disabled={loading}
-                  type="button"
-                  className="py-3.5 border border-rose-200/80 bg-rose-50/10 hover:bg-rose-50 text-rose-700 font-extrabold rounded-2xl text-[9px] uppercase tracking-wider flex items-center justify-center gap-1.5 transition active:scale-[0.99] disabled:opacity-50"
-                >
-                  <svg className="w-3.5 h-3.5 text-rose-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M6 18a4 4 0 0 1-1.156-7.836A5.5 5.5 0 0 1 12 4.5a5.5 5.5 0 0 1 7.156 5.664A4 4 0 0 1 18 18H6z" />
-                    <path d="M6 18h12" />
-                  </svg>
-                  Kitchen Monitor
-                </button>
-              </div>
-            </div>
 
           </div>
 
@@ -446,7 +254,7 @@ export default function UnifiedLogin() {
                 <line x1="12" y1="16" x2="12" y2="12" />
                 <line x1="12" y1="8" x2="12.01" y2="8" />
               </svg>
-              <span>Quick Tip: Owners sign in with their Email. Waiters and Kitchen staff sign in with their Phone + 4-Digit PIN.</span>
+              <span>Owners sign in with Email + Password. Staff sign in with Login ID + PIN.</span>
             </div>
             
             <div className="text-[11px] text-slate-500 shrink-0 font-bold">
