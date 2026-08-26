@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: 'standalone',
   reactStrictMode: false,
   turbopack: {
     root: "./"
@@ -7,3 +8,4 @@ const nextConfig = {
 };
 
 export default nextConfig;
+
