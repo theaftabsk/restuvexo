@@ -1,5 +1,6 @@
-import { getBackendUrl } from "@/config/api";
 "use client";
+
+import { getBackendUrl } from "@/config/api";
 
 import { useEffect, useState, useRef } from "react";
 import { io } from "socket.io-client";

@@ -1,5 +1,6 @@
-import { getBackendUrl } from "@/config/api";
 "use client";
+
+import { getBackendUrl } from "@/config/api";
 
 import { useState } from "react";
 import Link from "next/link";

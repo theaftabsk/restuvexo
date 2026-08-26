@@ -1,5 +1,6 @@
-import { getBackendUrl } from "@/config/api";
 "use client";
+
+import { getBackendUrl } from "@/config/api";
 
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
