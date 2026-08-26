@@ -1,3 +1,4 @@
+import { getBackendUrl } from "@/config/api";
 "use client";
 
 import { useState, useEffect } from "react";
@@ -14,7 +15,7 @@ export default function PreferencesSettings() {
   const [isSaved, setIsSaved] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const BACKEND_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000");
+  const BACKEND_URL = getBackendUrl();
 
   useEffect(() => {
     const fetchSettings = async () => {

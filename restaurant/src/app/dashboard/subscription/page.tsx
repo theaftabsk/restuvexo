@@ -1,3 +1,4 @@
+import { getBackendUrl } from "@/config/api";
 "use client";
 
 import { useState, useEffect } from "react";
@@ -27,7 +28,7 @@ declare global {
 }
 
 export default function SubscriptionBillingPage() {
-  const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  const BACKEND_URL = getBackendUrl();
 
   const [data, setData] = useState<any>(null);
   const [plans, setPlans] = useState<any[]>([]);

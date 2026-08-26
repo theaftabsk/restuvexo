@@ -1,3 +1,4 @@
+import { getBackendUrl } from "@/config/api";
 "use client";
 
 import { useEffect, useState } from "react";
@@ -32,7 +33,7 @@ export default function StaffManagement() {
   // Toast
   const [toast, setToast] = useState(null);
 
-  const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  const BACKEND_URL = getBackendUrl();
 
   const triggerToast = (msg, type = "success") => {
     setToast({ msg, type });

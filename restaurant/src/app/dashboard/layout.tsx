@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { io } from "socket.io-client";
 import LoadingScreen from "@/components/LoadingScreen";
 import Chatbot from "@/components/Chatbot";
+import { getBackendUrl } from "@/config/api";
 
 export default function DashboardLayout({ children }) {
   const [user, setUser] = useState(null);
@@ -35,7 +36,7 @@ export default function DashboardLayout({ children }) {
   const [sidebarHiddenItems, setSidebarHiddenItems] = useState([]);
 
   const pathname = usePathname();
-  const BACKEND_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000");
+  const BACKEND_URL = getBackendUrl();
   const fetchTimeoutRef = useRef(null);
 
   // Load layout collapse preferences from storage

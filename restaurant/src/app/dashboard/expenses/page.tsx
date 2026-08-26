@@ -1,3 +1,4 @@
+import { getBackendUrl } from "@/config/api";
 "use client";
 
 import { useEffect, useState } from "react";
@@ -17,7 +18,7 @@ export default function ExpensesManager() {
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
 
-  const BACKEND_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000");
+  const BACKEND_URL = getBackendUrl();
 
   useEffect(() => {
     fetchExpensesData();

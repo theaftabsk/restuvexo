@@ -1,3 +1,4 @@
+import { getBackendUrl } from "@/config/api";
 "use client";
 
 import { useState, useEffect } from "react";
@@ -15,7 +16,7 @@ import {
 import LoadingScreen from "@/components/LoadingScreen";
 
 export default function SubscriptionInvoicesPage() {
-  const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  const BACKEND_URL = getBackendUrl();
 
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);

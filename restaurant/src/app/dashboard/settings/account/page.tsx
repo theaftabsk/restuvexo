@@ -1,8 +1,9 @@
+import { getBackendUrl } from "@/config/api";
 "use client";
 import { useState, useEffect } from "react";
 
 export default function AccountSettings() {
-  const BACKEND_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000");
+  const BACKEND_URL = getBackendUrl();
 
   const [user, setUser] = useState<any>(null);
   const [restaurant, setRestaurant] = useState<any>(null);

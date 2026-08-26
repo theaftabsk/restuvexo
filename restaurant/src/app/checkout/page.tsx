@@ -1,3 +1,4 @@
+import { getBackendUrl } from "@/config/api";
 "use client";
 
 import { useState, useEffect, Suspense } from "react";
@@ -32,7 +33,7 @@ function CheckoutContent() {
   const searchParams = useSearchParams();
   const initialPlan = searchParams.get("plan") || "Growth";
 
-  const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  const BACKEND_URL = getBackendUrl();
 
   const [selectedPlanName, setSelectedPlanName] = useState(initialPlan);
   const [plans, setPlans] = useState<any[]>([]);

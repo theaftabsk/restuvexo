@@ -1,3 +1,4 @@
+import { getBackendUrl } from "@/config/api";
 "use client";
 
 import { useEffect, useState, useRef } from "react";
@@ -15,7 +16,7 @@ export default function StandaloneKitchenDisplaySystem() {
   const [lastUpdated, setLastUpdated] = useState(new Date());
   const [wakeLockActive, setWakeLockActive] = useState(false);
 
-  const BACKEND_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000");
+  const BACKEND_URL = getBackendUrl();
   const socketRef = useRef(null);
   const wakeLockRef = useRef(null);
 

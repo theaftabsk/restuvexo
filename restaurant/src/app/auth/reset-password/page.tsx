@@ -1,3 +1,4 @@
+import { getBackendUrl } from "@/config/api";
 "use client";
 
 import { useState, useEffect } from "react";
@@ -51,7 +52,7 @@ export default function ResetPassword() {
 
     setLoading(true);
 
-    const BACKEND_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000");
+    const BACKEND_URL = getBackendUrl();
 
     try {
       const res = await fetch(`${BACKEND_URL}/api/auth/reset-password`, {

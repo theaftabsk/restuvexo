@@ -1,3 +1,4 @@
+import { getBackendUrl } from "@/config/api";
 "use client";
 
 import { useState, useEffect } from "react";
@@ -17,7 +18,7 @@ import {
 } from "lucide-react";
 
 export default function PublicPricingPage() {
-  const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  const BACKEND_URL = getBackendUrl();
   const [plans, setPlans] = useState<any[]>([]);
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly");
 

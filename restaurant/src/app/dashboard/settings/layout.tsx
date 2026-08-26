@@ -1,3 +1,4 @@
+import { getBackendUrl } from "@/config/api";
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -10,7 +11,7 @@ export default function SettingsLayout({ children }) {
   useEffect(() => {
     const token = localStorage.getItem("authToken");
     if (!token) return;
-    fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/dashboard/sidebar-telemetry?_=${Date.now()}`, {
+    fetch(`${getBackendUrl()}/api/dashboard/sidebar-telemetry?_=${Date.now()}`, {
       headers: { "Authorization": `Bearer ${token}` },
       cache: 'no-store'
     })

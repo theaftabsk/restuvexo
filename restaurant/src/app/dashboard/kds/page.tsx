@@ -1,3 +1,4 @@
+import { getBackendUrl } from "@/config/api";
 "use client";
 
 import { useEffect, useState } from "react";
@@ -23,7 +24,7 @@ export default function KitchenDisplaySystem() {
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<"all" | "pending" | "cooking" | "ready">("all");
 
-  const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  const BACKEND_URL = getBackendUrl();
 
   // Synthesize a crisp metallic restaurant service bell "Ding!" chime using Web Audio API
   const triggerKitchenAlerts = () => {

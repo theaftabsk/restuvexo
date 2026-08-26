@@ -1,3 +1,4 @@
+import { getBackendUrl } from "@/config/api";
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
@@ -95,7 +96,7 @@ export default function TableManagerDashboard() {
   // QR URLs cache
   const [qrUrls, setQrUrls] = useState<{ [key: string]: string }>({});
 
-  const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  const BACKEND_URL = getBackendUrl();
 
   const getCustomerOrigin = () => {
     if (typeof window !== "undefined") {

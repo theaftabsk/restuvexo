@@ -1,3 +1,4 @@
+import { getBackendUrl } from "@/config/api";
 "use client";
 
 import { useEffect, useState } from "react";
@@ -76,7 +77,7 @@ export default function InventoryManagement() {
   const [formLoading, setFormLoading] = useState(false);
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" | "info" } | null>(null);
 
-  const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  const BACKEND_URL = getBackendUrl();
 
   const triggerToast = (msg: string, type: "success" | "error" | "info" = "success") => {
     setToast({ msg, type });

@@ -1,3 +1,4 @@
+import { getBackendUrl } from "@/config/api";
 "use client";
 
 import { useEffect, useState, useRef, useMemo } from "react";
@@ -55,7 +56,7 @@ export default function DashboardHome() {
   // Receipt Modal State
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
 
-  const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  const BACKEND_URL = getBackendUrl();
   const fetchTimeoutRef = useRef<any>(null);
 
   // Time-based Greeting

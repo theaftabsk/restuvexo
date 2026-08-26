@@ -1,3 +1,4 @@
+import { getBackendUrl } from "@/config/api";
 "use client";
 
 import { useEffect, useState } from "react";
@@ -20,7 +21,7 @@ export default function QrScannerGateway(): any {
 
     const generateSecureLink = async () => {
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000")}/api/orders/generate-templink`, {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || getBackendUrl()}/api/orders/generate-templink`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ qrCode, deviceId })

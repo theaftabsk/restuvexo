@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { getBackendUrl } from "@/config/api";
 
 export default function Chatbot() {
   const [isOpen, setIsOpen] = useState(false);
@@ -17,7 +18,7 @@ export default function Chatbot() {
   const [vexoAiLocked, setVexoAiLocked] = useState(false);
   
   const chatEndRef = useRef(null);
-  const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  const BACKEND_URL = getBackendUrl();
 
   // Initial welcome message and sessionStorage restoration
   useEffect(() => {

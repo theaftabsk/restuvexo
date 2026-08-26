@@ -3,6 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 
+import { getBackendUrl } from "@/config/api";
+
 export default function UnifiedLogin() {
   const [formData, setFormData] = useState({
     phoneOrEmail: "",
@@ -30,7 +32,7 @@ export default function UnifiedLogin() {
     setSuccess("");
     setLoading(true);
 
-    const BACKEND_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000");
+    const BACKEND_URL = getBackendUrl();
 
     try {
       const res = await fetch(`${BACKEND_URL}/api/auth/login`, {

@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { PhoneInput } from 'react-international-phone';
 import 'react-international-phone/style.css';
+import { getBackendUrl } from "@/config/api";
 
 export default function OwnerSignup() {
   const [formData, setFormData] = useState({
@@ -32,7 +33,7 @@ export default function OwnerSignup() {
     setSuccess("");
     setLoading(true);
 
-    const BACKEND_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000");
+    const BACKEND_URL = getBackendUrl();
 
     try {
       const res = await fetch(`${BACKEND_URL}/api/auth/owner/signup`, {
@@ -70,7 +71,7 @@ export default function OwnerSignup() {
     setSuccess("");
     setLoading(true);
 
-    const BACKEND_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000");
+    const BACKEND_URL = getBackendUrl();
 
     try {
       const res = await fetch(`${BACKEND_URL}/api/auth/verify-otp`, {

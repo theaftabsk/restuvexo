@@ -1,3 +1,4 @@
+import { getBackendUrl } from "@/config/api";
 "use client";
 
 import { useEffect, useState, useRef, useMemo, Suspense } from "react";
@@ -218,7 +219,7 @@ function PosContent() {
   });
 
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  const BACKEND_URL = getBackendUrl();
 
   const triggerToast = (message: string, type: "success" | "error" | "info" = "info") => {
     setToast({ show: true, message, type });

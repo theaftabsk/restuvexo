@@ -1,3 +1,4 @@
+import { getBackendUrl } from "@/config/api";
 "use client";
 
 import { useEffect, useState } from "react";
@@ -50,7 +51,7 @@ export default function QrCustomerMenu(): any {
   // Toast
   const [toast, setToast] = useState({ show: false, message: "", type: "info" });
 
-  const BACKEND_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000");
+  const BACKEND_URL = getBackendUrl();
 
   const triggerToast = (message, type = "info") => {
     setToast({ show: true, message, type });
