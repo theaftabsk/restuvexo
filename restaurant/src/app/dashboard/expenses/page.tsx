@@ -1,14 +1,14 @@
 "use client";
 
-import { getBackendUrl } from "@/config/api";
+import { getBackendUrl, getSocketUrl } from "@/config/api";
 
 import { useEffect, useState } from "react";
 import { io } from "socket.io-client";
-import { Plus, Trash2, IndianRupee, PieChart, Activity, Tags, Calendar } from "lucide-react";
+import { Plus, Trash2, IndianRupee, PieChart, Activity, Calendar } from "lucide-react";
 import LoadingScreen from "@/components/LoadingScreen";
 
 export default function ExpensesManager() {
-  const [expenses, setExpenses] = useState([]);
+  const [expenses, setExpenses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(false);
 
@@ -26,11 +26,19 @@ export default function ExpensesManager() {
 
     // Setup Real-time WebSocket connection
     const token = localStorage.getItem("authToken");
-    let socket;
+    let socket: any;
     if (token) {
       try {
         const user = JSON.parse(atob(token.split(".")[1]));
-        socket = io(BACKEND_URL);
+        socket = io(getSocketUrl(), {
+          transports: ["websocket", "polling"],
+          reconnection: true,
+          reconnectionAttempts: 10,
+          reconnectionDelay: 2000,
+          timeout: 10000
+        });
+
+        socket.on("connect_error", () => {});
         
         socket.on("connect", () => {
           socket.emit("join_restaurant", user.restaurantId);
@@ -73,7 +81,7 @@ export default function ExpensesManager() {
     }
   };
 
-  const handleAddExpense = async (e) => {
+  const handleAddExpense = async (e: any) => {
     e.preventDefault();
     if (!title.trim() || !amount) return;
 
@@ -110,7 +118,7 @@ export default function ExpensesManager() {
     }
   };
 
-  const handleDeleteExpense = async (id) => {
+  const handleDeleteExpense = async (id: any) => {
     if (!confirm("Are you sure you want to delete this expense? This will recalculate the entire profit ledger.")) return;
     const token = localStorage.getItem("authToken");
     if (!token) return;

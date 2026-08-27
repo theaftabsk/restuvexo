@@ -1,15 +1,15 @@
 "use client";
 
-import { getBackendUrl } from "@/config/api";
+import { getBackendUrl, getSocketUrl } from "@/config/api";
 
 import { useEffect, useState } from "react";
 import { io } from "socket.io-client";
 import LoadingScreen from "@/components/LoadingScreen";
 
 export default function OrdersManager() {
-  const [orders, setOrders] = useState([]);
+  const [orders, setOrders] = useState<any[]>([]);
   const [paginationMeta, setPaginationMeta] = useState({ total: 0, totalPages: 1 });
-  const [activeSessions, setActiveSessions] = useState([]);
+  const [activeSessions, setActiveSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("all"); // 'all' | 'unpaid' | 'paid'
   const [searchQuery, setSearchQuery] = useState(() => {
@@ -19,31 +19,32 @@ export default function OrdersManager() {
     }
     return "";
   });
-  const [dateFilter, setDateFilter] = useState("today");
+  const [dateFilter, setDateFilter] = useState("today"); // 'today' | 'yesterday' | 'last7days' | 'all' | 'custom'
   const [customDate, setCustomDate] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 20;
-  const [settlingOrderId, setSettlingOrderId] = useState(null);
+  const [user, setUser] = useState<any>(null);
+  const [settlingOrderId, setSettlingOrderId] = useState<any>(null);
   const [toast, setToast] = useState({ show: false, message: "", type: "info" });
   const [confirmModal, setConfirmModal] = useState({
     show: false,
     title: "",
     message: "",
-    confirmText: "Yes",
+    confirmText: "Yes, Proceed",
     cancelText: "Cancel",
-    onConfirm: null
+    onConfirm: () => {}
   });
 
-  const [user, setUser] = useState(null);
+  // Server-driven pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 15;
 
-  // Reset to page 1 whenever filters change
+  // Reset to page 1 whenever any filter changes
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, activeTab, dateFilter, customDate]);
 
   const BACKEND_URL = getBackendUrl();
 
-  const triggerToast = (message, type = "info") => {
+  const triggerToast = (message: string, type = "info") => {
     setToast({ show: true, message, type });
     setTimeout(() => {
       setToast(prev => ({ ...prev, show: false }));
@@ -78,10 +79,15 @@ export default function OrdersManager() {
     }
     
     //  SOCKET.IO REAL-TIME CONNECTION
-    const socket = io(BACKEND_URL, {
-      transports: ["websocket"],
-      reconnection: true
+    const socket = io(getSocketUrl(), {
+      transports: ["websocket", "polling"],
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 2000,
+      timeout: 10000
     });
+
+    socket.on("connect_error", () => {});
 
     socket.on("connect", () => {
       console.log("Orders Socket Connected:", socket.id);
@@ -99,12 +105,12 @@ export default function OrdersManager() {
     });
 
     // Listen for instant order updates pushed by backend
-    socket.on("new_order_placed", (order) => {
+    socket.on("new_order_placed", () => {
       fetchOrdersSilently();
       fetchActiveSessions();
     });
 
-    socket.on("order_updated", (order) => {
+    socket.on("order_updated", () => {
       fetchOrdersSilently();
       fetchActiveSessions();
     });
@@ -121,7 +127,7 @@ export default function OrdersManager() {
     };
   }, []);
 
-  const handleDeleteOrder = (orderId) => {
+  const handleDeleteOrder = (orderId: any) => {
     // Audit protection: find order paymentStatus
     const orderToDel = orders.find(o => o.id === orderId);
     if (orderToDel && orderToDel.paymentStatus === "paid") {
@@ -147,7 +153,7 @@ export default function OrdersManager() {
           
           triggerToast(`Order #${orderId} permanently deleted.`, "success");
           fetchOrders();
-        } catch (e) {
+        } catch (e: any) {
           triggerToast(`Error: ${e.message}`, "error");
         } finally {
           setConfirmModal(prev => ({ ...prev, show: false }));
@@ -190,14 +196,14 @@ export default function OrdersManager() {
           }
         }
       }
-    } catch (e) {
+    } catch (e: any) {
       triggerToast(e.message, "error");
     } finally {
       setLoading(false);
     }
   };
 
-  const playVoiceAlert = (text) => {
+  const playVoiceAlert = (text: string) => {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
@@ -221,12 +227,12 @@ export default function OrdersManager() {
         
         setOrders(prev => {
           if (prev.length > 0) {
-            const newOrders = data.filter(d => !prev.some(p => p.id === d.id));
+            const newOrders = data.filter((d: any) => !prev.some(p => p.id === d.id));
             if (newOrders.length > 0) {
               const table = newOrders[0].table?.tableNo || "";
               playVoiceAlert(`New order received ${table ? 'from ' + table : ''}.`);
             } else {
-              const updatedToReady = data.filter(d =>
+              const updatedToReady = data.filter((d: any) =>
                 (d.status === 'ready' || d.status === 'completed') &&
                 prev.some(p => p.id === d.id && p.status !== 'ready' && p.status !== 'completed')
               );
@@ -260,127 +266,12 @@ export default function OrdersManager() {
     }
   };
 
-  const handleClearSession = (sessionId, tableNo) => {
-    setConfirmModal({
-      show: true,
-      title: "Clear Table Session",
-      message: `Are you sure you want to clear ${tableNo} active session and mark table as Free?`,
-      confirmText: "Yes, Clear",
-      cancelText: "Cancel",
-      onConfirm: async () => {
-        const token = localStorage.getItem("authToken");
-        if (!token) return;
-        try {
-          const res = await fetch(`${BACKEND_URL}/api/tables/active-sessions/${sessionId}`, {
-            method: "DELETE",
-            headers: { "Authorization": `Bearer ${token}` }
-          });
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.error || "Failed to clear session.");
-          
-          const label = tableNo.toLowerCase().startsWith('table') ? tableNo : `Table ${tableNo}`;
-          triggerToast(`${label} cleared & freed successfully!`, "success");
-          setActiveSessions(prev => prev.filter(s => s.sessionId !== sessionId));
-        } catch (e) {
-          triggerToast(`Error: ${e.message}`, "error");
-        } finally {
-          setConfirmModal(prev => ({ ...prev, show: false }));
-        }
-      }
-    });
-  };
-
-  const handleBlockDevice = (deviceId, deviceInfo, customerName) => {
-    setConfirmModal({
-      show: true,
-      title: "Block Visitor Device",
-      message: `Are you sure you want to PERMANENTLY BLOCK this device? They will never be able to place QR orders again.`,
-      confirmText: "Yes, Block Device",
-      cancelText: "Cancel",
-      onConfirm: async () => {
-        const token = localStorage.getItem("authToken");
-        if (!token) return;
-        try {
-          const res = await fetch(`${BACKEND_URL}/api/tables/block-device`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-            body: JSON.stringify({ deviceId, deviceInfo, customerName })
-          });
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.error || "Failed to block device.");
-          triggerToast("Device has been permanently blocked.", "success");
-          fetchActiveSessions();
-        } catch (e) {
-          triggerToast(`Error: ${e.message}`, "error");
-        } finally {
-          setConfirmModal(prev => ({ ...prev, show: false }));
-        }
-      }
-    });
-  };
-
-  // Cashier One-Click Payment Settlement
-  const handleSettlePayment = async (orderId, method) => {
-    const token = localStorage.getItem("authToken");
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/orders/${orderId}/settle`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify({ paymentMethod: method })
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to settle payment.");
-
-      triggerToast(` Order #${orderId} paid successfully using ${method.toUpperCase()}!`, "success");
-      setSettlingOrderId(null);
-      fetchOrders();
-    } catch (e) {
-      triggerToast(` Settlement failed: ${e.message}`, "error");
-    }
-  };
-
-  // Cashier approves QR Customer order
-  const handleApproveQrOrder = async (orderId) => {
-    const token = localStorage.getItem("authToken");
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/orders/${orderId}/approve`, {
-        method: "PATCH",
-        headers: {
-          "Authorization": `Bearer ${token}`
-        }
-      });
-
-      if (!res.ok) throw new Error("Approval failed.");
-      triggerToast(` QR Order #${orderId} approved and sent to Kitchen!`, "success");
-      fetchOrders();
-    } catch (e) {
-      triggerToast(` Error: ${e.message}`, "error");
-    }
-  };
-
-
-
-  // Redirect to POS with loaded order data to edit items/add dishes
-  const handleEditInPos = (order) => {
-    localStorage.setItem("editOrderId", order.id.toString());
-    localStorage.setItem("editOrderTable", order.tableId ? order.tableId.toString() : "");
-    localStorage.setItem("editOrderItems", JSON.stringify(order.orderItems));
-    localStorage.setItem("editOrderType", order.orderType || "dine_in");
-    localStorage.setItem("editOrderDiscount", order.discountApplied ? order.discountApplied.toString() : "0");
-    
-    // Redirect securely to high-speed billing terminal
-    window.location.href = "/dashboard/orders/create";
-  };
-
   // Print thermal 80mm receipt driver
-  const printReceipt = (order) => {
+  const printReceipt = (order: any) => {
     const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
     
-    const itemsHtml = order.orderItems.map(item => `
+    const itemsHtml = order.orderItems.map((item: any) => `
       <tr class="item-row">
         <td class="desc">${item.menuItem?.name}</td>
         <td class="qty">${item.qty}</td>
@@ -494,12 +385,15 @@ export default function OrdersManager() {
     printWindow.document.close();
   };
 
-
-  // ─── Server returns already-filtered page, just use it directly ──────────────
-  const qrApprovals = orders.filter(order =>
-    order.creator?.name === "QR Customer" &&
-    order.status === "pending"
-  );
+  const handleEditInPos = (order: any) => {
+    localStorage.setItem("editOrderId", order.id.toString());
+    localStorage.setItem("editOrderTable", order.tableId ? order.tableId.toString() : "");
+    localStorage.setItem("editOrderItems", JSON.stringify(order.orderItems));
+    localStorage.setItem("editOrderType", order.orderType || "dine_in");
+    localStorage.setItem("editOrderDiscount", order.discountApplied ? order.discountApplied.toString() : "0");
+    
+    window.location.href = "/dashboard/orders/create";
+  };
 
   // Client-side search filter only (on the already-paginated page from server)
   const paginatedOrders = orders.filter(o => {
@@ -518,7 +412,6 @@ export default function OrdersManager() {
   const unpaidBillsCount = orders.filter(o => o.paymentStatus === "unpaid").length;
   const totalKotCount = paginationMeta.total || orders.length;
 
-
   if (loading) {
     return (
       <LoadingScreen message="Syncing order records..." minHeight="50vh" />
@@ -528,9 +421,7 @@ export default function OrdersManager() {
   return (
     <div className="space-y-6 text-slate-800 pb-12">
 
-      {/* ========================================================
-          GLOBAL GLASSMORPHIC TOAST NOTIFICATION
-          ======================================================== */}
+      {/* GLOBAL TOAST NOTIFICATION */}
       {toast.show && (
         <div className="fixed top-6 right-6 z-[100] animate-slide-in-right">
           <div className={`backdrop-blur-xl border px-5 py-3.5 rounded-2xl shadow-2xl flex items-center gap-3 min-w-[270px] max-w-sm ${
@@ -548,25 +439,20 @@ export default function OrdersManager() {
         </div>
       )}
 
-
-
       {/* STATS ZONE */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-        {/* Rev */}
         <div className="bg-white/80 backdrop-blur-xl border border-slate-200/80 p-5 rounded-[2rem] shadow-xl shadow-slate-100/25">
           <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Settled Gross Revenue</p>
           <h4 className="text-2xl font-black text-slate-900 mt-2">₹{totalRevenueToday.toLocaleString(undefined, { minimumFractionDigits: 2 })}</h4>
           <span className="inline-block px-2 py-0.5 bg-emerald-500/10 text-emerald-600 rounded text-[9px] font-black uppercase tracking-wider mt-2.5"> Verified Cashier Total</span>
         </div>
 
-        {/* Unpaid */}
         <div className="bg-white/80 backdrop-blur-xl border border-slate-200/80 p-5 rounded-[2rem] shadow-xl shadow-slate-100/25">
           <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Pending Payments</p>
           <h4 className="text-2xl font-black text-[#ff5722] mt-2">{unpaidBillsCount} Unsettled Bills</h4>
           <span className="inline-block px-2 py-0.5 bg-orange-500/10 text-[#ff5722] rounded text-[9px] font-black uppercase tracking-wider mt-2.5"> Awaiting Cash/UPI</span>
         </div>
 
-        {/* Total Orders */}
         <div className="bg-white/80 backdrop-blur-xl border border-slate-200/80 p-5 rounded-[2rem] shadow-xl shadow-slate-100/25">
           <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Total KOTs Today</p>
           <h4 className="text-2xl font-black text-slate-900 mt-2">{totalKotCount} Dispatched</h4>
@@ -618,7 +504,7 @@ export default function OrdersManager() {
                 ))}
               </div>
 
-              {/* Custom Date Input (Shown when 'custom' is active) */}
+              {/* Custom Date Input */}
               {dateFilter === "custom" && (
                 <input
                   type="date"
@@ -699,8 +585,8 @@ export default function OrdersManager() {
                         )}
                       </div>
                     </td>
-                    <td className="px-6 py-4 max-w-[220px] truncate" title={order.orderItems.map(i => `${i.menuItem?.name} x${i.qty}`).join(", ")}>
-                      {order.orderItems.map(i => `${i.menuItem?.name} x${i.qty}`).join(", ")}
+                    <td className="px-6 py-4 max-w-[220px] truncate" title={order.orderItems?.map((i: any) => `${i.menuItem?.name} x${i.qty}`).join(", ")}>
+                      {order.orderItems?.map((i: any) => `${i.menuItem?.name} x${i.qty}`).join(", ")}
                     </td>
                     <td className="px-6 py-4 text-slate-950 font-black">₹{parseFloat(order.totalAmount).toFixed(2)}</td>
                     <td className="px-6 py-4">
@@ -744,8 +630,6 @@ export default function OrdersManager() {
                              Receipt
                           </button>
 
-
-
                           {order.paymentStatus === "unpaid" && (
                             <button
                               onClick={() => handleEditInPos(order)}
@@ -785,7 +669,7 @@ export default function OrdersManager() {
           </table>
         </div>
 
-        {/* MAGNIFICENT PREMIUM PAGINATION CONTROLLER */}
+        {/* PAGINATION CONTROLLER */}
         {totalPages > 1 && (
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-100 mt-6">
             <button
@@ -799,7 +683,6 @@ export default function OrdersManager() {
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
               {Array.from({ length: totalPages }, (_, idx) => {
                 const pageNo = idx + 1;
-                // Sliding window: only show current, current-1, current+1, 1, and totalPages
                 if (
                   pageNo === 1 ||
                   pageNo === totalPages ||
@@ -840,14 +723,10 @@ export default function OrdersManager() {
 
       </div>
 
-
-
-      {/* --- PREMIUM CUSTOM CONFIRMATION MODAL --- */}
+      {/* CONFIRMATION MODAL */}
       {confirmModal.show && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-4 animate-fade-in">
           <div className="bg-white rounded-[2.5rem] p-8 w-full max-w-md shadow-2xl relative border border-slate-150 text-slate-800 animate-scale-up">
-            
-            {/* Destructive Warning Icon */}
             <div className="mx-auto mb-5 w-16 h-16 rounded-full bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-500 animate-pulse">
               <svg className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />

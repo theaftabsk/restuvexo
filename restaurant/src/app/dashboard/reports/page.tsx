@@ -1,6 +1,6 @@
 "use client";
 
-import { getBackendUrl } from "@/config/api";
+import { getBackendUrl, getSocketUrl } from "@/config/api";
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
@@ -32,14 +32,14 @@ ChartJS.register(
 
 export default function ReportsDashboard() {
   const [loading, setLoading] = useState(true);
-  const [orders, setOrders] = useState([]);
+  const [orders, setOrders] = useState<any[]>([]);
   const [dateRange, setDateRange] = useState("7days"); // today, yesterday, 7days, 30days, month, all, custom
   const [customStartDate, setCustomStartDate] = useState("");
   const [customEndDate, setCustomEndDate] = useState("");
   const [cogsPercentage, setCogsPercentage] = useState(35); // Cost of Goods Sold (COGS) %: customizable slider
 
   // Dynamic OPEX Expense items (Loaded from Database)
-  const [expenses, setExpenses] = useState([]);
+  const [expenses, setExpenses] = useState<any[]>([]);
 
   // Modal State
   const [mounted, setMounted] = useState(false);
@@ -48,7 +48,7 @@ export default function ReportsDashboard() {
   const [showMaximizedChart, setShowMaximizedChart] = useState(false);
   const [zoomScale, setZoomScale] = useState(1); // 1, 1.5, 2, 3
   const [ledgerFilter, setLedgerFilter] = useState("all"); // 'today', 'this_month', 'this_year', 'all'
-  const [dbCategories, setDbCategories] = useState([]); // Real menu categories from database
+  const [dbCategories, setDbCategories] = useState<any[]>([]); // Real menu categories from database
   const [expTitleInput, setExpTitleInput] = useState("");
   const [expCategoryInput, setExpCategoryInput] = useState("Kitchen Ops");
   const [expAmountInput, setExpAmountInput] = useState("");
@@ -65,11 +65,19 @@ export default function ReportsDashboard() {
 
     // Setup Real-time WebSocket connection for zero-load live updates
     const token = localStorage.getItem("authToken");
-    let socket;
+    let socket: any;
     if (token) {
       try {
         const user = JSON.parse(atob(token.split(".")[1]));
-        socket = io(BACKEND_URL);
+        socket = io(getSocketUrl(), {
+          transports: ["websocket", "polling"],
+          reconnection: true,
+          reconnectionAttempts: 10,
+          reconnectionDelay: 2000,
+          timeout: 10000
+        });
+
+        socket.on("connect_error", () => {});
 
         socket.on("connect", () => {
           socket.emit("join_restaurant", user.restaurantId);
@@ -151,7 +159,7 @@ export default function ReportsDashboard() {
   };
 
   // Add dynamic operating expense item
-  const handleAddExpense = async (e) => {
+  const handleAddExpense = async (e: any) => {
     e.preventDefault();
     if (!expTitleInput.trim() || !expAmountInput) return;
 
@@ -191,7 +199,7 @@ export default function ReportsDashboard() {
   };
 
   // Delete an expense item
-  const handleDeleteExpense = async (id) => {
+  const handleDeleteExpense = async (id: any) => {
     if (!confirm("Are you sure you want to delete this expense?")) return;
     const token = localStorage.getItem("authToken");
     if (!token) return;
@@ -283,7 +291,7 @@ export default function ReportsDashboard() {
 
   // Group weekly sales trend for dynamic graph
   const getWeeklyTrend = () => {
-    const trendMap = {};
+    const trendMap: Record<string, number> = {};
     // Last 7 days labels
     for (let i = 6; i >= 0; i--) {
       const d = new Date();
@@ -302,11 +310,10 @@ export default function ReportsDashboard() {
   };
 
   const weeklyTrend = getWeeklyTrend();
-  const maxWeeklySales = Math.max(...weeklyTrend.map(t => Number(t.sales)), 100);
 
   // Group 14 days trend for maximized view
   const get14DayTrend = () => {
-    const trendMap = {};
+    const trendMap: Record<string, number> = {};
     for (let i = 13; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i);
@@ -332,7 +339,7 @@ export default function ReportsDashboard() {
 
   // Construct dynamic Category Breakdown based on menu item categories from database
   const getCategoryBreakdown = () => {
-    const catMap = {};
+    const catMap: Record<string, number> = {};
 
     // Initialize map keys using real database categories
     dbCategories.forEach(c => {
@@ -346,19 +353,17 @@ export default function ReportsDashboard() {
 
     filteredOrders.forEach(o => {
       if (o.orderItems && o.orderItems.length > 0) {
-        o.orderItems.forEach(item => {
+        o.orderItems.forEach((item: any) => {
           const amt = (parseFloat(item.price) || parseFloat(item.menuItem?.price) || 0) * (item.qty || 1);
           const catName = item.menuItem?.category?.name || "Others";
 
           if (catMap[catName] !== undefined) {
             catMap[catName] += amt;
           } else {
-            // Dynamic category creation if it is in menu but not yet loaded/pre-initialized
             catMap[catName] = amt;
           }
         });
       } else {
-        // Fallback for orders with no line-items (directly mapping total value to Others or distributing)
         catMap["Others"] += parseFloat(o.totalAmount || 0);
       }
     });
@@ -383,7 +388,7 @@ export default function ReportsDashboard() {
   const getLedgerData = () => {
     const now = new Date();
 
-    const filterByDate = (dateStr) => {
+    const filterByDate = (dateStr: any) => {
       const d = new Date(dateStr);
       if (ledgerFilter === "today") {
         return d.toDateString() === now.toDateString();
@@ -431,6 +436,7 @@ export default function ReportsDashboard() {
   // Print Complete P&L Financial Audit Report Window
   const handlePrintAuditReport = () => {
     const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
     printWindow.document.write(`
       <html>
         <head>
@@ -961,7 +967,6 @@ export default function ReportsDashboard() {
 
       </div>
 
-
       {/* LOG EXPENSE MODAL OVERLAY */}
       {showExpenseModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-fade-in text-slate-800">
@@ -1046,7 +1051,7 @@ export default function ReportsDashboard() {
         </div>
       )}
 
-      {/* FULL SCREEN LEDGER MODAL - rendered via portal to escape layout stacking context */}
+      {/* FULL SCREEN LEDGER MODAL - rendered via portal */}
       {showLedgerModal && mounted && createPortal(
         <div
           style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', backgroundColor: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(8px)' }}
@@ -1319,7 +1324,7 @@ export default function ReportsDashboard() {
                   </div>
                 </div>
 
-                {/* Scroll reminder instructions (Only shows when zoomed) */}
+                {/* Scroll reminder instructions */}
                 {zoomScale > 1 && (
                   <p className="text-center text-[9px] font-bold text-slate-450 uppercase tracking-wider mt-3.5 select-none animate-pulse">
                     ← Swipe / Drag horizontally to scroll through the 14-day trend timeline →

@@ -1,6 +1,6 @@
 "use client";
 
-import { getBackendUrl } from "@/config/api";
+import { getBackendUrl, getSocketUrl } from "@/config/api";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -109,10 +109,15 @@ export default function MenuManagement() {
     fetchCategories();
     fetchRawMaterials();
 
-    const socket = io(BACKEND_URL, {
-      transports: ["websocket"],
-      reconnection: true
+    const socket = io(getSocketUrl(), {
+      transports: ["websocket", "polling"],
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 2000,
+      timeout: 10000
     });
+
+    socket.on("connect_error", () => {});
 
     socket.on("connect", () => {
       const userStr = localStorage.getItem("user");

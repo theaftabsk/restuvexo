@@ -1,6 +1,6 @@
 "use client";
 
-import { getBackendUrl } from "@/config/api";
+import { getBackendUrl, getSocketUrl } from "@/config/api";
 
 import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
@@ -17,20 +17,20 @@ export default function QrCustomerMenu(): any {
   const [restaurantId, setRestaurantId] = useState(null);
   const [restaurantName, setRestaurantName] = useState("RESTUVEXO Café & Diner");
   const [tableNo, setTableNo] = useState("");
-  const [categories, setCategories] = useState([]);
-  const [menuItems, setMenuItems] = useState([]);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [menuItems, setMenuItems] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
   
   // Cart
-  const [cart, setCart] = useState([]);
+  const [cart, setCart] = useState<any[]>([]);
   
   // Ordering States
   const [loading, setLoading] = useState(true);
   const [showLoader, setShowLoader] = useState(false);
   const [hasEntered, setHasEntered] = useState(false);
   const [placingOrder, setPlacingOrder] = useState(false);
-  const [activeOrders, setActiveOrders] = useState([]);
+  const [activeOrders, setActiveOrders] = useState<any[]>([]);
   const [trackerExpanded, setTrackerExpanded] = useState(true);
   const [sessionExpired, setSessionExpired] = useState(false);
 
@@ -54,7 +54,7 @@ export default function QrCustomerMenu(): any {
 
   const BACKEND_URL = getBackendUrl();
 
-  const triggerToast = (message, type = "info") => {
+  const triggerToast = (message: string, type = "info") => {
     setToast({ show: true, message, type });
     setTimeout(() => {
       setToast(prev => ({ ...prev, show: false }));
@@ -143,13 +143,17 @@ export default function QrCustomerMenu(): any {
     if (!restaurantId) return;
 
     // SOCKET.IO REAL-TIME CONNECTION
-    const socket = io(BACKEND_URL, {
-      transports: ["websocket"],
-      reconnection: true
+    const socket = io(getSocketUrl(), {
+      transports: ["websocket", "polling"],
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 2000,
+      timeout: 10000
     });
 
+    socket.on("connect_error", () => {});
+
     socket.on("connect", () => {
-      console.log("Customer Menu Socket Connected:", socket.id);
       socket.emit("join_restaurant", restaurantId);
     });
 
@@ -180,8 +184,8 @@ export default function QrCustomerMenu(): any {
         localStorage.setItem("guestRestaurantName", data.restaurantName);
       }
       setTableNo(data.tableNo);
-      setCategories(data.categories);
-      setMenuItems(data.menuItems);
+      setCategories(data.categories || []);
+      setMenuItems(data.menuItems || []);
       setQrOrderingEnabled(data.qrOrderingEnabled !== false);
       if (data.customerTheme) {
         setCustomerTheme(data.customerTheme);
@@ -198,7 +202,7 @@ export default function QrCustomerMenu(): any {
         setActiveOrders([]);
       }
 
-    } catch (e) {
+    } catch (e: any) {
       triggerToast(` Error: ${e.message}`, "error");
     } finally {
       setLoading(false);
@@ -262,7 +266,7 @@ export default function QrCustomerMenu(): any {
     }
   };
 
-  const updateQty = (itemId, amount) => {
+  const updateQty = (itemId: any, amount: number) => {
     const cartItem = cart.find(i => i.menuItemId === itemId);
     if (!cartItem) return;
     const newQty = cartItem.qty + amount;
@@ -282,7 +286,7 @@ export default function QrCustomerMenu(): any {
     }
   };
 
-  const updateItemNote = (itemId, note) => {
+  const updateItemNote = (itemId: any, note: string) => {
     setCart(cart.map(i => i.menuItemId === itemId ? { ...i, note } : i));
   };
 
@@ -328,7 +332,7 @@ export default function QrCustomerMenu(): any {
       setCart([]);
       triggerToast(" KOT submitted successfully! Cooking shortly...", "success");
 
-    } catch (e) {
+    } catch (e: any) {
       triggerToast(` Failed: ${e.message}`, "error");
     } finally {
       setPlacingOrder(false);
@@ -709,7 +713,7 @@ export default function QrCustomerMenu(): any {
                   </div>
 
                   <ul className="space-y-1 pl-1">
-                    {ord.orderItems?.map((item, oidx) => (
+                    {ord.orderItems?.map((item: any, oidx: number) => (
                       <li key={oidx} className="flex justify-between text-[10px] font-bold text-slate-300">
                         <span>• {item.menuItem?.name}</span>
                         <span className="text-emerald-400 font-black">x{item.qty}</span>

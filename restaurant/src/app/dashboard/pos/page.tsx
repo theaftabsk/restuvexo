@@ -1,6 +1,6 @@
 "use client";
 
-import { getBackendUrl } from "@/config/api";
+import { getBackendUrl, getSocketUrl } from "@/config/api";
 
 import { useEffect, useState, useRef, useMemo, Suspense } from "react";
 import Link from "next/link";
@@ -359,7 +359,14 @@ function PosContent() {
       } catch (e) {}
     }
 
-    const socket = io(BACKEND_URL, { transports: ["websocket"] });
+    const socket = io(getSocketUrl(), {
+      transports: ["websocket", "polling"],
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 2000,
+      timeout: 10000
+    });
+    socket.on("connect_error", () => {});
     socket.on("new_order_placed", () => {
       fetchPosData();
       if (showHistoryModal) fetchOrderHistoryFromApi();

@@ -1,15 +1,15 @@
 "use client";
 
-import { getBackendUrl } from "@/config/api";
+import { getBackendUrl, getSocketUrl } from "@/config/api";
 
 import { useEffect, useState, useRef } from "react";
 import { io } from "socket.io-client";
 
 export default function StandaloneKitchenDisplaySystem() {
-  const [orders, setOrders] = useState([]);
+  const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState("all"); // all, pending, cooking, ready
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState<any>(null);
 
   // Premium Always-On Screen & Live Connection Control States
   const [gridColumns, setGridColumns] = useState(4); // Grid layout density selector: 2, 3, 4, 5
@@ -18,17 +18,17 @@ export default function StandaloneKitchenDisplaySystem() {
   const [wakeLockActive, setWakeLockActive] = useState(false);
 
   const BACKEND_URL = getBackendUrl();
-  const socketRef = useRef(null);
-  const wakeLockRef = useRef(null);
+  const socketRef = useRef<any>(null);
+  const wakeLockRef = useRef<any>(null);
 
   // Screen Wake Lock API: Prevent monitor from going to sleep or dimming
   const requestWakeLock = async () => {
     if (typeof window === "undefined" || !("wakeLock" in navigator)) return;
     try {
-      wakeLockRef.current = await navigator.wakeLock.request("screen");
+      wakeLockRef.current = await (navigator as any).wakeLock.request("screen");
       setWakeLockActive(true);
       console.log("Screen Wake Lock activated successfully");
-    } catch (err) {
+    } catch (err: any) {
       console.warn("Screen Wake Lock failed to activate:", err.message);
       setWakeLockActive(false);
     }
@@ -63,8 +63,8 @@ export default function StandaloneKitchenDisplaySystem() {
     requestWakeLock(); // Lock screen on mount for 24/7 kitchen monitor availability
 
     // Connect Live Socket Client for absolute zero server load
-    const socket = io(BACKEND_URL, {
-      transports: ["websocket"],
+    const socket = io(getSocketUrl(), {
+      transports: ["websocket", "polling"],
       reconnection: true,
       reconnectionDelay: 2000,
       reconnectionAttempts: Infinity
@@ -168,7 +168,7 @@ export default function StandaloneKitchenDisplaySystem() {
         const json = await res.json();
         const data = json.data || [];
         
-        const activeKitchenOrders = data.filter(order => 
+        const activeKitchenOrders = data.filter((order: any) => 
           ["pending", "cooking", "ready"].includes(order.status)
         );
 
@@ -239,7 +239,7 @@ export default function StandaloneKitchenDisplaySystem() {
   };
 
   // Update order status with instant, responsive client-side optimistic merging
-  const handleStatusTransition = async (orderId, newStatus) => {
+  const handleStatusTransition = async (orderId: any, newStatus: string) => {
     const token = localStorage.getItem("authToken");
 
     // Optimistic Client Update for instantaneous user feedback
@@ -268,7 +268,7 @@ export default function StandaloneKitchenDisplaySystem() {
 
       setLastUpdated(new Date());
 
-    } catch (error) {
+    } catch (error: any) {
       // Revert optimistic updates if server reports failure
       setOrders(originalOrders);
       alert(`Status Error: ${error.message}`);
@@ -291,7 +291,7 @@ export default function StandaloneKitchenDisplaySystem() {
     }
   };
 
-  const getStatusCardStyles = (status) => {
+  const getStatusCardStyles = (status: string) => {
     switch (status) {
       case "pending":
         return {
@@ -490,7 +490,7 @@ export default function StandaloneKitchenDisplaySystem() {
         <div className="bg-white border border-slate-200 p-16 text-center rounded-[2.5rem] max-w-xl mx-auto space-y-4 mt-6">
           <div className="w-16 h-16 bg-slate-50 border border-slate-150 rounded-2xl flex items-center justify-center mx-auto text-slate-500">
             <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
             </svg>
           </div>
           <div className="space-y-1">
@@ -546,7 +546,7 @@ export default function StandaloneKitchenDisplaySystem() {
 
                   {/* Food Items Ordered - max-h limits height, internal scrolling prevents card distortion */}
                   <ul className="space-y-2.5 pt-1 text-slate-700 font-bold text-xs max-h-52 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
-                    {order.orderItems.map((item, idx) => (
+                    {order.orderItems?.map((item: any, idx: number) => (
                       <li key={idx} className="flex flex-col gap-1 bg-slate-50/50 p-3 border border-slate-100 rounded-2xl">
                         <div className="flex justify-between items-start gap-3">
                           <span className="text-slate-800 font-extrabold">• {item.menuItem?.name}</span>

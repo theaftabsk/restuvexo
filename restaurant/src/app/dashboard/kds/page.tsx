@@ -1,6 +1,6 @@
 "use client";
 
-import { getBackendUrl } from "@/config/api";
+import { getBackendUrl, getSocketUrl } from "@/config/api";
 
 import { useEffect, useState } from "react";
 import { io } from "socket.io-client";
@@ -119,10 +119,15 @@ export default function KitchenDisplaySystem() {
     fetchActiveOrders();
 
     // SOCKET.IO REAL-TIME CONNECTION
-    const socket = io(BACKEND_URL, {
-      transports: ["websocket"],
-      reconnection: true
+    const socket = io(getSocketUrl(), {
+      transports: ["websocket", "polling"],
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 2000,
+      timeout: 10000
     });
+
+    socket.on("connect_error", () => {});
 
     socket.on("connect", () => {
       console.log("KDS Socket Connected:", socket.id);

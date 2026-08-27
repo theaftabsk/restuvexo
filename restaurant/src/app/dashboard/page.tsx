@@ -1,6 +1,6 @@
 "use client";
 
-import { getBackendUrl } from "@/config/api";
+import { getBackendUrl, getSocketUrl } from "@/config/api";
 
 import { useEffect, useState, useRef, useMemo } from "react";
 import Link from "next/link";
@@ -126,10 +126,15 @@ export default function DashboardHome() {
     fetchDashboardData();
 
     // Setup Live WebSocket Sync
-    const socket = io(BACKEND_URL, {
-      transports: ["websocket"],
-      reconnection: true
+    const socket = io(getSocketUrl(), {
+      transports: ["websocket", "polling"],
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 2000,
+      timeout: 10000
     });
+
+    socket.on("connect_error", () => {});
 
     socket.on("connect", () => {
       let restId = null;

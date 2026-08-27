@@ -6,11 +6,11 @@ import { usePathname } from "next/navigation";
 import { io } from "socket.io-client";
 import LoadingScreen from "@/components/LoadingScreen";
 import Chatbot from "@/components/Chatbot";
-import { getBackendUrl } from "@/config/api";
+import { getBackendUrl, getSocketUrl } from "@/config/api";
 
-export default function DashboardLayout({ children }) {
-  const [user, setUser] = useState(null);
-  const [restaurant, setRestaurant] = useState(null);
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<any>(null);
+  const [restaurant, setRestaurant] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -19,13 +19,13 @@ export default function DashboardLayout({ children }) {
   const [pendingQrCount, setPendingQrCount] = useState(0);
   const [activeKdsCount, setActiveKdsCount] = useState(0);
   const [qrOrderingEnabled, setQrOrderingEnabled] = useState(true);
-  const [collapsedGroups, setCollapsedGroups] = useState({});
+  const [collapsedGroups, setCollapsedGroups] = useState<any>({});
   const [isQuickActionOpen, setIsQuickActionOpen] = useState(false);
   const [updatingStoreStatus, setUpdatingStoreStatus] = useState(false);
   const [vexoAiEnabled, setVexoAiEnabled] = useState(true);
   const [subscriptionPlan, setSubscriptionPlan] = useState('trial');
   const [subscriptionStatus, setSubscriptionStatus] = useState('active');
-  const [trialEndsAt, setTrialEndsAt] = useState(null);
+  const [trialEndsAt, setTrialEndsAt] = useState<string | null>(null);
   const [enabledFeatures, setEnabledFeatures] = useState<any>({});
 
   // Custom Sidebar Configuration States
@@ -33,11 +33,11 @@ export default function DashboardLayout({ children }) {
   const [sidebarQuickActions, setSidebarQuickActions] = useState(true);
   const [sidebarStoreSwitch, setSidebarStoreSwitch] = useState(true);
   const [sidebarCollapsible, setSidebarCollapsible] = useState(true);
-  const [sidebarHiddenItems, setSidebarHiddenItems] = useState([]);
+  const [sidebarHiddenItems, setSidebarHiddenItems] = useState<string[]>([]);
 
   const pathname = usePathname();
   const BACKEND_URL = getBackendUrl();
-  const fetchTimeoutRef = useRef(null);
+  const fetchTimeoutRef = useRef<any>(null);
 
   // Load layout collapse preferences from storage
   useEffect(() => {
@@ -61,8 +61,8 @@ export default function DashboardLayout({ children }) {
     });
   };
 
-  const toggleGroupCollapse = (groupTitle) => {
-    setCollapsedGroups(prev => {
+  const toggleGroupCollapse = (groupTitle: string) => {
+    setCollapsedGroups((prev: any) => {
       const next = { ...prev, [groupTitle]: !prev[groupTitle] };
       localStorage.setItem("sidebarCollapsedGroups", JSON.stringify(next));
       return next;
@@ -71,7 +71,6 @@ export default function DashboardLayout({ children }) {
 
   // Telemetry: Sync active order counts and store operational preferences
   const fetchCountsAndSettings = async () => {
-    // Performance optimization: Avoid server load if the tab is running in the background
     if (typeof document !== "undefined" && document.visibilityState !== "visible") {
       return;
     }
@@ -80,7 +79,6 @@ export default function DashboardLayout({ children }) {
     if (!token) return;
 
     try {
-      // Fetch combined metrics in a single fast parallel request
       const res = await fetch(`${BACKEND_URL}/api/dashboard/sidebar-telemetry?_=${Date.now()}`, {
         headers: { "Authorization": `Bearer ${token}` },
         cache: 'no-store'
@@ -178,9 +176,17 @@ export default function DashboardLayout({ children }) {
 
     fetchCountsAndSettings();
 
-    const socket = io(BACKEND_URL, {
-      transports: ["websocket"],
-      reconnection: true
+    const socketUrl = getSocketUrl();
+    const socket = io(socketUrl, {
+      transports: ["websocket", "polling"],
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 2000,
+      timeout: 10000
+    });
+
+    socket.on("connect_error", () => {
+      // Suppress unhandled connection errors in production
     });
 
     socket.on("connect", () => {
@@ -197,7 +203,6 @@ export default function DashboardLayout({ children }) {
       } catch (e) { }
     });
 
-    // We can keep these for other syncs if needed, but remove telemetry fetch overhead
     socket.on("new_order_placed", () => { });
     socket.on("new_qr_order_placed", () => { });
     socket.on("order_status_updated", () => { });
@@ -205,7 +210,7 @@ export default function DashboardLayout({ children }) {
     socket.on("table_updated", () => triggerTelemetrySync());
 
     // Direct Realtime Telemetry Push (Zero Polling)
-    socket.on("sidebar_telemetry_updated", (data) => {
+    socket.on("sidebar_telemetry_updated", (data: any) => {
       if (data) {
         setPendingQrCount(data.pendingQrCount || 0);
         setActiveKdsCount(data.activeKdsCount || 0);
@@ -300,11 +305,8 @@ export default function DashboardLayout({ children }) {
     window.location.href = "/auth/login";
   };
 
-
-
   // Helper to render high-end minimal SVG Outline Icons matching RestroServe style
-  // Helper to render high-end minimal SVG Outline Icons matching RestroServe style
-  const renderIcon = (name) => {
+  const renderIcon = (name: string) => {
     switch (name) {
       case "Dashboard":
         return (
