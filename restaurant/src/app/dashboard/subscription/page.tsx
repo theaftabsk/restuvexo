@@ -173,8 +173,7 @@ export default function SubscriptionBillingPage() {
 
         const cashfree = CashfreeSDK({ mode: orderData.environment || "production" });
 
-        // Use _self redirect checkout: works 100% seamlessly on all domains without iframe domain whitelisting restriction
-        const redirectTarget = "_self";
+        const redirectTarget: "_self" | "_modal" = "_self";
 
         const result = await cashfree.checkout({
           paymentSessionId: orderData.paymentSessionId,
