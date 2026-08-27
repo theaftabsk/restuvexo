@@ -21,11 +21,8 @@ export function getSocketUrl(): string {
     if (process.env.NEXT_PUBLIC_SOCKET_URL) {
       return process.env.NEXT_PUBLIC_SOCKET_URL;
     }
-    if (process.env.NEXT_PUBLIC_API_URL) {
-      return process.env.NEXT_PUBLIC_API_URL;
-    }
     if (window.location.protocol === "https:") {
-      return window.location.origin;
+      return window.location.origin; // Always same-origin on production HTTPS
     }
   }
   return process.env.NEXT_PUBLIC_SOCKET_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
