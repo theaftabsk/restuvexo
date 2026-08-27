@@ -142,12 +142,38 @@ export default function SubscriptionBillingPage() {
         throw new Error(orderData.error || "Could not initiate Cashfree payment order.");
       }
 
-      // 2. Trigger Cashfree Checkout
-      if (window.Cashfree && orderData.paymentSessionId && !orderData.isMock) {
-        const isLocalhost = typeof window !== "undefined" && window.location.hostname.includes("localhost");
-        const cashfree = window.Cashfree({ mode: orderData.environment || "production" });
+      // 2. Trigger Cashfree Checkout with fallback loader
+      if (orderData.paymentSessionId) {
+        let CashfreeSDK = window.Cashfree;
+        if (!CashfreeSDK) {
+          await new Promise<void>((resolve, reject) => {
+            if (window.Cashfree) {
+              CashfreeSDK = window.Cashfree;
+              return resolve();
+            }
+            const existingScript = document.querySelector('script[src*="cashfree.com"]');
+            if (existingScript) {
+              existingScript.addEventListener("load", () => {
+                CashfreeSDK = window.Cashfree;
+                resolve();
+              });
+              existingScript.addEventListener("error", () => reject(new Error("Cashfree SDK failed to load")));
+            } else {
+              const script = document.createElement("script");
+              script.src = "https://sdk.cashfree.com/js/v3/cashfree.js";
+              script.onload = () => {
+                CashfreeSDK = window.Cashfree;
+                resolve();
+              };
+              script.onerror = () => reject(new Error("Failed to load Cashfree payment gateway SDK."));
+              document.body.appendChild(script);
+            }
+          });
+        }
 
-        // In Production on localhost, use _self redirect to avoid iframe domain whitelisting error
+        const isLocalhost = typeof window !== "undefined" && window.location.hostname.includes("localhost");
+        const cashfree = CashfreeSDK({ mode: orderData.environment || "production" });
+
         const redirectTarget = isLocalhost ? "_self" : "_modal";
 
         const result = await cashfree.checkout({
@@ -161,12 +187,11 @@ export default function SubscriptionBillingPage() {
           return;
         }
 
-        // If _modal was used and finished without redirect, verify now
         if (redirectTarget === "_modal") {
           await verifyOrderAfterPayment(orderData.orderId, planId || data?.subscription?.planId);
         }
       } else {
-        await verifyOrderAfterPayment(orderData.orderId, planId || data?.subscription?.planId);
+        throw new Error(orderData.error || "No payment session returned from Cashfree.");
       }
     } catch (err: any) {
       triggerToast(err.message || "Payment process failed.", "error");

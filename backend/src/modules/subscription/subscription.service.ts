@@ -242,9 +242,11 @@ export class SubscriptionService {
     let cfOrderStatus = 'UNKNOWN';
     let hasSuccessfulPayment = false;
 
-    // Support mock order verification in development/testing
-    if (orderId.includes('mock') || cfConfig.appId.includes('dummy') || cfConfig.appId.includes('TEST') || !cfConfig.appId) {
-      console.log(`[Cashfree Mock Mode] Auto-approving test order ${orderId}`);
+    // Strict Production Verification: Never auto-approve in production mode
+    const isMock = (orderId.includes('mock') || !cfConfig.appId) && cfConfig.env !== 'production';
+
+    if (isMock) {
+      console.log(`[Cashfree Dev Mock Mode] Auto-approving dev order ${orderId}`);
       hasSuccessfulPayment = true;
       cfPaymentId = `mock_pay_${Date.now()}`;
       cfOrderStatus = 'PAID';

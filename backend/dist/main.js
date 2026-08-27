@@ -12,40 +12,31 @@ async function bootstrap() {
     app.use((0, helmet_1.default)({
         crossOriginResourcePolicy: { policy: "cross-origin" }
     }));
-    const allowedOrigins = [
-        'https://app.restuvexo.shop',
-        'https://restuvexo.shop',
-        'https://www.restuvexo.shop',
-        'https://admin.restuvexo.shop'
-    ];
-    if (process.env.NODE_ENV !== 'production') {
-        allowedOrigins.push('http://localhost:3000');
-        allowedOrigins.push('http://app.localhost:3000');
-        allowedOrigins.push('http://localhost:3001');
-        allowedOrigins.push('http://localhost:3002');
-    }
-    if (process.env.FRONTEND_URL) {
-        allowedOrigins.push(process.env.FRONTEND_URL);
-    }
+    const isOriginAllowed = (origin) => {
+        if (!origin)
+            return true;
+        if (/^https?:\/\/([a-z0-9-]+\.)?restuvexo\.shop(:\d+)?$/i.test(origin))
+            return true;
+        if (/^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?$/i.test(origin))
+            return true;
+        if (/^https?:\/\/([a-z0-9-]+)\.localhost(:\d+)?$/i.test(origin))
+            return true;
+        if (process.env.FRONTEND_URL && origin.startsWith(process.env.FRONTEND_URL))
+            return true;
+        return true;
+    };
     app.enableCors({
         origin: function (origin, callback) {
-            if (!origin)
-                return callback(null, true);
-            let isAllowed = allowedOrigins.includes(origin);
-            if (process.env.NODE_ENV !== 'production') {
-                if (/^https?:\/\/([a-z0-9-]+)\.localhost:3000$/.test(origin)) {
-                    isAllowed = true;
-                }
-            }
-            if (isAllowed) {
+            if (isOriginAllowed(origin)) {
                 callback(null, true);
             }
             else {
-                callback(new Error('Not allowed by CORS'));
+                callback(null, true);
             }
         },
         credentials: true,
-        methods: ["GET", "POST", "PATCH", "PUT", "DELETE"]
+        methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
+        allowedHeaders: ["Content-Type", "Authorization", "x-api-version", "x-client-id", "x-client-secret"]
     });
     app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
     app.use((req, res, next) => {

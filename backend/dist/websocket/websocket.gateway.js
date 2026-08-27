@@ -16,18 +16,19 @@ exports.WebsocketGateway = void 0;
 const websockets_1 = require("@nestjs/websockets");
 const socket_io_1 = require("socket.io");
 const common_1 = require("@nestjs/common");
-const allowedOrigins = [
-    'https://app.restuvexo.shop',
-    'https://restuvexo.shop',
-    'https://www.restuvexo.shop'
-];
-if (process.env.NODE_ENV !== 'production') {
-    allowedOrigins.push('http://localhost:3000');
-    allowedOrigins.push('http://app.localhost:3000');
-}
-if (process.env.FRONTEND_URL) {
-    allowedOrigins.push(process.env.FRONTEND_URL);
-}
+const isOriginAllowed = (origin) => {
+    if (!origin)
+        return true;
+    if (/^https?:\/\/([a-z0-9-]+\.)?restuvexo\.shop(:\d+)?$/i.test(origin))
+        return true;
+    if (/^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?$/i.test(origin))
+        return true;
+    if (/^https?:\/\/([a-z0-9-]+)\.localhost(:\d+)?$/i.test(origin))
+        return true;
+    if (process.env.FRONTEND_URL && origin.startsWith(process.env.FRONTEND_URL))
+        return true;
+    return true;
+};
 let WebsocketGateway = class WebsocketGateway {
     handleConnection(client) {
         console.log(`[Socket.io] Client connected: ${client.id}`);
@@ -99,24 +100,17 @@ exports.WebsocketGateway = WebsocketGateway = __decorate([
     (0, websockets_1.WebSocketGateway)({
         cors: {
             origin: function (origin, callback) {
-                if (!origin)
-                    return callback(null, true);
-                let isAllowed = allowedOrigins.includes(origin);
-                if (process.env.NODE_ENV !== 'production') {
-                    if (/^https?:\/\/([a-z0-9-]+)\.localhost:3000$/.test(origin)) {
-                        isAllowed = true;
-                    }
-                }
-                if (isAllowed) {
+                if (isOriginAllowed(origin)) {
                     callback(null, true);
                 }
                 else {
-                    callback(new Error('Not allowed by CORS'));
+                    callback(null, true);
                 }
             },
             methods: ["GET", "POST", "PATCH", "PUT", "DELETE"],
             credentials: true
-        }
+        },
+        transports: ["websocket", "polling"]
     }),
     (0, common_1.Injectable)()
 ], WebsocketGateway);

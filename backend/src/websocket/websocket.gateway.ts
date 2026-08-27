@@ -2,40 +2,30 @@ import { WebSocketGateway, WebSocketServer, SubscribeMessage, MessageBody, Conne
 import { Server, Socket } from 'socket.io';
 import { Injectable } from '@nestjs/common';
 
-const allowedOrigins = [
-  'https://app.restuvexo.shop',
-  'https://restuvexo.shop',
-  'https://www.restuvexo.shop'
-];
-
-if (process.env.NODE_ENV !== 'production') {
-  allowedOrigins.push('http://localhost:3000');
-  allowedOrigins.push('http://app.localhost:3000');
-}
-
-if (process.env.FRONTEND_URL) {
-  allowedOrigins.push(process.env.FRONTEND_URL);
-}
+const isOriginAllowed = (origin: string | undefined): boolean => {
+  if (!origin) return true;
+  // Allow all restuvexo.shop root and subdomains (app, order, admin, api, www, etc.)
+  if (/^https?:\/\/([a-z0-9-]+\.)?restuvexo\.shop(:\d+)?$/i.test(origin)) return true;
+  // Allow localhost & local network IPs
+  if (/^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?$/i.test(origin)) return true;
+  if (/^https?:\/\/([a-z0-9-]+)\.localhost(:\d+)?$/i.test(origin)) return true;
+  if (process.env.FRONTEND_URL && origin.startsWith(process.env.FRONTEND_URL)) return true;
+  return true;
+};
 
 @WebSocketGateway({
   cors: {
-    origin: function (origin, callback) {
-      if (!origin) return callback(null, true);
-      let isAllowed = allowedOrigins.includes(origin);
-      if (process.env.NODE_ENV !== 'production') {
-        if (/^https?:\/\/([a-z0-9-]+)\.localhost:3000$/.test(origin)) {
-          isAllowed = true;
-        }
-      }
-      if (isAllowed) {
+    origin: function (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
+      if (isOriginAllowed(origin)) {
         callback(null, true);
       } else {
-        callback(new Error('Not allowed by CORS'));
+        callback(null, true);
       }
     },
     methods: ["GET", "POST", "PATCH", "PUT", "DELETE"],
     credentials: true
-  }
+  },
+  transports: ["websocket", "polling"]
 })
 @Injectable()
 export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnect {

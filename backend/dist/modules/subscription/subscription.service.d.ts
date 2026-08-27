@@ -101,6 +101,7 @@ export declare class SubscriptionService {
         isFirstTime: boolean;
         environment: string;
         isMock?: undefined;
+        error?: undefined;
     } | {
         success: boolean;
         orderId: string;
@@ -110,6 +111,17 @@ export declare class SubscriptionService {
         isFirstTime: boolean;
         isMock: boolean;
         environment: string;
+        error?: undefined;
+    } | {
+        success: boolean;
+        error: any;
+        orderId?: undefined;
+        paymentSessionId?: undefined;
+        orderAmount?: undefined;
+        planName?: undefined;
+        isFirstTime?: undefined;
+        environment?: undefined;
+        isMock?: undefined;
     }>;
     verifyCashfreePayment(restaurantId: number, orderId: string, planId?: number): Promise<{
         success: boolean;
@@ -118,7 +130,7 @@ export declare class SubscriptionService {
         subscription?: undefined;
     } | {
         success: boolean;
-        error: string;
+        error: any;
         message?: undefined;
         subscription?: undefined;
     } | {

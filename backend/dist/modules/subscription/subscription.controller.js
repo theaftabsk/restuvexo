@@ -45,25 +45,31 @@ let SubscriptionController = class SubscriptionController {
         const restaurantId = req.user.restaurantId;
         try {
             const result = await this.subscriptionService.createCashfreeOrder(restaurantId, body.planId, body.isRenewal);
-            return res.json(result);
+            if (!result.success) {
+                return res.status(common_1.HttpStatus.BAD_REQUEST).json(result);
+            }
+            return res.status(common_1.HttpStatus.OK).json(result);
         }
         catch (e) {
             console.error('[Create Cashfree Order Error]', e);
-            return res.status(common_1.HttpStatus.INTERNAL_SERVER_ERROR).json({ error: e.message || 'Failed to create payment order.' });
+            return res.status(common_1.HttpStatus.BAD_REQUEST).json({ success: false, error: e.message || 'Failed to create payment order.' });
         }
     }
     async verifyCashfreePayment(req, res, body) {
         const restaurantId = req.user.restaurantId;
-        if (!body.orderId) {
-            return res.status(common_1.HttpStatus.BAD_REQUEST).json({ error: 'Order ID is required.' });
+        if (!body || !body.orderId) {
+            return res.status(common_1.HttpStatus.BAD_REQUEST).json({ success: false, error: 'Order ID is required.' });
         }
         try {
             const result = await this.subscriptionService.verifyCashfreePayment(restaurantId, body.orderId, body.planId);
-            return res.json(result);
+            if (!result.success) {
+                return res.status(common_1.HttpStatus.BAD_REQUEST).json(result);
+            }
+            return res.status(common_1.HttpStatus.OK).json(result);
         }
         catch (e) {
             console.error('[Verify Cashfree Payment Error]', e);
-            return res.status(common_1.HttpStatus.INTERNAL_SERVER_ERROR).json({ error: e.message || 'Payment verification failed.' });
+            return res.status(common_1.HttpStatus.BAD_REQUEST).json({ success: false, error: e.message || 'Payment verification failed.' });
         }
     }
     async handleCashfreeWebhook(req, res, body) {
