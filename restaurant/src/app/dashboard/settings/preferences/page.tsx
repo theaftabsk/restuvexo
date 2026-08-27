@@ -1,6 +1,6 @@
 "use client";
 
-import { getBackendUrl } from "@/config/api";
+import { getBackendUrl, getSocketUrl } from "@/config/api";
 import { useState, useEffect, useRef } from "react";
 import { io, Socket } from "socket.io-client";
 import { 
@@ -74,8 +74,8 @@ export default function PreferencesSettings() {
 
     // 2. Real-Time WebSocket Connection
     if (restaurantId) {
-      const socket = io(BACKEND_URL, {
-        transports: ["websocket", "polling"],
+      const socket = io(getSocketUrl(), {
+        transports: ["polling", "websocket"],
         reconnection: true,
         reconnectionAttempts: Infinity,
         reconnectionDelay: 1000
