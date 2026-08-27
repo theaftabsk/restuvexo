@@ -5,6 +5,7 @@ export declare class AuthController {
     constructor(authService: AuthService);
     ownerSignup(req: Request, res: Response): Promise<any>;
     verifyOtp(req: Request, res: Response): Promise<any>;
+    resendOtp(req: Request, res: Response): Promise<any>;
     login(req: Request, res: Response): Promise<any>;
     forgotPassword(req: Request, res: Response): Promise<any>;
     resetPassword(req: Request, res: Response): Promise<any>;

@@ -20,4 +20,5 @@ export declare class TableService {
     getBlacklistedDevices(req: any, res: any): Promise<void>;
     unblockDevice(req: any, res: any): Promise<void>;
     getTableHistory(req: any, res: any): Promise<any>;
+    completeOnboardingSetup(req: any, res: any): Promise<any>;
 }

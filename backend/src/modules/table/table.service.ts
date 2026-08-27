@@ -466,5 +466,103 @@ async getTableHistory(req, res: any) {
   }
 };
 
+// Complete Onboarding Setup (Cuisine, Tables, Currency, Default Categories)
+async completeOnboardingSetup(req, res: any) {
+  const restaurantId = parseInt(req.user.restaurantId);
+
+  if (isNaN(restaurantId)) {
+    return res.status(400).json({ error: "Invalid restaurant identity." });
+  }
+
+  const { cuisineType, tableCount, currency, currencySymbol, taxRate, taxName } = req.body;
+  const numTables = Math.min(Math.max(parseInt(tableCount) || 6, 1), 50);
+
+  try {
+    // 1. Update/Create Restaurant Settings
+    await this.prisma.restaurantSetting.upsert({
+      where: { restaurantId },
+      update: {
+        customerTheme: "sunset",
+        qrOrderingEnabled: true,
+        enabledFeatures: {
+          cuisineType: cuisineType || "multi",
+          currency: currency || "INR",
+          currencySymbol: currencySymbol || "₹",
+          taxRate: taxRate !== undefined ? Number(taxRate) : 5,
+          taxName: taxName || "GST"
+        }
+      },
+      create: {
+        restaurantId,
+        customerTheme: "sunset",
+        qrOrderingEnabled: true,
+        enabledFeatures: {
+          cuisineType: cuisineType || "multi",
+          currency: currency || "INR",
+          currencySymbol: currencySymbol || "₹",
+          taxRate: taxRate !== undefined ? Number(taxRate) : 5,
+          taxName: taxName || "GST"
+        }
+      }
+    });
+
+    // 2. Check existing tables
+    const existingTables = await this.prisma.table.findMany({
+      where: { restaurantId }
+    });
+
+    if (existingTables.length < numTables) {
+      const startIndex = existingTables.length + 1;
+      const newTables = [];
+      for (let i = startIndex; i <= numTables; i++) {
+        newTables.push({
+          restaurantId,
+          tableNo: `Table ${i}`,
+          qrCode: `qr_rest_${restaurantId}_${i}`,
+          capacity: 4,
+          floor: "Ground Floor",
+          status: "free" as any
+        });
+      }
+      await this.prisma.table.createMany({ data: newTables });
+    }
+
+    // 3. Create default menu categories if none exist
+    const existingCats = await this.prisma.category.findMany({ where: { restaurantId } });
+    if (!existingCats.length) {
+      await this.prisma.category.createMany({
+        data: [
+          { restaurantId, name: "Starters & Snacks" },
+          { restaurantId, name: "Main Course" },
+          { restaurantId, name: "Beverages & Drinks" },
+          { restaurantId, name: "Desserts & Sweets" }
+        ]
+      });
+    }
+
+    const allTables = await this.prisma.table.findMany({
+      where: { restaurantId },
+      orderBy: { tableNo: 'asc' }
+    });
+
+    // Notify via WebSocket
+    this.websocketGateway.server.to(`restaurant_${restaurantId}`).emit('tables_updated', {
+      tables: allTables,
+      timestamp: new Date().toISOString()
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Restaurant setup initialized successfully!",
+      tablesCount: allTables.length,
+      tables: allTables
+    });
+
+  } catch (error: any) {
+    console.error('[Onboarding Setup Error]', error);
+    return res.status(500).json({ error: error.message || "Failed to initialize restaurant configuration." });
+  }
+}
+
 }
 

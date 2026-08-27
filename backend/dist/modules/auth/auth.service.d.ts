@@ -8,6 +8,7 @@ export declare class AuthService {
     constructor(prisma: PrismaService, settingsService: SettingsService, emailService: EmailService);
     ownerSignup(req: any, res: any): Promise<any>;
     verifyOtp(req: any, res: any): Promise<any>;
+    resendOtp(req: any, res: any): Promise<any>;
     login(req: any, res: any): Promise<any>;
     forgotPassword(req: any, res: any): Promise<any>;
     resetPassword(req: any, res: any): Promise<any>;

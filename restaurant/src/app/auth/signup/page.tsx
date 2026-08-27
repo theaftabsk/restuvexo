@@ -17,17 +17,36 @@ export default function OwnerSignup() {
   
   // Stages: 'input' (details form) -> 'otp' (OTP card)
   const [stage, setStage] = useState("input");
-  const [otpCode, setOtpCode] = useState("");
+  const [otpDigits, setOtpDigits] = useState(["", "", "", "", "", ""]);
+  const [countdown, setCountdown] = useState(60);
+  const [canResend, setCanResend] = useState(false);
+  const [resending, setResending] = useState(false);
   
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleChange = (e) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleRegisterSubmit = async (e) => {
+  // Start 60s countdown when entering OTP stage
+  const startCountdown = () => {
+    setCountdown(60);
+    setCanResend(false);
+    const interval = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          setCanResend(true);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setSuccess("");
@@ -51,26 +70,100 @@ export default function OwnerSignup() {
       }
 
       setSuccess("Verification OTP sent successfully! Check your email inbox.");
-      // Transition to OTP verification stage
       setTimeout(() => {
         setStage("otp");
         setError("");
         setSuccess("");
-      }, 1000);
+        startCountdown();
+      }, 800);
 
-    } catch (err) {
-      setError(err.message);
+    } catch (err: any) {
+      setError(err.message || "Failed to register.");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleOtpVerifySubmit = async (e) => {
+  const handleResendOtp = async () => {
+    if (!canResend || resending) return;
+    setResending(true);
+    setError("");
+    setSuccess("");
+
+    const BACKEND_URL = getBackendUrl();
+
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/auth/resend-otp`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ email: formData.email })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Could not resend OTP.");
+      }
+
+      setSuccess("Fresh verification code sent! Check your inbox.");
+      startCountdown();
+    } catch (err: any) {
+      setError(err.message || "Failed to resend code.");
+    } finally {
+      setResending(false);
+    }
+  };
+
+  const handleOtpDigitChange = (index: number, value: string) => {
+    const cleaned = value.replace(/\D/g, "");
+    if (!cleaned && value !== "") return;
+
+    const newDigits = [...otpDigits];
+    newDigits[index] = cleaned.slice(-1);
+    setOtpDigits(newDigits);
+
+    // Auto-focus next input
+    if (cleaned && index < 5) {
+      const nextInput = document.getElementById(`otp-digit-${index + 1}`);
+      if (nextInput) nextInput.focus();
+    }
+  };
+
+  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Backspace" && !otpDigits[index] && index > 0) {
+      const prevInput = document.getElementById(`otp-digit-${index - 1}`);
+      if (prevInput) prevInput.focus();
+    }
+  };
+
+  const handleOtpPaste = (e: React.ClipboardEvent) => {
+    e.preventDefault();
+    const pasteData = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
+    if (pasteData) {
+      const newDigits = [...otpDigits];
+      for (let i = 0; i < pasteData.length; i++) {
+        newDigits[i] = pasteData[i];
+      }
+      setOtpDigits(newDigits);
+      const focusIndex = Math.min(pasteData.length, 5);
+      const targetInput = document.getElementById(`otp-digit-${focusIndex}`);
+      if (targetInput) targetInput.focus();
+    }
+  };
+
+  const handleOtpVerifySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setSuccess("");
-    setLoading(true);
+    const otpCode = otpDigits.join("");
 
+    if (otpCode.length !== 6) {
+      return setError("Please enter the complete 6-digit verification code.");
+    }
+
+    setLoading(true);
     const BACKEND_URL = getBackendUrl();
 
     try {
@@ -91,19 +184,19 @@ export default function OwnerSignup() {
         throw new Error(data.error || "OTP verification failed. Check code.");
       }
 
-      setSuccess("Email successfully verified! Creating restaurant ecosystem...");
+      setSuccess("Email successfully verified! Redirecting to setup...");
       
-      // Save all session tokens and full permission variables inside localStorage
+      // Save session credentials
       localStorage.setItem("authToken", data.token);
       localStorage.setItem("restaurant", JSON.stringify(data.restaurant));
       localStorage.setItem("user", JSON.stringify(data.user));
 
       setTimeout(() => {
-        window.location.href = "/dashboard";
-      }, 1500);
+        window.location.href = "/onboarding";
+      }, 1000);
 
-    } catch (err) {
-      setError(err.message);
+    } catch (err: any) {
+      setError(err.message || "Verification failed.");
     } finally {
       setLoading(false);
     }
@@ -122,7 +215,6 @@ export default function OwnerSignup() {
             alt="RESTUVEXO Culinary Flat Lay Banner" 
             className="absolute inset-0 w-full h-full object-cover opacity-90 transition-transform duration-700 hover:scale-102"
           />
-          {/* Custom herbal/warm overlay tint to match signature vermilion dashboard style */}
           <div className="absolute inset-0 bg-gradient-to-b from-orange-950/50 via-slate-950/20 to-slate-950/80 z-10" />
 
           {/* Logo Brand Header */}
@@ -170,132 +262,130 @@ export default function OwnerSignup() {
             </div>
           </div>
 
-          {/* Footer Info details */}
-          <div className="relative z-20 space-y-2.5 text-left border-t border-white/10 pt-6">
-            <span className="px-2.5 py-1 bg-white/20 border border-white/10 text-white rounded-full text-[8px] font-black uppercase tracking-widest leading-none inline-block">Enterprise Safe</span>
-            <h3 className="text-sm font-black text-white leading-tight">Next-Gen Multi-Tenant POS</h3>
-            <p className="text-[9.5px] text-orange-100/80 leading-relaxed font-semibold">Join thousands of premier bistros, bars, and dark kitchens coordinating orders in real-time.</p>
+          {/* Left Column Bottom Footer Badges */}
+          <div className="relative z-20 flex items-center justify-between text-white/80 border-t border-white/10 pt-4">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-[10px] font-bold tracking-wider text-slate-200">Socket.io KDS Sync</span>
+            </div>
+            <div className="text-[10px] font-bold text-slate-300">
+              v2.4 Enterprise Release
+            </div>
           </div>
+
         </div>
 
-        {/* RIGHT COLUMN: PROFESSIONAL SECURE SIGNUP FORM */}
-        <div className="col-span-12 lg:col-span-7 flex flex-col justify-between p-8 sm:p-16 md:p-20 relative bg-white h-full overflow-y-auto">
+        {/* RIGHT COLUMN: INTERACTIVE FORM CONTAINER */}
+        <div className="col-span-12 lg:col-span-7 bg-white flex flex-col justify-between p-6 sm:p-12 lg:p-14 overflow-y-auto h-full text-slate-800">
           
-          {/* Top navigation row */}
-          <div className="flex justify-between items-center">
-            <Link 
-              href="/auth/login" 
-              className="inline-flex items-center gap-1.5 text-[9px] font-black text-slate-450 hover:text-slate-800 uppercase tracking-wider transition"
-            >
-              <span>←</span>
-              <span>Back to sign in</span>
-            </Link>
+          {/* Top Status Header */}
+          <div className="flex justify-between items-center w-full">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-black tracking-widest text-[#ff5722] uppercase bg-orange-50 px-3 py-1 rounded-full border border-orange-100/80">
+                {stage === "input" ? "Step 1: Admin Account" : "Step 2: Email Verification"}
+              </span>
+            </div>
 
-            <span className="px-3 py-1 bg-orange-500/10 border border-orange-500/15 text-[#ff5722] rounded-full text-[8.5px] font-black uppercase tracking-wider flex items-center gap-1 shadow-sm">
-              <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#ff5722] animate-pulse" />
-              Secure Register 256-Bit
-            </span>
+            <div className="text-right">
+              <span className="text-[11px] font-bold text-slate-400">Need help? </span>
+              <a href="mailto:support@restuvexo.shop" className="text-[11px] font-black text-[#ff5722] hover:underline">
+                Contact Support
+              </a>
+            </div>
           </div>
 
-          {/* Core Content Form Canvas */}
-          <div className="space-y-6 my-auto py-8">
+          {/* Core Interaction Middle Block */}
+          <div className="my-auto max-w-md w-full mx-auto py-6">
             
-            {/* Header titles */}
-            <div className="text-left space-y-1.5">
-              <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-                {stage === "input" ? "Register Restaurant" : "Verify Email Address"}
+            {/* Header copy */}
+            <div className="text-left mb-6">
+              <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-none mb-2">
+                {stage === "input" ? "Register Your Restaurant" : "Confirm OTP Code"}
               </h1>
-              <p className="text-slate-450 text-[10.5px] font-bold uppercase tracking-wider leading-relaxed">
+              <p className="text-xs text-slate-500 font-semibold leading-relaxed">
                 {stage === "input" 
-                  ? "Launch your dynamic, multi-tenant POS operating system in seconds" 
-                  : `Enter the 6-digit security OTP code sent to: ${formData.email}`}
+                  ? "Launch your digital restaurant operating system in under 2 minutes."
+                  : `Enter the 6-digit OTP sent to ${formData.email}`}
               </p>
             </div>
 
-            {/* Error / Success alert components */}
+            {/* Error and Success Notifications */}
             {error && (
-              <div className="p-4.5 rounded-2xl bg-rose-50 border border-rose-100 text-xs text-rose-600 font-extrabold flex items-start gap-2.5 text-left animate-shake">
-                <svg className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
-                  <line x1="12" y1="9" x2="12" y2="13" />
-                  <line x1="12" y1="17" x2="12.01" y2="17" />
-                </svg>
+              <div className="mb-4 p-3 rounded-2xl bg-rose-50 border border-rose-100 text-rose-700 text-xs font-bold flex items-center gap-2 animate-fade-in text-left">
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
                 <span>{error}</span>
               </div>
             )}
+
             {success && (
-              <div className="p-4.5 rounded-2xl bg-orange-50 border border-orange-100 text-xs text-orange-600 font-extrabold flex items-start gap-2.5 text-left">
-                <svg className="w-4 h-4 text-[#ff5722] shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" />
-                  <path d="m9 12 2 2 4-4" />
-                </svg>
+              <div className="mb-4 p-3 rounded-2xl bg-emerald-50 border border-emerald-100 text-emerald-700 text-xs font-bold flex items-center gap-2 animate-fade-in text-left">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
                 <span>{success}</span>
               </div>
             )}
 
-            {/* Stage 1: Input details */}
+            {/* Stage 1: Restaurant & Admin Details */}
             {stage === "input" && (
-              <form onSubmit={handleRegisterSubmit} className="space-y-4 text-left">
+              <form onSubmit={handleRegisterSubmit} className="space-y-3.5 text-left">
                 
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Restaurant Name</label>
-                  <div className="relative">
-                    <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 select-none">
-                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                        <polyline points="9 22 9 12 15 12 15 22" />
-                      </svg>
-                    </span>
-                    <input
-                      type="text"
-                      name="restaurantName"
-                      placeholder="Enter restaurant name"
-                      value={formData.restaurantName}
-                      onChange={handleChange}
-                      className="pl-9 bg-slate-50 border border-slate-200 text-slate-900 text-xs px-4 py-3 rounded-2xl focus:outline-none focus:border-[#ff5722] focus:bg-white focus:ring-4 focus:ring-orange-500/10 transition duration-300 w-full font-semibold placeholder:text-slate-350"
-                      required
-                    />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Owner / Manager Name</label>
+                    <div className="relative">
+                      <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 select-none">
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                          <circle cx="12" cy="7" r="4" />
+                        </svg>
+                      </span>
+                      <input
+                        type="text"
+                        name="name"
+                        placeholder="John Doe"
+                        value={formData.name}
+                        onChange={handleChange}
+                        className="pl-9 bg-slate-50 border border-slate-200 text-slate-900 text-xs px-4 py-3 rounded-2xl focus:outline-none focus:border-[#ff5722] focus:bg-white focus:ring-4 focus:ring-orange-500/10 transition duration-300 w-full font-semibold placeholder:text-slate-350"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Restaurant Business Name</label>
+                    <div className="relative">
+                      <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 select-none">
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                          <polyline points="9 22 9 12 15 12 15 22" />
+                        </svg>
+                      </span>
+                      <input
+                        type="text"
+                        name="restaurantName"
+                        placeholder="The Royal Bistro"
+                        value={formData.restaurantName}
+                        onChange={handleChange}
+                        className="pl-9 bg-slate-50 border border-slate-200 text-slate-900 text-xs px-4 py-3 rounded-2xl focus:outline-none focus:border-[#ff5722] focus:bg-white focus:ring-4 focus:ring-orange-500/10 transition duration-300 w-full font-semibold placeholder:text-slate-350"
+                        required
+                      />
+                    </div>
                   </div>
                 </div>
 
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Owner Full Name</label>
-                  <div className="relative">
-                    <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 select-none">
-                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
-                        <circle cx="12" cy="7" r="4" />
-                      </svg>
-                    </span>
-                    <input
-                      type="text"
-                      name="name"
-                      placeholder="Enter owner full name"
-                      value={formData.name}
-                      onChange={handleChange}
-                      className="pl-9 bg-slate-50 border border-slate-200 text-slate-900 text-xs px-4 py-3 rounded-2xl focus:outline-none focus:border-[#ff5722] focus:bg-white focus:ring-4 focus:ring-orange-500/10 transition duration-300 w-full font-semibold placeholder:text-slate-350"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   <div className="flex flex-col gap-1.5">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Phone Number</label>
-                    <div className="w-full relative phone-input-container">
+                    <div className="relative international-phone-wrapper">
                       <PhoneInput
                         defaultCountry="in"
                         value={formData.phone}
-                        onChange={(phone) => setFormData(prev => ({ ...prev, phone }))}
-                        placeholder="Enter phone number"
-                        className="w-full text-xs"
-                        inputClassName="!w-full !text-xs !bg-slate-50 hover:!bg-slate-100/80 !border-slate-200 focus:!border-[#ff5722] focus:!bg-white focus:!ring-4 focus:!ring-orange-500/10 !rounded-r-2xl !h-[46px] !px-4 !font-semibold !text-slate-900 !transition-all !shadow-sm"
+                        onChange={(phone) => setFormData({ ...formData, phone })}
+                        inputClassName="!w-full !bg-slate-50 !border !border-slate-200 !text-slate-900 !text-xs !py-3 !h-[42px] !rounded-r-2xl focus:!outline-none focus:!border-[#ff5722] focus:!bg-white focus:!ring-4 focus:!ring-orange-500/10 !transition !duration-300 !font-semibold"
                         countrySelectorStyleProps={{
-                          buttonClassName: "!bg-slate-50 hover:!bg-slate-100/80 !border-slate-200 !rounded-l-2xl !h-[46px] !px-3 !transition-all !shadow-sm !border-r-0",
+                          buttonClassName: "!bg-slate-50 !border !border-slate-200 !border-r-0 !rounded-l-2xl !h-[42px] !px-3 hover:!bg-slate-100 !transition !duration-300",
                           dropdownStyleProps: {
                             style: {
                               borderRadius: '16px',
-                              padding: '8px',
                               border: '1px solid #e2e8f0',
                               boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)',
                               marginTop: '8px',
@@ -364,44 +454,71 @@ export default function OwnerSignup() {
 
             {/* Stage 2: OTP Verification */}
             {stage === "otp" && (
-              <form onSubmit={handleOtpVerifySubmit} className="space-y-6 text-left">
+              <form onSubmit={handleOtpVerifySubmit} className="space-y-6 text-left animate-fade-in">
                 
-                <div className="flex flex-col gap-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center block">Enter 6-Digit Code</label>
-                  <input
-                    type="text"
-                    maxLength={6}
-                    placeholder="0 0 0 0 0 0"
-                    value={otpCode}
-                    onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
-                    className="w-full tracking-[12px] text-center text-3xl font-black py-4 border border-slate-200 rounded-3xl focus:outline-none focus:border-[#ff5722] focus:ring-4 focus:ring-orange-500/10 bg-slate-50 text-slate-900 transition"
-                    required
-                  />
+                <div className="text-center space-y-1.5">
+                  <div className="w-12 h-12 bg-orange-50 border border-orange-200 text-[#ff5722] rounded-2xl flex items-center justify-center mx-auto shadow-sm">
+                    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect width="20" height="16" x="2" y="4" rx="2" />
+                      <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+                    </svg>
+                  </div>
+                  <h3 className="text-base font-black text-slate-900 tracking-tight">Verify Your Email</h3>
+                  <p className="text-xs text-slate-500 font-semibold max-w-xs mx-auto">
+                    We sent a 6-digit code to <strong className="text-slate-800">{formData.email}</strong>
+                  </p>
                 </div>
 
-                <div className="bg-slate-50 border border-slate-100 p-4 rounded-2xl text-[10px] text-slate-500 leading-relaxed text-center font-bold flex items-start gap-2">
-                  <svg className="w-4 h-4 text-orange-500 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="12" y1="16" x2="12" y2="12" />
-                    <line x1="12" y1="8" x2="12.01" y2="8" />
-                  </svg>
-                  <span>OTP Sandbox Tip: If you are testing locally and haven't configured SMTP credentials inside `backend/.env`, you can read the generated OTP code directly from your Node.js Terminal Console!</span>
+                {/* 6 Digit Input Boxes */}
+                <div className="flex justify-center items-center gap-2 sm:gap-3 py-2" onPaste={handleOtpPaste}>
+                  {otpDigits.map((digit, index) => (
+                    <input
+                      key={index}
+                      id={`otp-digit-${index}`}
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={1}
+                      value={digit}
+                      onChange={(e) => handleOtpDigitChange(index, e.target.value)}
+                      onKeyDown={(e) => handleOtpKeyDown(index, e)}
+                      autoFocus={index === 0}
+                      className="w-11 h-14 sm:w-12 sm:h-14 text-center text-xl font-black rounded-2xl border-2 border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:border-[#ff5722] focus:bg-white focus:ring-4 focus:ring-orange-500/10 transition-all shadow-sm"
+                    />
+                  ))}
                 </div>
 
-                <div className="flex gap-4">
+                {/* Resend Timer */}
+                <div className="text-center">
+                  {canResend ? (
+                    <button
+                      type="button"
+                      onClick={handleResendOtp}
+                      disabled={resending}
+                      className="text-xs font-black text-[#ff5722] hover:text-[#e04c1d] transition underline underline-offset-4 active:scale-95"
+                    >
+                      {resending ? "Sending code..." : "Resend Verification Code"}
+                    </button>
+                  ) : (
+                    <p className="text-xs font-semibold text-slate-400">
+                      Resend code in <strong className="text-slate-700 font-mono">{countdown}s</strong>
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex gap-3 pt-2">
                   <button
                     type="button"
                     onClick={() => setStage("input")}
-                    className="flex-1 py-4 border border-slate-200 hover:bg-slate-50 text-slate-600 font-extrabold rounded-2xl text-xs uppercase tracking-wider transition active:scale-95"
+                    className="flex-1 py-3.5 border border-slate-200 hover:bg-slate-50 text-slate-600 font-extrabold rounded-2xl text-xs uppercase tracking-wider transition active:scale-95"
                   >
                     ← Back
                   </button>
                   <button
                     type="submit"
-                    disabled={loading}
-                    className="flex-[2] bg-[#ff5722] hover:bg-[#e04c1d] text-white font-extrabold py-4 rounded-2xl text-xs uppercase tracking-wider shadow-md active:scale-95 transition flex items-center justify-center gap-2"
+                    disabled={loading || otpDigits.join("").length !== 6}
+                    className="flex-[2] bg-[#ff5722] hover:bg-[#e04c1d] text-white font-extrabold py-3.5 rounded-2xl text-xs uppercase tracking-wider shadow-lg shadow-orange-500/20 active:scale-95 transition flex items-center justify-center gap-2 disabled:opacity-50"
                   >
-                    {loading ? "Creating Shop..." : "Verify & Create Shop"}
+                    {loading ? "Verifying..." : "Verify & Continue →"}
                   </button>
                 </div>
 

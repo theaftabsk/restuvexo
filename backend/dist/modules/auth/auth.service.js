@@ -151,6 +151,7 @@ let AuthService = class AuthService {
             res.status(201).json({
                 message: "Email verified successfully! Restaurant dashboard is live.",
                 token,
+                onboardingRequired: true,
                 restaurant: {
                     id: result.restaurant.id,
                     name: result.restaurant.name
@@ -166,6 +167,42 @@ let AuthService = class AuthService {
         catch (error) {
             console.error('[OTP Verify Error]', error);
             res.status(500).json({ error: "Failed to verify registration code. Try again." });
+        }
+    }
+    ;
+    async resendOtp(req, res) {
+        const { email } = req.body;
+        if (!email) {
+            return res.status(400).json({ error: "Email address is required to resend verification code." });
+        }
+        try {
+            const record = await this.prisma.otpVerification.findUnique({
+                where: { email: email }
+            });
+            if (!record) {
+                return res.status(404).json({ error: "No pending signup found for this email. Please register again." });
+            }
+            const timeSinceCreated = Date.now() - new Date(record.createdAt).getTime();
+            if (timeSinceCreated < 30000) {
+                const waitSec = Math.ceil((30000 - timeSinceCreated) / 1000);
+                return res.status(429).json({ error: `Please wait ${waitSec} seconds before requesting a new code.` });
+            }
+            const newOtp = Math.floor(100000 + Math.random() * 900000).toString();
+            const payloadObj = JSON.parse(record.payload);
+            await this.prisma.otpVerification.update({
+                where: { email: email },
+                data: {
+                    otp: newOtp,
+                    createdAt: new Date()
+                }
+            });
+            await this.emailService.sendOtpEmail(email, payloadObj.name || "Restaurant Owner", newOtp);
+            console.log(`[Security Log] Resent fresh OTP to ${email}`);
+            res.status(200).json({ message: "A fresh verification code has been sent to your email!" });
+        }
+        catch (error) {
+            console.error('[Resend OTP Error]', error);
+            res.status(500).json({ error: "Could not resend verification code. Please try again." });
         }
     }
     ;

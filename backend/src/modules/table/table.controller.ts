@@ -23,6 +23,12 @@ export class TableController {
   }
 
   @UseGuards(AuthGuard)
+  @Post('onboarding/setup')
+  async completeOnboardingSetup(@Req() req: Request, @Res() res: Response) {
+    return this.tableService.completeOnboardingSetup(req, res);
+  }
+
+  @UseGuards(AuthGuard)
   @Put(':id')
   async updateTable(@Req() req: Request, @Res() res: Response) {
     return this.tableService.updateTable(req, res);

@@ -5,6 +5,7 @@ export declare class TableController {
     constructor(tableService: TableService);
     getTables(req: Request, res: Response): Promise<any>;
     createTable(req: Request, res: Response): Promise<any>;
+    completeOnboardingSetup(req: Request, res: Response): Promise<any>;
     updateTable(req: Request, res: Response): Promise<any>;
     deleteTable(req: Request, res: Response): Promise<any>;
     getTableHistory(req: Request, res: Response): Promise<any>;

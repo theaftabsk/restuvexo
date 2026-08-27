@@ -26,6 +26,9 @@ let TableController = class TableController {
     async createTable(req, res) {
         return this.tableService.createTable(req, res);
     }
+    async completeOnboardingSetup(req, res) {
+        return this.tableService.completeOnboardingSetup(req, res);
+    }
     async updateTable(req, res) {
         return this.tableService.updateTable(req, res);
     }
@@ -76,6 +79,15 @@ __decorate([
     __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", Promise)
 ], TableController.prototype, "createTable", null);
+__decorate([
+    (0, common_1.UseGuards)(auth_guard_1.AuthGuard),
+    (0, common_1.Post)('onboarding/setup'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], TableController.prototype, "completeOnboardingSetup", null);
 __decorate([
     (0, common_1.UseGuards)(auth_guard_1.AuthGuard),
     (0, common_1.Put)(':id'),

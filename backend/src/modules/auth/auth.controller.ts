@@ -22,6 +22,11 @@ export class AuthController {
     return this.authService.verifyOtp(req, res);
   }
 
+  @Post('resend-otp')
+  async resendOtp(@Req() req: Request, @Res() res: Response) {
+    return this.authService.resendOtp(req, res);
+  }
+
   @Post('login')
   async login(@Req() req: Request, @Res() res: Response) {
     return this.authService.login(req, res);

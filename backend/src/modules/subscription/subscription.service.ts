@@ -136,9 +136,13 @@ export class SubscriptionService {
       const validPhone = cleanPhone.length >= 10 ? cleanPhone.slice(-10) : '9876543210';
 
       // Cashfree Production requires HTTPS return_url
+      const targetPath = (isFirstTime && !isRenewal)
+        ? `/onboarding?step=3&cf_order_id={order_id}`
+        : `/dashboard/subscription?cf_order_id={order_id}`;
+
       const returnUrl = cfConfig.env === 'production' && frontendBase.startsWith('http://localhost')
-        ? `https://app.restuvexo.shop/dashboard/subscription?cf_order_id={order_id}`
-        : `${frontendBase}/dashboard/subscription?cf_order_id={order_id}`;
+        ? `https://app.restuvexo.shop${targetPath}`
+        : `${frontendBase}${targetPath}`;
 
       const noteText = isFirstTime
         ? `RESTUVEXO ${targetPlan.name} Plan (₹1 First Month Launch Offer)`
