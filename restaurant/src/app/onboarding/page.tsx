@@ -590,49 +590,104 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* STEP 3: CELEBRATION & ENTER DASHBOARD */}
+        {/* STEP 3: PAYMENT VERIFICATION & CELEBRATION */}
         {step === 3 && (
           <div className="bg-white/95 border border-slate-200/90 rounded-3xl p-6 sm:p-10 shadow-2xl shadow-slate-200/50 backdrop-blur-xl animate-fade-in text-center">
-            <div className="w-16 h-16 bg-gradient-to-br from-emerald-400 to-teal-500 text-white rounded-3xl flex items-center justify-center mx-auto shadow-2xl shadow-emerald-500/30 mb-5 animate-bounce">
-              <Sparkles className="w-8 h-8" />
-            </div>
+            {loading ? (
+              <div className="py-12 flex flex-col items-center justify-center">
+                <div className="w-14 h-14 border-4 border-orange-200 border-t-[#ff5722] rounded-full animate-spin mb-4" />
+                <h3 className="text-xl font-black text-slate-900">Verifying Payment...</h3>
+                <p className="text-xs text-slate-500 font-semibold mt-1">Connecting with Cashfree to activate your subscription...</p>
+              </div>
+            ) : paymentVerified ? (
+              <div>
+                <div className="w-16 h-16 bg-gradient-to-br from-emerald-400 to-teal-500 text-white rounded-3xl flex items-center justify-center mx-auto shadow-2xl shadow-emerald-500/30 mb-5 animate-bounce">
+                  <Sparkles className="w-8 h-8" />
+                </div>
 
-            <span className="text-[10px] font-black text-emerald-700 uppercase tracking-widest bg-emerald-50 border border-emerald-200 px-3.5 py-1 rounded-full inline-block mb-3 shadow-xs">
-              Setup Completed Successfully
-            </span>
-
-            <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-              {restaurant?.name || "Your Restaurant"} is Live!
-            </h2>
-            <p className="text-xs text-slate-600 font-semibold max-w-md mx-auto mt-2 leading-relaxed">
-              Your tables, digital QR menu engine, POS billing terminal, and Kitchen Display System are now fully operational.
-            </p>
-
-            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 max-w-md mx-auto my-6 text-left space-y-2.5 shadow-xs">
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-slate-500 font-bold">Subscription Status:</span>
-                <span className="text-emerald-700 font-black flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  Active (30 Days)
+                <span className="text-[10px] font-black text-emerald-700 uppercase tracking-widest bg-emerald-50 border border-emerald-200 px-3.5 py-1 rounded-full inline-block mb-3 shadow-xs">
+                  Setup Completed Successfully
                 </span>
-              </div>
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-slate-500 font-bold">Assigned Tables:</span>
-                <span className="text-slate-800 font-bold">{tableCount} Tables with Smart QR Codes</span>
-              </div>
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-slate-500 font-bold">Currency & Tax:</span>
-                <span className="text-slate-800 font-bold">{currencySymbol} ({taxRate}% {taxName})</span>
-              </div>
-            </div>
 
-            <Link
-              href="/dashboard"
-              className="inline-flex items-center justify-center gap-2 w-full max-w-md bg-gradient-to-r from-[#ff5722] via-[#ea580c] to-[#e04c1d] hover:from-[#e04c1d] hover:to-[#c83e14] text-white font-black text-xs uppercase tracking-widest py-4.5 rounded-2xl shadow-xl shadow-orange-500/25 active:scale-[0.99] transition"
-            >
-              <span>Enter Owner Dashboard</span>
-              <ArrowRight className="w-4 h-4" />
-            </Link>
+                <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                  {restaurant?.name || "Your Restaurant"} is Live!
+                </h2>
+                <p className="text-xs text-slate-600 font-semibold max-w-md mx-auto mt-2 leading-relaxed">
+                  Your tables, digital QR menu engine, POS billing terminal, and Kitchen Display System are now fully operational.
+                </p>
+
+                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 max-w-md mx-auto my-6 text-left space-y-2.5 shadow-xs">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-slate-500 font-bold">Subscription Status:</span>
+                    <span className="text-emerald-700 font-black flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                      Active (30 Days)
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-slate-500 font-bold">Assigned Tables:</span>
+                    <span className="text-slate-800 font-bold">{tableCount} Tables with Smart QR Codes</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-slate-500 font-bold">Currency & Tax:</span>
+                    <span className="text-slate-800 font-bold">{currencySymbol} ({taxRate}% {taxName})</span>
+                  </div>
+                </div>
+
+                <Link
+                  href="/dashboard"
+                  className="inline-flex items-center justify-center gap-2 w-full max-w-md bg-gradient-to-r from-[#ff5722] via-[#ea580c] to-[#e04c1d] hover:from-[#e04c1d] hover:to-[#c83e14] text-white font-black text-xs uppercase tracking-widest py-4.5 rounded-2xl shadow-xl shadow-orange-500/25 active:scale-[0.99] transition"
+                >
+                  <span>Enter Owner Dashboard</span>
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+              </div>
+            ) : (
+              <div className="py-4">
+                <div className="w-14 h-14 bg-amber-50 border border-amber-200 text-amber-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <Lock className="w-6 h-6" />
+                </div>
+
+                <span className="text-[10px] font-black text-amber-700 uppercase tracking-widest bg-amber-50 border border-amber-200 px-3.5 py-1 rounded-full inline-block mb-2">
+                  Payment Verification Pending
+                </span>
+
+                <h3 className="text-xl font-black text-slate-900 tracking-tight">Complete ₹1.00 Activation</h3>
+                <p className="text-xs text-slate-500 font-semibold max-w-md mx-auto mt-1 mb-6">
+                  {error || "Please complete the ₹1.00 launch offer payment on Cashfree to unlock your full restaurant OS."}
+                </p>
+
+                <div className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
+                  <button
+                    type="button"
+                    onClick={handlePayFirstMonthPromo}
+                    disabled={loading}
+                    className="flex-1 bg-gradient-to-r from-[#ff5722] to-[#ea580c] hover:from-[#e04c1d] hover:to-[#c83e14] text-white font-black text-xs uppercase tracking-wider py-4 rounded-xl shadow-lg shadow-orange-500/25 transition"
+                  >
+                    Pay ₹1.00 via Cashfree →
+                  </button>
+
+                  {orderId && (
+                    <button
+                      type="button"
+                      onClick={() => verifyCashfreePayment(orderId)}
+                      disabled={loading}
+                      className="px-5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-black text-xs uppercase tracking-wider py-4 rounded-xl transition"
+                    >
+                      Check Again
+                    </button>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setStep(1)}
+                  className="text-xs text-slate-400 hover:text-slate-600 font-bold mt-4 inline-block"
+                >
+                  ← Back to Restaurant Setup
+                </button>
+              </div>
+            )}
           </div>
         )}
 
