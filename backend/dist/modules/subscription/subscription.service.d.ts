@@ -165,8 +165,8 @@ export declare class SubscriptionService {
             restaurant: {
                 id: number;
                 name: string;
-                email: string;
                 phone: string;
+                email: string;
                 createdAt: Date;
             };
             plan: {

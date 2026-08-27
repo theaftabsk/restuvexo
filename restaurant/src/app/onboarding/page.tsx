@@ -221,34 +221,47 @@ export default function OnboardingPage() {
     }
   };
 
-  // Step 3: Verify Payment after redirect
-  const verifyCashfreePayment = async (orderIdToVerify: string) => {
+  // Step 3: Verify Payment after redirect with auto-retry
+  const verifyCashfreePayment = async (orderIdToVerify: string, retries = 3) => {
     setLoading(true);
+    setError("");
     const token = localStorage.getItem("authToken");
 
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/subscription/cashfree/verify`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ orderId: orderIdToVerify })
-      });
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/subscription/cashfree/verify`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({ orderId: orderIdToVerify })
+        });
 
-      const verifyData = await res.json();
+        const verifyData = await res.json();
 
-      if (verifyData.success) {
-        setPaymentVerified(true);
-        setSuccess("🎉 Payment verified! Your restaurant OS is activated for 30 days.");
-      } else {
-        setError(verifyData.error || "Payment verification not completed. Please try again.");
+        if (verifyData.success) {
+          setPaymentVerified(true);
+          setSuccess("🎉 Payment verified! Your restaurant OS is activated for 30 days.");
+          setLoading(false);
+          return;
+        }
+
+        if (attempt < retries) {
+          // Cashfree might take 1-2s to transition status, wait and retry
+          await new Promise(r => setTimeout(r, 1500));
+        } else {
+          setError(verifyData.error || "Payment verification not completed. Please try again.");
+        }
+      } catch (err: any) {
+        if (attempt === retries) {
+          setError(err.message || "Payment verification failed.");
+        } else {
+          await new Promise(r => setTimeout(r, 1500));
+        }
       }
-    } catch (err: any) {
-      setError(err.message || "Payment verification failed.");
-    } finally {
-      setLoading(false);
     }
+    setLoading(false);
   };
 
   return (

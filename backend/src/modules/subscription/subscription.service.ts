@@ -107,20 +107,24 @@ export class SubscriptionService {
       where: { restaurantId },
       include: { payments: true, plan: true }
     });
-    const isFirstTime = !existingSub || existingSub.payments.length === 0;
+
+    // 1-Time ₹1 Promo Eligibility Check:
+    // Only eligible if restaurant.firstMonthPromoUsed === false AND no previous payments exist
+    const promoEligible = !restaurant.firstMonthPromoUsed && (!existingSub || existingSub.payments.length === 0);
+    const isFirstTime = promoEligible;
     const isPlanSwitch = existingSub && existingSub.planId !== targetPlan.id;
 
     // Price calculation:
-    // 1. First-time registration promo = ₹1.00
-    // 2. Plan Tier Switch / Upgrade = New Plan's Standard Price
-    // 3. Regular Renewal = Target Plan's Standard Price
+    // 1. One-Time First-Month Launch Promo (if promo not used) = ₹1.00
+    // 2. Plan Tier Switch / Upgrade = New Plan's Standard Price (e.g. ₹999)
+    // 3. Regular Monthly Renewal = Target Plan's Standard Price (e.g. ₹999)
     let orderAmount: number;
-    if (isFirstTime && !isRenewal) {
-      orderAmount = Number(targetPlan.firstMonthPrice || 1.00);
+    if (promoEligible && !isRenewal) {
+      orderAmount = 1.00;
     } else if (isPlanSwitch) {
-      orderAmount = Number(targetPlan.price);
+      orderAmount = Number(targetPlan.price || 999.00);
     } else {
-      orderAmount = Number(existingSub?.renewalAmount || targetPlan.price);
+      orderAmount = Number(existingSub?.renewalAmount || targetPlan.price || 999.00);
     }
 
     if (isNaN(orderAmount) || orderAmount < 1) {
@@ -136,7 +140,7 @@ export class SubscriptionService {
       const validPhone = cleanPhone.length >= 10 ? cleanPhone.slice(-10) : '9876543210';
 
       // Cashfree Production requires HTTPS return_url
-      const targetPath = (isFirstTime && !isRenewal)
+      const targetPath = (promoEligible && !isRenewal)
         ? `/onboarding?step=3&cf_order_id={order_id}`
         : `/dashboard/subscription?cf_order_id={order_id}`;
 
@@ -345,7 +349,10 @@ export class SubscriptionService {
     }
 
     const now = new Date();
-    const existingSub = await this.prisma.subscription.findUnique({ where: { restaurantId } });
+    const existingSub = await this.prisma.subscription.findUnique({
+      where: { restaurantId },
+      include: { payments: true }
+    });
 
     // Calculate new period: Maintain period continuity from old due date if late payment
     let periodStart = now;
@@ -360,15 +367,18 @@ export class SubscriptionService {
       periodEnd = new Date(now.getTime() + billingDays * 24 * 60 * 60 * 1000);
     }
 
-    const isFirstTime = !existingSub;
+    const restaurant = await this.prisma.restaurant.findUnique({ where: { id: restaurantId } });
+    const promoEligible = restaurant && !restaurant.firstMonthPromoUsed && (!existingSub || existingSub.payments?.length === 0);
+    const isFirstTime = promoEligible;
     const isPlanSwitch = existingSub && existingSub.planId !== targetPlan.id;
+    
     let paidAmount: number;
-    if (isFirstTime) {
-      paidAmount = Number(targetPlan.firstMonthPrice || 1.00);
+    if (promoEligible) {
+      paidAmount = 1.00;
     } else if (isPlanSwitch) {
-      paidAmount = Number(targetPlan.price);
+      paidAmount = Number(targetPlan.price || 999.00);
     } else {
-      paidAmount = Number(existingSub?.renewalAmount || targetPlan.price);
+      paidAmount = Number(existingSub?.renewalAmount || targetPlan.price || 999.00);
     }
 
     if (isNaN(paidAmount) || paidAmount < 1) {
@@ -385,7 +395,7 @@ export class SubscriptionService {
         currentPeriodEnd: periodEnd,
         nextBillingAt: periodEnd,
         amount: new Prisma.Decimal(paidAmount),
-        renewalAmount: new Prisma.Decimal(targetPlan.price || 999),
+        renewalAmount: new Prisma.Decimal(targetPlan.price || 999.00),
         graceDays: 7
       },
       create: {
@@ -397,13 +407,13 @@ export class SubscriptionService {
         currentPeriodEnd: periodEnd,
         nextBillingAt: periodEnd,
         amount: new Prisma.Decimal(paidAmount),
-        renewalAmount: new Prisma.Decimal(targetPlan.price || 999),
+        renewalAmount: new Prisma.Decimal(targetPlan.price || 999.00),
         graceDays: 7,
-        notes: 'Initial ₹1 activation via Cashfree'
+        notes: promoEligible ? 'Initial ₹1 launch offer activation via Cashfree' : 'Subscription activation via Cashfree'
       }
     });
 
-    const paymentNote = isFirstTime
+    const paymentNote = promoEligible
       ? '₹1 First Month Launch Offer via Cashfree'
       : isPlanSwitch
       ? `Tier Switch: Upgrade to ${targetPlan.name} Plan via Cashfree`
@@ -423,6 +433,26 @@ export class SubscriptionService {
         cfOrderId: orderId,
         cfPaymentId: cfPaymentId,
         notes: paymentNote
+      }
+    });
+
+    // Mark firstMonthPromoUsed = true so this restaurant can NEVER claim ₹1 promo again!
+    await this.prisma.restaurant.update({
+      where: { id: restaurantId },
+      data: { firstMonthPromoUsed: true }
+    });
+
+    // Sync Restaurant Settings
+    await this.prisma.restaurantSetting.upsert({
+      where: { restaurantId },
+      update: {
+        subscriptionStatus: 'active',
+        subscriptionPlan: targetPlan.name
+      },
+      create: {
+        restaurantId,
+        subscriptionStatus: 'active',
+        subscriptionPlan: targetPlan.name
       }
     });
 

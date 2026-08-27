@@ -104,17 +104,18 @@ let SubscriptionService = class SubscriptionService {
             where: { restaurantId },
             include: { payments: true, plan: true }
         });
-        const isFirstTime = !existingSub || existingSub.payments.length === 0;
+        const promoEligible = !restaurant.firstMonthPromoUsed && (!existingSub || existingSub.payments.length === 0);
+        const isFirstTime = promoEligible;
         const isPlanSwitch = existingSub && existingSub.planId !== targetPlan.id;
         let orderAmount;
-        if (isFirstTime && !isRenewal) {
-            orderAmount = Number(targetPlan.firstMonthPrice || 1.00);
+        if (promoEligible && !isRenewal) {
+            orderAmount = 1.00;
         }
         else if (isPlanSwitch) {
-            orderAmount = Number(targetPlan.price);
+            orderAmount = Number(targetPlan.price || 999.00);
         }
         else {
-            orderAmount = Number(existingSub?.renewalAmount || targetPlan.price);
+            orderAmount = Number(existingSub?.renewalAmount || targetPlan.price || 999.00);
         }
         if (isNaN(orderAmount) || orderAmount < 1) {
             orderAmount = 1.00;
@@ -125,7 +126,7 @@ let SubscriptionService = class SubscriptionService {
             const frontendBase = process.env.FRONTEND_URL || 'http://localhost:3000';
             const cleanPhone = (restaurant.phone || '').replace(/[^0-9]/g, '');
             const validPhone = cleanPhone.length >= 10 ? cleanPhone.slice(-10) : '9876543210';
-            const targetPath = (isFirstTime && !isRenewal)
+            const targetPath = (promoEligible && !isRenewal)
                 ? `/onboarding?step=3&cf_order_id={order_id}`
                 : `/dashboard/subscription?cf_order_id={order_id}`;
             const returnUrl = cfConfig.env === 'production' && frontendBase.startsWith('http://localhost')
@@ -311,7 +312,10 @@ let SubscriptionService = class SubscriptionService {
             };
         }
         const now = new Date();
-        const existingSub = await this.prisma.subscription.findUnique({ where: { restaurantId } });
+        const existingSub = await this.prisma.subscription.findUnique({
+            where: { restaurantId },
+            include: { payments: true }
+        });
         let periodStart = now;
         let periodEnd;
         const billingDays = targetPlan.billingDays || 30;
@@ -323,17 +327,19 @@ let SubscriptionService = class SubscriptionService {
         else {
             periodEnd = new Date(now.getTime() + billingDays * 24 * 60 * 60 * 1000);
         }
-        const isFirstTime = !existingSub;
+        const restaurant = await this.prisma.restaurant.findUnique({ where: { id: restaurantId } });
+        const promoEligible = restaurant && !restaurant.firstMonthPromoUsed && (!existingSub || existingSub.payments?.length === 0);
+        const isFirstTime = promoEligible;
         const isPlanSwitch = existingSub && existingSub.planId !== targetPlan.id;
         let paidAmount;
-        if (isFirstTime) {
-            paidAmount = Number(targetPlan.firstMonthPrice || 1.00);
+        if (promoEligible) {
+            paidAmount = 1.00;
         }
         else if (isPlanSwitch) {
-            paidAmount = Number(targetPlan.price);
+            paidAmount = Number(targetPlan.price || 999.00);
         }
         else {
-            paidAmount = Number(existingSub?.renewalAmount || targetPlan.price);
+            paidAmount = Number(existingSub?.renewalAmount || targetPlan.price || 999.00);
         }
         if (isNaN(paidAmount) || paidAmount < 1) {
             paidAmount = 1.00;
@@ -347,7 +353,7 @@ let SubscriptionService = class SubscriptionService {
                 currentPeriodEnd: periodEnd,
                 nextBillingAt: periodEnd,
                 amount: new client_1.Prisma.Decimal(paidAmount),
-                renewalAmount: new client_1.Prisma.Decimal(targetPlan.price || 999),
+                renewalAmount: new client_1.Prisma.Decimal(targetPlan.price || 999.00),
                 graceDays: 7
             },
             create: {
@@ -359,12 +365,12 @@ let SubscriptionService = class SubscriptionService {
                 currentPeriodEnd: periodEnd,
                 nextBillingAt: periodEnd,
                 amount: new client_1.Prisma.Decimal(paidAmount),
-                renewalAmount: new client_1.Prisma.Decimal(targetPlan.price || 999),
+                renewalAmount: new client_1.Prisma.Decimal(targetPlan.price || 999.00),
                 graceDays: 7,
-                notes: 'Initial ₹1 activation via Cashfree'
+                notes: promoEligible ? 'Initial ₹1 launch offer activation via Cashfree' : 'Subscription activation via Cashfree'
             }
         });
-        const paymentNote = isFirstTime
+        const paymentNote = promoEligible
             ? '₹1 First Month Launch Offer via Cashfree'
             : isPlanSwitch
                 ? `Tier Switch: Upgrade to ${targetPlan.name} Plan via Cashfree`
@@ -382,6 +388,22 @@ let SubscriptionService = class SubscriptionService {
                 cfOrderId: orderId,
                 cfPaymentId: cfPaymentId,
                 notes: paymentNote
+            }
+        });
+        await this.prisma.restaurant.update({
+            where: { id: restaurantId },
+            data: { firstMonthPromoUsed: true }
+        });
+        await this.prisma.restaurantSetting.upsert({
+            where: { restaurantId },
+            update: {
+                subscriptionStatus: 'active',
+                subscriptionPlan: targetPlan.name
+            },
+            create: {
+                restaurantId,
+                subscriptionStatus: 'active',
+                subscriptionPlan: targetPlan.name
             }
         });
         await this.prisma.subscriptionEvent.create({

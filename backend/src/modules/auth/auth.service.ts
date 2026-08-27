@@ -19,165 +19,181 @@ export class AuthService {
   }
 
   async ownerSignup(req, res: any) {
-  const { name, restaurantName, phone, email, password } = req.body;
+    const { name, restaurantName, phone, email, password } = req.body;
 
-  if (!name || !restaurantName || !phone || !email || !password) {
-    return res.status(400).json({ error: "All fields are required to register your restaurant." });
-  }
-
-  if (password.length > 100 || email.length > 100 || phone.length > 100 || name.length > 100 || restaurantName.length > 100) {
-    return res.status(400).json({ error: "Input lengths exceed permitted security limits." });
-  }
-
-  try {
-    console.log(`[Security Log] Owner signup request initiated for email: ${email}, restaurant: ${restaurantName} (IP: ${req.ip})`);
-    // 1. Check if email already exists in restaurants
-    const existingRestaurant = await this.prisma.restaurant.findUnique({
-      where: { email: email }
-    });
-
-    if (existingRestaurant) {
-      return res.status(400).json({ error: "A restaurant with this email address already exists." });
+    if (!name || !restaurantName || !phone || !email || !password) {
+      return res.status(400).json({ error: "All fields are required to register your restaurant." });
     }
 
-    // 2. Check if phone already exists in restaurants
-    const existingRestaurantPhone = await this.prisma.restaurant.findFirst({
-      where: { phone: phone }
-    });
+    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedPhone = phone.trim().replace(/[\s-]/g, '');
 
-    if (existingRestaurantPhone) {
-      return res.status(400).json({ error: "A restaurant with this phone number already exists." });
+    if (password.length > 100 || normalizedEmail.length > 100 || normalizedPhone.length > 50 || name.length > 100 || restaurantName.length > 100) {
+      return res.status(400).json({ error: "Input lengths exceed permitted security limits." });
     }
 
-    // Generate random 6-digit OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-
-    const salt = await bcrypt.genSalt(10);
-    const passwordHash = await bcrypt.hash(password, salt);
-
-    // Save pending registration payload in OtpVerification
-    const payload = JSON.stringify({ name, restaurantName, phone, passwordHash });
-
-    await this.prisma.otpVerification.upsert({
-      where: { email: email },
-      update: {
-        otp: otp,
-        payload: payload,
-        createdAt: new Date()
-      },
-      create: {
-        email: email,
-        otp: otp,
-        payload: payload
-      }
-    });
-
-    // Send OTP to email via SMTP Nodemailer
-    await this.emailService.sendOtpEmail(email, name, otp);
-
-    res.status(200).json({
-      message: "Email verification code has been dispatched. Check your inbox!"
-    });
-
-  } catch (error) {
-    console.error('[Signup Request Error]', error);
-    res.status(500).json({ error: error.message || "Could not process registration. Try again." });
-  }
-};
-
-// 2. Stage 2: Confirm Email OTP & Complete Account Creation
-async verifyOtp(req, res: any) {
-  const { email, otp } = req.body;
-
-  if (!email || !otp) {
-    return res.status(400).json({ error: "Email and verification code are required." });
-  }
-
-  if (email.length > 100 || otp.length > 20) {
-    return res.status(400).json({ error: "Input lengths exceed permitted security limits." });
-  }
-
-  try {
-    console.log(`[Security Log] OTP verification attempt for email: ${email} (IP: ${req.ip})`);
-    const record = await this.prisma.otpVerification.findUnique({
-      where: { email: email }
-    });
-
-    if (!record) {
-      return res.status(400).json({ error: "No pending registration found for this email address." });
-    }
-
-    // Verify OTP code match
-    if (record.otp !== otp) {
-      console.log(`[Security Alert] Invalid OTP verification attempt for email: ${email} (IP: ${req.ip})`);
-      return res.status(400).json({ error: "Invalid verification code. Please try again." });
-    }
-
-    // OTP matches! Decode details
-    const { name, restaurantName, phone, passwordHash } = JSON.parse(record.payload);
-
-    // Dynamic verification duplicate safety check (if credentials got claimed in the meantime)
-    const existingRestaurant = await this.prisma.restaurant.findUnique({
-      where: { email: email }
-    });
-
-    if (existingRestaurant) {
-      return res.status(400).json({ error: "A restaurant with this email address has already been registered." });
-    }
-
-    const existingRestaurantPhone = await this.prisma.restaurant.findFirst({
-      where: { phone: phone }
-    });
-
-    if (existingRestaurantPhone) {
-      return res.status(400).json({ error: "A restaurant with this phone number has already been registered." });
-    }
-    
-    const salt = await bcrypt.genSalt(10);
-    const defaultPinHash = await bcrypt.hash("0000", salt); // Default owner PIN
-
-    const result = await this.prisma.$transaction(async (tx) => {
-      const restaurant = await tx.restaurant.create({
-        data: {
-          name: restaurantName,
-          phone: phone,
-          email: email
-        }
-      });
-
-      const user = await tx.user.create({
-        data: {
-          restaurantId: restaurant.id,
-          name: name,
-          role: "owner",
-          loginId: email, // Owner loginId = their email address
-          passwordHash: passwordHash,
-          pinHash: defaultPinHash,
-          status: "active"
-        }
-      });
-
-      return { restaurant, user };
-    });
-
-    // Delete OtpVerification record
-    await this.prisma.otpVerification.delete({
-      where: { email: email }
-    });
-
-    // Send Welcome Email (Non-blocking fallback to prevent signup errors if SMTP credentials are missing)
     try {
-      await this.emailService.sendWelcomeEmail(email, name, restaurantName);
-    } catch (mailErr) {
-      console.error("Failed to transmit Welcome email:", mailErr.message);
+      console.log(`[Security Log] Owner signup request initiated for email: ${normalizedEmail}, phone: ${normalizedPhone} (IP: ${req.ip})`);
+      
+      // 1. Strict Unique Email Check in Restaurants & Users
+      const existingRestaurantEmail = await this.prisma.restaurant.findUnique({
+        where: { email: normalizedEmail }
+      });
+      const existingUserEmail = await this.prisma.user.findFirst({
+        where: { loginId: normalizedEmail }
+      });
+
+      if (existingRestaurantEmail || existingUserEmail) {
+        return res.status(400).json({ error: "An account with this email address is already registered. Please sign in instead." });
+      }
+
+      // 2. Strict Unique Phone Check in Restaurants & Users
+      const existingRestaurantPhone = await this.prisma.restaurant.findFirst({
+        where: { phone: normalizedPhone }
+      });
+      const existingUserPhone = await this.prisma.user.findFirst({
+        where: { phone: normalizedPhone }
+      });
+
+      if (existingRestaurantPhone || existingUserPhone) {
+        return res.status(400).json({ error: "An account with this phone number is already registered with another restaurant." });
+      }
+
+      // Generate random 6-digit OTP
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+      const salt = await bcrypt.genSalt(10);
+      const passwordHash = await bcrypt.hash(password, salt);
+
+      // Save pending registration payload in OtpVerification
+      const payload = JSON.stringify({ 
+        name: name.trim(), 
+        restaurantName: restaurantName.trim(), 
+        phone: normalizedPhone, 
+        passwordHash 
+      });
+
+      await this.prisma.otpVerification.upsert({
+        where: { email: normalizedEmail },
+        update: {
+          otp: otp,
+          payload: payload,
+          createdAt: new Date()
+        },
+        create: {
+          email: normalizedEmail,
+          otp: otp,
+          payload: payload
+        }
+      });
+
+      // Send OTP to email via pure Nodemailer SMTP
+      await this.emailService.sendOtpEmail(normalizedEmail, name, otp);
+
+      res.status(200).json({
+        message: "Email verification code has been dispatched. Check your inbox!"
+      });
+
+    } catch (error) {
+      console.error('[Signup Request Error]', error);
+      res.status(500).json({ error: error.message || "Could not process registration. Try again." });
+    }
+  };
+
+  // 2. Stage 2: Confirm Email OTP & Complete Account Creation
+  async verifyOtp(req, res: any) {
+    const { email, otp } = req.body;
+
+    if (!email || !otp) {
+      return res.status(400).json({ error: "Email and verification code are required." });
     }
 
-    console.log(`[Security Log] Email verified successfully and owner account created. Email: ${email} (IP: ${req.ip})`);
+    const normalizedEmail = email.trim().toLowerCase();
 
+    if (normalizedEmail.length > 100 || otp.length > 20) {
+      return res.status(400).json({ error: "Input lengths exceed permitted security limits." });
+    }
 
+    try {
+      console.log(`[Security Log] OTP verification attempt for email: ${normalizedEmail} (IP: ${req.ip})`);
+      const record = await this.prisma.otpVerification.findUnique({
+        where: { email: normalizedEmail }
+      });
 
-    // Sign JWT
-    const token = jwt.sign(
+      if (!record) {
+        return res.status(400).json({ error: "No pending registration found for this email address." });
+      }
+
+      // Verify OTP code match
+      if (record.otp !== otp) {
+        console.log(`[Security Alert] Invalid OTP verification attempt for email: ${normalizedEmail} (IP: ${req.ip})`);
+        return res.status(400).json({ error: "Invalid verification code. Please try again." });
+      }
+
+      // OTP matches! Decode details
+      const { name, restaurantName, phone, passwordHash } = JSON.parse(record.payload);
+      const normalizedPhone = phone.trim().replace(/[\s-]/g, '');
+
+      // Dynamic verification duplicate safety check (if credentials got claimed in the meantime)
+      const existingRestaurant = await this.prisma.restaurant.findUnique({
+        where: { email: normalizedEmail }
+      });
+      if (existingRestaurant) {
+        return res.status(400).json({ error: "An account with this email address has already been registered." });
+      }
+
+      const existingRestaurantPhone = await this.prisma.restaurant.findFirst({
+        where: { phone: normalizedPhone }
+      });
+      if (existingRestaurantPhone) {
+        return res.status(400).json({ error: "An account with this phone number has already been registered." });
+      }
+      
+      const salt = await bcrypt.genSalt(10);
+      const defaultPinHash = await bcrypt.hash("0000", salt); // Default owner PIN
+
+      const result = await this.prisma.$transaction(async (tx) => {
+        const restaurant = await tx.restaurant.create({
+          data: {
+            name: restaurantName,
+            phone: normalizedPhone,
+            email: normalizedEmail,
+            firstMonthPromoUsed: false
+          }
+        });
+
+        const user = await tx.user.create({
+          data: {
+            restaurantId: restaurant.id,
+            name: name,
+            role: "owner",
+            loginId: normalizedEmail, // Owner loginId = their email address
+            phone: normalizedPhone,
+            passwordHash: passwordHash,
+            pinHash: defaultPinHash,
+            status: "active"
+          }
+        });
+
+        return { restaurant, user };
+      });
+
+      // Delete OtpVerification record
+      await this.prisma.otpVerification.delete({
+        where: { email: normalizedEmail }
+      });
+
+      // Send Welcome Email
+      try {
+        await this.emailService.sendWelcomeEmail(normalizedEmail, name, restaurantName);
+      } catch (mailErr) {
+        console.error("Failed to transmit Welcome email:", mailErr.message);
+      }
+
+      console.log(`[Security Log] Email verified successfully and owner account created. Email: ${normalizedEmail} (IP: ${req.ip})`);
+
+      // Sign JWT
+      const token = jwt.sign(
       { 
         id: result.user.id, 
         restaurantId: result.restaurant.id, 

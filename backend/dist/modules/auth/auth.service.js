@@ -31,41 +31,54 @@ let AuthService = class AuthService {
         if (!name || !restaurantName || !phone || !email || !password) {
             return res.status(400).json({ error: "All fields are required to register your restaurant." });
         }
-        if (password.length > 100 || email.length > 100 || phone.length > 100 || name.length > 100 || restaurantName.length > 100) {
+        const normalizedEmail = email.trim().toLowerCase();
+        const normalizedPhone = phone.trim().replace(/[\s-]/g, '');
+        if (password.length > 100 || normalizedEmail.length > 100 || normalizedPhone.length > 50 || name.length > 100 || restaurantName.length > 100) {
             return res.status(400).json({ error: "Input lengths exceed permitted security limits." });
         }
         try {
-            console.log(`[Security Log] Owner signup request initiated for email: ${email}, restaurant: ${restaurantName} (IP: ${req.ip})`);
-            const existingRestaurant = await this.prisma.restaurant.findUnique({
-                where: { email: email }
+            console.log(`[Security Log] Owner signup request initiated for email: ${normalizedEmail}, phone: ${normalizedPhone} (IP: ${req.ip})`);
+            const existingRestaurantEmail = await this.prisma.restaurant.findUnique({
+                where: { email: normalizedEmail }
             });
-            if (existingRestaurant) {
-                return res.status(400).json({ error: "A restaurant with this email address already exists." });
+            const existingUserEmail = await this.prisma.user.findFirst({
+                where: { loginId: normalizedEmail }
+            });
+            if (existingRestaurantEmail || existingUserEmail) {
+                return res.status(400).json({ error: "An account with this email address is already registered. Please sign in instead." });
             }
             const existingRestaurantPhone = await this.prisma.restaurant.findFirst({
-                where: { phone: phone }
+                where: { phone: normalizedPhone }
             });
-            if (existingRestaurantPhone) {
-                return res.status(400).json({ error: "A restaurant with this phone number already exists." });
+            const existingUserPhone = await this.prisma.user.findFirst({
+                where: { phone: normalizedPhone }
+            });
+            if (existingRestaurantPhone || existingUserPhone) {
+                return res.status(400).json({ error: "An account with this phone number is already registered with another restaurant." });
             }
             const otp = Math.floor(100000 + Math.random() * 900000).toString();
             const salt = await bcrypt.genSalt(10);
             const passwordHash = await bcrypt.hash(password, salt);
-            const payload = JSON.stringify({ name, restaurantName, phone, passwordHash });
+            const payload = JSON.stringify({
+                name: name.trim(),
+                restaurantName: restaurantName.trim(),
+                phone: normalizedPhone,
+                passwordHash
+            });
             await this.prisma.otpVerification.upsert({
-                where: { email: email },
+                where: { email: normalizedEmail },
                 update: {
                     otp: otp,
                     payload: payload,
                     createdAt: new Date()
                 },
                 create: {
-                    email: email,
+                    email: normalizedEmail,
                     otp: otp,
                     payload: payload
                 }
             });
-            await this.emailService.sendOtpEmail(email, name, otp);
+            await this.emailService.sendOtpEmail(normalizedEmail, name, otp);
             res.status(200).json({
                 message: "Email verification code has been dispatched. Check your inbox!"
             });
@@ -81,33 +94,35 @@ let AuthService = class AuthService {
         if (!email || !otp) {
             return res.status(400).json({ error: "Email and verification code are required." });
         }
-        if (email.length > 100 || otp.length > 20) {
+        const normalizedEmail = email.trim().toLowerCase();
+        if (normalizedEmail.length > 100 || otp.length > 20) {
             return res.status(400).json({ error: "Input lengths exceed permitted security limits." });
         }
         try {
-            console.log(`[Security Log] OTP verification attempt for email: ${email} (IP: ${req.ip})`);
+            console.log(`[Security Log] OTP verification attempt for email: ${normalizedEmail} (IP: ${req.ip})`);
             const record = await this.prisma.otpVerification.findUnique({
-                where: { email: email }
+                where: { email: normalizedEmail }
             });
             if (!record) {
                 return res.status(400).json({ error: "No pending registration found for this email address." });
             }
             if (record.otp !== otp) {
-                console.log(`[Security Alert] Invalid OTP verification attempt for email: ${email} (IP: ${req.ip})`);
+                console.log(`[Security Alert] Invalid OTP verification attempt for email: ${normalizedEmail} (IP: ${req.ip})`);
                 return res.status(400).json({ error: "Invalid verification code. Please try again." });
             }
             const { name, restaurantName, phone, passwordHash } = JSON.parse(record.payload);
+            const normalizedPhone = phone.trim().replace(/[\s-]/g, '');
             const existingRestaurant = await this.prisma.restaurant.findUnique({
-                where: { email: email }
+                where: { email: normalizedEmail }
             });
             if (existingRestaurant) {
-                return res.status(400).json({ error: "A restaurant with this email address has already been registered." });
+                return res.status(400).json({ error: "An account with this email address has already been registered." });
             }
             const existingRestaurantPhone = await this.prisma.restaurant.findFirst({
-                where: { phone: phone }
+                where: { phone: normalizedPhone }
             });
             if (existingRestaurantPhone) {
-                return res.status(400).json({ error: "A restaurant with this phone number has already been registered." });
+                return res.status(400).json({ error: "An account with this phone number has already been registered." });
             }
             const salt = await bcrypt.genSalt(10);
             const defaultPinHash = await bcrypt.hash("0000", salt);
@@ -115,8 +130,9 @@ let AuthService = class AuthService {
                 const restaurant = await tx.restaurant.create({
                     data: {
                         name: restaurantName,
-                        phone: phone,
-                        email: email
+                        phone: normalizedPhone,
+                        email: normalizedEmail,
+                        firstMonthPromoUsed: false
                     }
                 });
                 const user = await tx.user.create({
@@ -124,7 +140,8 @@ let AuthService = class AuthService {
                         restaurantId: restaurant.id,
                         name: name,
                         role: "owner",
-                        loginId: email,
+                        loginId: normalizedEmail,
+                        phone: normalizedPhone,
                         passwordHash: passwordHash,
                         pinHash: defaultPinHash,
                         status: "active"
@@ -133,15 +150,15 @@ let AuthService = class AuthService {
                 return { restaurant, user };
             });
             await this.prisma.otpVerification.delete({
-                where: { email: email }
+                where: { email: normalizedEmail }
             });
             try {
-                await this.emailService.sendWelcomeEmail(email, name, restaurantName);
+                await this.emailService.sendWelcomeEmail(normalizedEmail, name, restaurantName);
             }
             catch (mailErr) {
                 console.error("Failed to transmit Welcome email:", mailErr.message);
             }
-            console.log(`[Security Log] Email verified successfully and owner account created. Email: ${email} (IP: ${req.ip})`);
+            console.log(`[Security Log] Email verified successfully and owner account created. Email: ${normalizedEmail} (IP: ${req.ip})`);
             const token = jwt.sign({
                 id: result.user.id,
                 restaurantId: result.restaurant.id,
