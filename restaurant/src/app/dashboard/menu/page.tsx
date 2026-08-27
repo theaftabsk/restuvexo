@@ -46,11 +46,18 @@ export default function MenuManagement() {
   const [loadingItems, setLoadingItems] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
 
-  // Category Modal
+  // Category Modal & Management Hub
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [categoryModalType, setCategoryModalType] = useState<"add" | "edit">("add");
   const [activeCategoryId, setActiveCategoryId] = useState<number | null>(null);
   const [categoryNameInput, setCategoryNameInput] = useState("");
+  
+  // Dedicated Category Management Modal
+  const [showManageCategoriesModal, setShowManageCategoriesModal] = useState(false);
+  const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null);
+  const [editingCategoryName, setEditingCategoryName] = useState("");
+  const [newCategoryInput, setNewCategoryInput] = useState("");
+  const [categorySearchQuery, setCategorySearchQuery] = useState("");
 
   // Item Modal & Form
   const [showItemModal, setShowItemModal] = useState(false);
@@ -228,7 +235,7 @@ export default function MenuManagement() {
         const res = await fetch(`${BACKEND_URL}/api/menu/categories`, {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ name: categoryNameInput })
+          body: JSON.stringify({ name: categoryNameInput.trim() })
         });
         if (!res.ok) throw new Error("Failed to create category.");
         triggerToast("Category created successfully!", "success");
@@ -236,7 +243,7 @@ export default function MenuManagement() {
         const res = await fetch(`${BACKEND_URL}/api/menu/categories/${activeCategoryId}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ name: categoryNameInput })
+          body: JSON.stringify({ name: categoryNameInput.trim() })
         });
         if (!res.ok) throw new Error("Failed to update category.");
         triggerToast("Category updated successfully!", "success");
@@ -246,6 +253,88 @@ export default function MenuManagement() {
       fetchCategories();
     } catch (e: any) {
       triggerToast(e.message || "Failed to save category", "error");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Inline Category Update in Management Modal
+  const handleUpdateCategoryInline = async (catId: number) => {
+    if (!editingCategoryName.trim()) {
+      triggerToast("Category name cannot be empty.", "error");
+      return;
+    }
+    const token = localStorage.getItem("authToken");
+    setActionLoading(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/menu/categories/${catId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ name: editingCategoryName.trim() })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to update category.");
+      triggerToast("Category updated successfully!", "success");
+      setEditingCategoryId(null);
+      fetchCategories();
+    } catch (e: any) {
+      triggerToast(e.message || "Failed to update category.", "error");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Category Deletion
+  const handleDeleteCategory = async (cat: any) => {
+    if ((cat.itemCount || 0) > 0) {
+      triggerToast(`Cannot delete "${cat.name}" because it contains ${cat.itemCount} dishes. Remove or reassign them first.`, "error");
+      return;
+    }
+
+    if (!window.confirm(`Are you sure you want to delete category "${cat.name}"?`)) {
+      return;
+    }
+
+    const token = localStorage.getItem("authToken");
+    setActionLoading(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/menu/categories/${cat.id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to delete category.");
+      triggerToast("Category deleted successfully!", "success");
+      fetchCategories();
+    } catch (e: any) {
+      triggerToast(e.message || "Failed to delete category.", "error");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Quick Category Creation from Hub
+  const handleCreateCategoryFromHub = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCategoryInput.trim()) {
+      triggerToast("Please enter a category name.", "error");
+      return;
+    }
+    const token = localStorage.getItem("authToken");
+    setActionLoading(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/menu/categories`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ name: newCategoryInput.trim() })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to create category.");
+      triggerToast("Category added successfully!", "success");
+      setNewCategoryInput("");
+      fetchCategories();
+    } catch (e: any) {
+      triggerToast(e.message || "Failed to create category.", "error");
     } finally {
       setActionLoading(false);
     }
@@ -447,13 +536,24 @@ export default function MenuManagement() {
         <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => {
+              setShowManageCategoriesModal(true);
+              setEditingCategoryId(null);
+            }}
+            className="px-3.5 py-2 rounded-xl bg-orange-50 hover:bg-orange-100 border border-orange-200 text-[#ff5722] text-xs font-black flex items-center gap-1.5 transition shadow-xs cursor-pointer"
+          >
+            <Layers className="w-4 h-4 text-[#ff5722]" />
+            <span>Manage Categories ({categories.length})</span>
+          </button>
+
+          <button
+            onClick={() => {
               setCategoryModalType("add");
               setCategoryNameInput("");
               setShowCategoryModal(true);
             }}
             className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-black flex items-center gap-1.5 transition cursor-pointer"
           >
-            <Layers className="w-4 h-4 text-[#ff5722]" />
+            <Plus className="w-3.5 h-3.5 text-[#ff5722]" />
             <span>+ Category</span>
           </button>
 
@@ -482,19 +582,47 @@ export default function MenuManagement() {
           </button>
 
           {categories.map((cat) => (
-            <button
+            <div
               key={cat.id}
-              onClick={() => { setSelectedCategoryFilter(cat.name); setCurrentPage(1); }}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-black whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 ${
+              className={`group flex items-center rounded-xl text-xs font-black whitespace-nowrap transition ${
                 selectedCategoryFilter === cat.name
                   ? "bg-[#ff5722] text-white shadow-xs"
                   : "bg-slate-100 text-slate-600 hover:bg-slate-200"
               }`}
             >
-              <span>{cat.name}</span>
-              <span className="text-[10px] opacity-75 font-bold">({cat.itemCount || 0})</span>
-            </button>
+              <button
+                onClick={() => { setSelectedCategoryFilter(cat.name); setCurrentPage(1); }}
+                className="px-3 py-1.5 flex items-center gap-1.5 cursor-pointer"
+              >
+                <span>{cat.name}</span>
+                <span className="text-[10px] opacity-75 font-bold">({cat.itemCount || 0})</span>
+              </button>
+              
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setEditingCategoryId(cat.id);
+                  setEditingCategoryName(cat.name);
+                  setShowManageCategoriesModal(true);
+                }}
+                className={`pr-2.5 py-1.5 opacity-60 hover:opacity-100 transition cursor-pointer ${
+                  selectedCategoryFilter === cat.name ? "text-white" : "text-slate-400 hover:text-slate-900"
+                }`}
+                title="Edit Category"
+              >
+                <Edit2 className="w-3 h-3" />
+              </button>
+            </div>
           ))}
+
+          <button
+            onClick={() => setShowManageCategoriesModal(true)}
+            className="px-3 py-1.5 rounded-xl bg-orange-50 hover:bg-orange-100 text-[#ff5722] text-xs font-black whitespace-nowrap flex items-center gap-1 border border-dashed border-orange-300 transition cursor-pointer"
+          >
+            <SlidersHorizontal className="w-3 h-3" />
+            <span>Manage All ({categories.length})</span>
+          </button>
         </div>
       </div>
 
@@ -1159,7 +1287,7 @@ export default function MenuManagement() {
 
       {/* MODAL: CATEGORY ADD/EDIT */}
       {showCategoryModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in">
           <div className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl border border-slate-100">
             <h3 className="text-base font-black text-slate-900 mb-1">
               {categoryModalType === "add" ? "Create Food Category" : "Edit Category"}
@@ -1174,18 +1302,20 @@ export default function MenuManagement() {
                   placeholder="e.g. Biryani & Rice, Royal Curries"
                   value={categoryNameInput}
                   onChange={(e) => setCategoryNameInput(e.target.value)}
-                  className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none"
+                  className="w-full mt-1 px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:border-[#ff5722] focus:ring-2 focus:ring-orange-500/10"
                 />
               </div>
 
               <div className="flex items-center gap-2 pt-2">
                 <button
+                  type="button"
                   onClick={() => setShowCategoryModal(false)}
                   className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
+                  type="button"
                   onClick={handleSaveCategory}
                   disabled={actionLoading}
                   className="flex-1 py-2.5 rounded-xl bg-[#ff5722] hover:bg-[#e64a19] text-white text-xs font-black transition shadow-xs cursor-pointer"
@@ -1194,6 +1324,186 @@ export default function MenuManagement() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* COMPREHENSIVE MODAL: CATEGORY MANAGEMENT HUB */}
+      {showManageCategoriesModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 w-full max-w-xl shadow-2xl border border-slate-100 max-h-[88vh] flex flex-col">
+            
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100 shrink-0">
+              <div>
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-xl bg-orange-100 text-[#ff5722]">
+                    <Layers className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-slate-900">Manage Menu Categories</h3>
+                    <p className="text-xs text-slate-500 font-medium">Create, rename, reorder & delete food categories</p>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowManageCategoriesModal(false);
+                  setEditingCategoryId(null);
+                }}
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Quick Create Bar */}
+            <form onSubmit={handleCreateCategoryFromHub} className="py-4 shrink-0">
+              <label className="text-[11px] font-black uppercase text-slate-600 mb-1.5 block">Add New Category</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  placeholder="Category Name (e.g. Sizzlers, Mocktails, Desserts)..."
+                  value={newCategoryInput}
+                  onChange={(e) => setNewCategoryInput(e.target.value)}
+                  className="flex-1 px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:border-[#ff5722] focus:ring-2 focus:ring-orange-500/10"
+                />
+                <button
+                  type="submit"
+                  disabled={actionLoading || !newCategoryInput.trim()}
+                  className="px-5 py-2.5 bg-[#ff5722] hover:bg-[#e64a19] disabled:opacity-50 text-white rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-xs shrink-0 cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add Category</span>
+                </button>
+              </div>
+            </form>
+
+            {/* Search Categories */}
+            <div className="mb-3 shrink-0 relative">
+              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Filter categories..."
+                value={categorySearchQuery}
+                onChange={(e) => setCategorySearchQuery(e.target.value)}
+                className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none"
+              />
+            </div>
+
+            {/* Categories Scrollable List */}
+            <div className="flex-1 overflow-y-auto pr-1 space-y-2 min-h-0">
+              {categories.filter(c => c.name.toLowerCase().includes(categorySearchQuery.toLowerCase())).length === 0 ? (
+                <div className="py-8 text-center text-slate-400 text-xs font-medium">
+                  No matching categories found. Type a name above to create one.
+                </div>
+              ) : (
+                categories
+                  .filter(c => c.name.toLowerCase().includes(categorySearchQuery.toLowerCase()))
+                  .map((cat) => (
+                    <div
+                      key={cat.id}
+                      className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/80 hover:bg-slate-50 border border-slate-200/80 transition"
+                    >
+                      {editingCategoryId === cat.id ? (
+                        <div className="flex items-center gap-2 flex-1 mr-2">
+                          <input
+                            type="text"
+                            value={editingCategoryName}
+                            onChange={(e) => setEditingCategoryName(e.target.value)}
+                            className="flex-1 px-3 py-1.5 bg-white border-2 border-[#ff5722] rounded-xl text-xs font-black focus:outline-none"
+                            autoFocus
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateCategoryInline(cat.id)}
+                            disabled={actionLoading}
+                            className="p-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition cursor-pointer"
+                            title="Save Changes"
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditingCategoryId(null)}
+                            className="p-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer"
+                            title="Cancel"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-7 h-7 rounded-lg bg-orange-100 text-[#ff5722] flex items-center justify-center font-black text-xs">
+                              {cat.name.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <p className="text-xs font-black text-slate-900">{cat.name}</p>
+                              <p className="text-[10px] text-slate-500 font-bold">
+                                {cat.itemCount || 0} active {cat.itemCount === 1 ? "dish" : "dishes"}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedCategoryFilter(cat.name);
+                                setCurrentPage(1);
+                                setShowManageCategoriesModal(false);
+                              }}
+                              className="px-2.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-[11px] font-bold transition cursor-pointer"
+                            >
+                              Filter Dishes
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingCategoryId(cat.id);
+                                setEditingCategoryName(cat.name);
+                              }}
+                              className="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-white rounded-xl transition cursor-pointer"
+                              title="Edit Category Name"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteCategory(cat)}
+                              disabled={actionLoading}
+                              className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition cursor-pointer disabled:opacity-40"
+                              title={cat.itemCount > 0 ? "Cannot delete category with active dishes" : "Delete Category"}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  ))
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="pt-4 mt-2 border-t border-slate-100 flex items-center justify-between shrink-0">
+              <span className="text-[11px] font-bold text-slate-500">
+                Total: <strong className="text-slate-900">{categories.length}</strong> categories
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowManageCategoriesModal(false)}
+                className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-black transition cursor-pointer"
+              >
+                Done
+              </button>
+            </div>
+
           </div>
         </div>
       )}
