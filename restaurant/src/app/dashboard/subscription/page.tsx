@@ -173,21 +173,16 @@ export default function SubscriptionBillingPage() {
 
         const cashfree = CashfreeSDK({ mode: orderData.environment || "production" });
 
-        const redirectTarget: "_self" | "_modal" = "_self";
-
+        // Redirect directly to Cashfree secure hosted checkout (no iframe whitelisting required)
         const result = await cashfree.checkout({
           paymentSessionId: orderData.paymentSessionId,
-          redirectTarget
+          redirectTarget: "_self"
         });
 
         if (result?.error) {
           triggerToast(result.error.message || "Payment was cancelled.", "error");
           setPaymentLoading(false);
           return;
-        }
-
-        if (redirectTarget === "_modal") {
-          await verifyOrderAfterPayment(orderData.orderId, planId || data?.subscription?.planId);
         }
       } else {
         throw new Error(orderData.error || "No payment session returned from Cashfree.");
