@@ -171,10 +171,10 @@ export default function SubscriptionBillingPage() {
           });
         }
 
-        const isLocalhost = typeof window !== "undefined" && window.location.hostname.includes("localhost");
         const cashfree = CashfreeSDK({ mode: orderData.environment || "production" });
 
-        const redirectTarget = isLocalhost ? "_self" : "_modal";
+        // Use _self redirect checkout: works 100% seamlessly on all domains without iframe domain whitelisting restriction
+        const redirectTarget = "_self";
 
         const result = await cashfree.checkout({
           paymentSessionId: orderData.paymentSessionId,
