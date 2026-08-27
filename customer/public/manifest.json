@@ -1,0 +1,17 @@
+{
+  "name": "RESTUVEXO Customer Portal",
+  "short_name": "RESTUVEXO Menu",
+  "description": "QR Code Digital Menu and Self-Ordering",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ff5722",
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
