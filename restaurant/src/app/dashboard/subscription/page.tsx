@@ -36,6 +36,7 @@ export default function SubscriptionBillingPage() {
   const [loading, setLoading] = useState(true);
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [selectedInvoicePayment, setSelectedInvoicePayment] = useState<any>(null);
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
   const [cashfreeLoaded, setCashfreeLoaded] = useState(false);
 
@@ -397,7 +398,7 @@ export default function SubscriptionBillingPage() {
                 <th className="py-3 px-4">Gateway</th>
                 <th className="py-3 px-4">Transaction ID</th>
                 <th className="py-3 px-4">Status</th>
-                <th className="py-3 px-4 text-right">Notes</th>
+                <th className="py-3 px-4 text-center">Invoice / Receipt</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-semibold text-slate-650">
@@ -424,7 +425,7 @@ export default function SubscriptionBillingPage() {
                     </td>
                     <td className="py-3.5 px-4 font-bold text-slate-600">{p.gateway || "Cashfree"}</td>
                     <td className="py-3.5 px-4 font-mono font-bold text-slate-500 text-[11px]">
-                      {p.transactionId || "TXN_INIT"}
+                      {p.cfOrderId || p.transactionId || `TXN_${p.id}`}
                     </td>
                     <td className="py-3.5 px-4">
                       <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-black uppercase border border-emerald-200">
@@ -432,7 +433,16 @@ export default function SubscriptionBillingPage() {
                         <span>{p.status}</span>
                       </span>
                     </td>
-                    <td className="py-3.5 px-4 text-right text-slate-400 text-[11px]">{p.notes || "-"}</td>
+                    <td className="py-3.5 px-4 text-center">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedInvoicePayment(p)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-orange-50 hover:bg-orange-100 text-[#ff5722] border border-orange-200 text-[11px] font-black transition cursor-pointer shadow-xs active:scale-95"
+                      >
+                        <FileText className="w-3.5 h-3.5" />
+                        <span>Download Invoice</span>
+                      </button>
+                    </td>
                   </tr>
                 ))
               )}
@@ -530,6 +540,131 @@ export default function SubscriptionBillingPage() {
                 );
               })}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Printable / Downloadable Official Tax Invoice Receipt Modal */}
+      {selectedInvoicePayment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-fade-in print:p-0 print:bg-white">
+          <div className="bg-white rounded-3xl p-6 sm:p-10 w-full max-w-2xl shadow-2xl border border-slate-200 text-slate-800 space-y-6 max-h-[90vh] overflow-y-auto print:max-h-none print:shadow-none print:border-none print:p-8">
+            
+            {/* Invoice Header */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-6 border-b-2 border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-slate-900 flex items-center justify-center p-2 shadow-md">
+                  <img src="/restuvexo_logo.png" alt="RESTUVEXO" className="w-full h-full object-contain" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-black tracking-tight text-slate-900">RESTUVEXO INC.</h2>
+                  <p className="text-[11px] font-bold text-slate-500">Restaurant Operating System & Cloud POS</p>
+                  <p className="text-[10px] text-slate-400 font-mono mt-0.5">GSTIN: 19AAACR9821F1Z8</p>
+                </div>
+              </div>
+
+              <div className="text-left sm:text-right">
+                <span className="px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full text-[10px] font-black uppercase tracking-wider">
+                  Payment Receipt & Tax Invoice
+                </span>
+                <p className="text-xs font-mono font-bold text-slate-800 mt-1">
+                  INV-{selectedInvoicePayment.id.toString().padStart(6, '0')}
+                </p>
+                <p className="text-[10px] text-slate-400 font-semibold">
+                  Date: {new Date(selectedInvoicePayment.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                </p>
+              </div>
+            </div>
+
+            {/* Billed To / Billed From Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 bg-slate-50/80 p-5 rounded-2xl border border-slate-200/80 text-xs">
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">Billed To (Customer):</span>
+                <p className="font-black text-slate-900 text-sm">{data?.restaurant?.name || "Restaurant Partner"}</p>
+                <p className="font-bold text-slate-600 mt-0.5">{data?.restaurant?.email || "owner@restuvexo.shop"}</p>
+                <p className="font-semibold text-slate-500">{data?.restaurant?.phone || ""}</p>
+                {data?.restaurant?.address && (
+                  <p className="text-[11px] text-slate-500 mt-1 font-medium">{data.restaurant.address}</p>
+                )}
+              </div>
+
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">Transaction Details:</span>
+                <p className="font-bold text-slate-700">Payment Gateway: <strong className="text-slate-900">Cashfree PG</strong></p>
+                <p className="font-mono text-[11px] text-slate-500 mt-0.5">Order ID: {selectedInvoicePayment.cfOrderId || selectedInvoicePayment.transactionId}</p>
+                <p className="font-bold text-emerald-600 mt-0.5 flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  Status: PAID / SUCCESS
+                </p>
+              </div>
+            </div>
+
+            {/* Invoice Line Item Table */}
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="bg-slate-100/80 text-[10px] font-black uppercase text-slate-500 border-b border-slate-200">
+                  <th className="py-2.5 px-3">Description</th>
+                  <th className="py-2.5 px-3 text-center">Period</th>
+                  <th className="py-2.5 px-3 text-center">Qty</th>
+                  <th className="py-2.5 px-3 text-right">Amount (INR)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                <tr>
+                  <td className="py-3 px-3">
+                    <p className="font-black text-slate-900">{sub?.plan?.name || "Growth"} Tier Subscription</p>
+                    <p className="text-[10px] text-slate-500 font-semibold">{selectedInvoicePayment.notes || "30 Days Cloud License"}</p>
+                  </td>
+                  <td className="py-3 px-3 text-center font-bold text-slate-600">30 Days</td>
+                  <td className="py-3 px-3 text-center font-bold text-slate-600">1</td>
+                  <td className="py-3 px-3 text-right font-black text-slate-900 text-sm">
+                    ₹{parseFloat(selectedInvoicePayment.amount).toFixed(2)}
+                  </td>
+                </tr>
+              </tbody>
+              <tfoot>
+                <tr className="border-t-2 border-slate-200">
+                  <td colSpan={3} className="py-2.5 px-3 font-bold text-slate-600 text-right">Subtotal:</td>
+                  <td className="py-2.5 px-3 font-bold text-slate-900 text-right">₹{parseFloat(selectedInvoicePayment.amount).toFixed(2)}</td>
+                </tr>
+                <tr>
+                  <td colSpan={3} className="py-1 px-3 font-bold text-slate-500 text-right">GST (18% Inclusive):</td>
+                  <td className="py-1 px-3 font-bold text-slate-600 text-right">₹{(parseFloat(selectedInvoicePayment.amount) * 0.18 / 1.18).toFixed(2)}</td>
+                </tr>
+                <tr className="border-t border-slate-200 text-sm">
+                  <td colSpan={3} className="py-3 px-3 font-black text-slate-900 text-right">Total Paid:</td>
+                  <td className="py-3 px-3 font-black text-emerald-600 text-right text-base">₹{parseFloat(selectedInvoicePayment.amount).toFixed(2)}</td>
+                </tr>
+              </tfoot>
+            </table>
+
+            {/* Terms & Seal */}
+            <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 text-[10px] text-slate-400">
+              <p>This is a computer-generated tax invoice and requires no physical signature.</p>
+              <div className="px-3 py-1 rounded-lg bg-slate-100 text-slate-600 font-bold">
+                ✓ Verified by Cashfree PG
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 print:hidden">
+              <button
+                type="button"
+                onClick={() => setSelectedInvoicePayment(null)}
+                className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition cursor-pointer"
+              >
+                Close
+              </button>
+
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#ff5722] to-[#ea580c] hover:from-[#e04c1d] hover:to-[#c83e14] text-white text-xs font-black transition shadow-lg shadow-orange-500/25 flex items-center gap-2 cursor-pointer"
+              >
+                <FileText className="w-4 h-4" />
+                <span>Print / Download PDF Receipt</span>
+              </button>
+            </div>
+
           </div>
         </div>
       )}

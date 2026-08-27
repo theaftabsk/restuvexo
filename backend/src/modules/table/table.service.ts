@@ -355,10 +355,10 @@ async updateSettings(req, res: any) {
     const restSettings = await this.settingsService.updateRestaurantSettings(restaurantId, updateData);
 
     // Realtime Broadcast settings / table state update to all visitors & admin panels
-    
-    const io = this.websocketGateway?.server; if (io) {
+    const io = this.websocketGateway?.server; 
+    if (io) {
+      this.websocketGateway.server.to(`restaurant_${restaurantId}`).emit('settings_updated', restSettings);
       this.websocketGateway.server.to(`restaurant_${restaurantId}`).emit('table_updated');
-      
       await this.dashboardService.broadcastSidebarTelemetry(restaurantId);
     }
 
@@ -474,37 +474,48 @@ async completeOnboardingSetup(req, res: any) {
     return res.status(400).json({ error: "Invalid restaurant identity." });
   }
 
-  const { cuisineType, tableCount, currency, currencySymbol, taxRate, taxName } = req.body;
-  const numTables = Math.min(Math.max(parseInt(tableCount) || 6, 1), 50);
+    const { cuisineType, tableCount, currency, currencySymbol, taxRate, taxName, address, logoUrl } = req.body;
+    const numTables = Math.min(Math.max(parseInt(tableCount) || 6, 1), 50);
 
-  try {
-    // 1. Update/Create Restaurant Settings
-    await this.prisma.restaurantSetting.upsert({
-      where: { restaurantId },
-      update: {
-        customerTheme: "sunset",
-        qrOrderingEnabled: true,
-        enabledFeatures: {
-          cuisineType: cuisineType || "multi",
-          currency: currency || "INR",
-          currencySymbol: currencySymbol || "₹",
-          taxRate: taxRate !== undefined ? Number(taxRate) : 5,
-          taxName: taxName || "GST"
-        }
-      },
-      create: {
-        restaurantId,
-        customerTheme: "sunset",
-        qrOrderingEnabled: true,
-        enabledFeatures: {
-          cuisineType: cuisineType || "multi",
-          currency: currency || "INR",
-          currencySymbol: currencySymbol || "₹",
-          taxRate: taxRate !== undefined ? Number(taxRate) : 5,
-          taxName: taxName || "GST"
-        }
+    try {
+      // 1. Update Restaurant Address and Logo if provided
+      if (address || logoUrl) {
+        await this.prisma.restaurant.update({
+          where: { id: restaurantId },
+          data: {
+            ...(address && { address: address.trim() }),
+            ...(logoUrl && { logoUrl: logoUrl.trim() })
+          }
+        });
       }
-    });
+
+      // 2. Update/Create Restaurant Settings
+      await this.prisma.restaurantSetting.upsert({
+        where: { restaurantId },
+        update: {
+          customerTheme: "sunset",
+          qrOrderingEnabled: true,
+          enabledFeatures: {
+            cuisineType: cuisineType || "multi",
+            currency: currency || "INR",
+            currencySymbol: currencySymbol || "₹",
+            taxRate: taxRate !== undefined ? Number(taxRate) : 5,
+            taxName: taxName || "GST"
+          }
+        },
+        create: {
+          restaurantId,
+          customerTheme: "sunset",
+          qrOrderingEnabled: true,
+          enabledFeatures: {
+            cuisineType: cuisineType || "multi",
+            currency: currency || "INR",
+            currencySymbol: currencySymbol || "₹",
+            taxRate: taxRate !== undefined ? Number(taxRate) : 5,
+            taxName: taxName || "GST"
+          }
+        }
+      });
 
     // 2. Check existing tables
     const existingTables = await this.prisma.table.findMany({

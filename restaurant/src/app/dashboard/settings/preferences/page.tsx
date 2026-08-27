@@ -1,8 +1,22 @@
 "use client";
 
 import { getBackendUrl } from "@/config/api";
-
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { io, Socket } from "socket.io-client";
+import { 
+  SlidersHorizontal, 
+  Sparkles, 
+  Zap, 
+  Volume2, 
+  Smartphone, 
+  Bot, 
+  Store, 
+  LayoutGrid, 
+  Wifi, 
+  CheckCircle2,
+  ShieldCheck,
+  Check
+} from "lucide-react";
 import LoadingScreen from "@/components/LoadingScreen";
 
 export default function PreferencesSettings() {
@@ -15,10 +29,30 @@ export default function PreferencesSettings() {
   const [enabledFeatures, setEnabledFeatures] = useState<any>({});
   const [isSaved, setIsSaved] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isWsConnected, setIsWsConnected] = useState(false);
 
   const BACKEND_URL = getBackendUrl();
+  const socketRef = useRef<Socket | null>(null);
 
   useEffect(() => {
+    let restaurantId: number | null = null;
+    const storedUser = localStorage.getItem("user");
+    const storedRest = localStorage.getItem("restaurant");
+
+    if (storedRest) {
+      try {
+        const parsed = JSON.parse(storedRest);
+        restaurantId = parsed.id;
+      } catch (e) {}
+    }
+    if (!restaurantId && storedUser) {
+      try {
+        const parsed = JSON.parse(storedUser);
+        restaurantId = parsed.restaurantId;
+      } catch (e) {}
+    }
+
+    // 1. Initial REST Fetch
     const fetchSettings = async () => {
       const token = localStorage.getItem("authToken");
       try {
@@ -27,14 +61,7 @@ export default function PreferencesSettings() {
         });
         if (res.ok) {
           const data = await res.json();
-          const features = data.enabledFeatures || {};
-          setEnabledFeatures(features);
-          setEnableQrOrdering(features.qrOrdering === false ? false : (data.qrOrderingEnabled !== false));
-          setSidebarQuickActions(data.sidebarQuickActions !== false);
-          setSidebarStoreSwitch(data.sidebarStoreSwitch !== false);
-          setEnableVexoAi(features.vexoAI === false ? false : (data.vexoAiEnabled !== false));
-          setVexoAiNormalLimit(data.vexoAiNormalLimit !== undefined ? data.vexoAiNormalLimit : 15);
-          setVexoAiApiLimit(data.vexoAiApiLimit !== undefined ? data.vexoAiApiLimit : 5);
+          applySettings(data);
         }
       } catch (e) {
         console.error("Failed to load settings from server:", e);
@@ -44,9 +71,56 @@ export default function PreferencesSettings() {
     };
 
     fetchSettings();
+
+    // 2. Real-Time WebSocket Connection
+    if (restaurantId) {
+      const socket = io(BACKEND_URL, {
+        transports: ["websocket", "polling"],
+        reconnection: true,
+        reconnectionAttempts: Infinity,
+        reconnectionDelay: 1000
+      });
+
+      socketRef.current = socket;
+
+      socket.on("connect", () => {
+        setIsWsConnected(true);
+        socket.emit("join_restaurant", restaurantId);
+      });
+
+      socket.on("disconnect", () => {
+        setIsWsConnected(false);
+      });
+
+      socket.on("settings_updated", (newSettings) => {
+        applySettings(newSettings);
+        setIsSaved(true);
+        setTimeout(() => setIsSaved(false), 2000);
+      });
+
+      socket.on("table_updated", () => {
+        fetchSettings();
+      });
+
+      return () => {
+        socket.disconnect();
+      };
+    }
   }, []);
 
-  const saveSetting = async (key, val) => {
+  const applySettings = (data: any) => {
+    if (!data) return;
+    const features = data.enabledFeatures || {};
+    setEnabledFeatures(features);
+    setEnableQrOrdering(features.qrOrdering === false ? false : (data.qrOrderingEnabled !== false));
+    setSidebarQuickActions(data.sidebarQuickActions !== false);
+    setSidebarStoreSwitch(data.sidebarStoreSwitch !== false);
+    setEnableVexoAi(features.vexoAI === false ? false : (data.vexoAiEnabled !== false));
+    setVexoAiNormalLimit(data.vexoAiNormalLimit !== undefined ? data.vexoAiNormalLimit : 15);
+    setVexoAiApiLimit(data.vexoAiApiLimit !== undefined ? data.vexoAiApiLimit : 5);
+  };
+
+  const saveSetting = async (key: string, val: any) => {
     const token = localStorage.getItem("authToken");
     try {
       const payload = {
@@ -63,7 +137,7 @@ export default function PreferencesSettings() {
       });
       if (res.ok) {
         setIsSaved(true);
-        setTimeout(() => setIsSaved(false), 2500);
+        setTimeout(() => setIsSaved(false), 2000);
       }
     } catch (e) {
       console.error("Failed to persist settings on server:", e);
@@ -92,14 +166,29 @@ export default function PreferencesSettings() {
       {isSaved && (
         <div className="fixed top-6 right-6 z-[100] animate-slide-in-right">
           <div className="bg-emerald-500/10 border border-emerald-500/25 px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-3 text-emerald-600 backdrop-blur-xl">
-            <p className="text-[11px] font-black tracking-wide uppercase">Preferences updated live!</p>
+            <Check className="w-4 h-4 text-emerald-500" />
+            <p className="text-[11px] font-black tracking-wide uppercase">Preferences updated real-time!</p>
           </div>
         </div>
       )}
 
-      <div className="text-left">
-        <h2 className="text-2xl font-black text-slate-900 tracking-tight">System Preferences</h2>
-        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Configure terminal parameters and ordering constraints</p>
+      {/* Header & WebSocket Status */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-left">
+        <div>
+          <h2 className="text-2xl font-black text-slate-900 tracking-tight">System Preferences</h2>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Configure terminal parameters and ordering constraints</p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider border shadow-2xs ${
+            isWsConnected 
+              ? "bg-emerald-50 border-emerald-200 text-emerald-700" 
+              : "bg-amber-50 border-amber-200 text-amber-700"
+          }`}>
+            <span className={`w-2 h-2 rounded-full ${isWsConnected ? "bg-emerald-500 animate-pulse" : "bg-amber-500"}`} />
+            <span>{isWsConnected ? "⚡ WebSocket Live Synced" : "Connecting Live Feed..."}</span>
+          </span>
+        </div>
       </div>
 
       <div className="max-w-3xl space-y-6">
@@ -108,14 +197,12 @@ export default function PreferencesSettings() {
           {/* Header Indicator */}
           <div className="flex items-center justify-between border-b border-slate-50 pb-5">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-150 flex items-center justify-center text-slate-600">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-                </svg>
+              <div className="w-10 h-10 rounded-xl bg-orange-50 border border-orange-150 flex items-center justify-center text-[#ff5722]">
+                <SlidersHorizontal className="w-5 h-5" />
               </div>
               <div className="text-left">
                 <h3 className="text-sm font-black text-slate-900">POS & Customer Controls</h3>
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Terminal rule settings</p>
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Real-time terminal rule settings</p>
               </div>
             </div>
           </div>
@@ -124,9 +211,7 @@ export default function PreferencesSettings() {
           <div className="flex items-center justify-between gap-6 p-4 rounded-2xl hover:bg-slate-50/80 transition duration-300">
             <div className="space-y-1.5 max-w-md text-left">
               <p className="text-xs font-black text-slate-900 flex items-center gap-2">
-                <svg className="w-4 h-4 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                </svg>
+                <Smartphone className="w-4 h-4 text-slate-700" />
                 Customer QR Self-Ordering Portal
                 {isQrOrderingLocked && (
                   <span className="bg-slate-100 border border-slate-200 text-slate-500 px-2 py-0.5 rounded text-[8px] font-black tracking-widest uppercase shrink-0">LOCKED</span>
@@ -139,7 +224,7 @@ export default function PreferencesSettings() {
             
             <button
               type="button"
-              onClick={isQrOrderingLocked ? null : handleToggleQrOrdering}
+              onClick={isQrOrderingLocked ? undefined : handleToggleQrOrdering}
               disabled={isQrOrderingLocked}
               className={`relative inline-flex h-7 w-13 items-center rounded-full transition-colors duration-350 focus:outline-none shrink-0 cursor-pointer ${
                 isQrOrderingLocked ? "bg-slate-100 border border-slate-200 cursor-not-allowed" : (enableQrOrdering ? "bg-[#ff5722]" : "bg-slate-200")
@@ -155,9 +240,7 @@ export default function PreferencesSettings() {
           <div className="flex items-center justify-between gap-6 p-4 rounded-2xl hover:bg-slate-50/80 transition duration-300 border-t border-slate-100/60 pt-5 mt-2">
             <div className="space-y-1.5 max-w-md text-left">
               <p className="text-xs font-black text-slate-900 flex items-center gap-2">
-                <svg className="w-4 h-4 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+                <Store className="w-4 h-4 text-slate-700" />
                 Show Store Status Toggle on Sidebar
               </p>
               <p className="text-[10px] text-slate-455 font-semibold leading-relaxed">
@@ -182,9 +265,7 @@ export default function PreferencesSettings() {
           <div className="flex items-center justify-between gap-6 p-4 rounded-2xl hover:bg-slate-50/80 transition duration-300 border-t border-slate-100/60 pt-5 mt-2">
             <div className="space-y-1.5 max-w-md text-left">
               <p className="text-xs font-black text-slate-900 flex items-center gap-2">
-                <svg className="w-4 h-4 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
+                <LayoutGrid className="w-4 h-4 text-slate-700" />
                 Show Quick Actions Panel on Sidebar
               </p>
               <p className="text-[10px] text-slate-455 font-semibold leading-relaxed">
@@ -209,9 +290,7 @@ export default function PreferencesSettings() {
           <div className="flex items-center justify-between gap-6 p-4 rounded-2xl hover:bg-slate-50/80 transition duration-300 border-t border-slate-100/60 pt-5 mt-2">
             <div className="space-y-1.5 max-w-md text-left">
               <p className="text-xs font-black text-slate-900 flex items-center gap-2">
-                <svg className="w-4 h-4 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                </svg>
+                <Bot className="w-4 h-4 text-slate-700" />
                 Enable VexoAI Chatbot Assistant
                 {isVexoAiLocked && (
                   <span className="bg-slate-100 border border-slate-200 text-slate-500 px-2 py-0.5 rounded text-[8px] font-black tracking-widest uppercase shrink-0">LOCKED</span>
@@ -224,7 +303,7 @@ export default function PreferencesSettings() {
             
             <button
               type="button"
-              onClick={isVexoAiLocked ? null : () => {
+              onClick={isVexoAiLocked ? undefined : () => {
                 const next = !enableVexoAi;
                 setEnableVexoAi(next);
                 saveSetting("vexoAiEnabled", next);
@@ -244,9 +323,7 @@ export default function PreferencesSettings() {
           {enableVexoAi && !isVexoAiLocked && (
             <div className="p-4 rounded-2xl bg-slate-50/60 border border-slate-100 space-y-4 text-left mt-2">
               <p className="text-xs font-black text-slate-900 flex items-center gap-2">
-                <svg className="w-4 h-4 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                </svg>
+                <ShieldCheck className="w-4 h-4 text-slate-700" />
                 VexoAI Daily Rate Limits
               </p>
               
@@ -297,14 +374,12 @@ export default function PreferencesSettings() {
           {/* Info card */}
           <div className="bg-slate-50/50 border border-slate-100 p-5 rounded-2xl flex items-start gap-3.5 text-left">
             <div className="w-8 h-8 rounded-lg bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0">
-              <svg className="w-4.5 h-4.5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
+              <Zap className="w-4.5 h-4.5 text-emerald-600" />
             </div>
             <div className="space-y-1">
               <h4 className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Interactive Synced State</h4>
               <p className="text-[10px] text-slate-400 font-semibold leading-relaxed">
-                Any changes made to these rules will immediately propagate live to the active [POS Billing Terminal] and [QR Table Orders] without requiring session reloads.
+                Any changes made to these rules will immediately propagate live to the active [POS Billing Terminal] and [QR Table Orders] across all devices without requiring manual page reloads.
               </p>
             </div>
           </div>

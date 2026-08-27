@@ -308,6 +308,7 @@ let TableService = class TableService {
             const restSettings = await this.settingsService.updateRestaurantSettings(restaurantId, updateData);
             const io = this.websocketGateway?.server;
             if (io) {
+                this.websocketGateway.server.to(`restaurant_${restaurantId}`).emit('settings_updated', restSettings);
                 this.websocketGateway.server.to(`restaurant_${restaurantId}`).emit('table_updated');
                 await this.dashboardService.broadcastSidebarTelemetry(restaurantId);
             }
@@ -402,9 +403,18 @@ let TableService = class TableService {
         if (isNaN(restaurantId)) {
             return res.status(400).json({ error: "Invalid restaurant identity." });
         }
-        const { cuisineType, tableCount, currency, currencySymbol, taxRate, taxName } = req.body;
+        const { cuisineType, tableCount, currency, currencySymbol, taxRate, taxName, address, logoUrl } = req.body;
         const numTables = Math.min(Math.max(parseInt(tableCount) || 6, 1), 50);
         try {
+            if (address || logoUrl) {
+                await this.prisma.restaurant.update({
+                    where: { id: restaurantId },
+                    data: {
+                        ...(address && { address: address.trim() }),
+                        ...(logoUrl && { logoUrl: logoUrl.trim() })
+                    }
+                });
+            }
             await this.prisma.restaurantSetting.upsert({
                 where: { restaurantId },
                 update: {

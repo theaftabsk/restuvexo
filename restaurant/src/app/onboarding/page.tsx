@@ -54,6 +54,8 @@ export default function OnboardingPage() {
   // Step 1 Form Data
   const [cuisine, setCuisine] = useState<string>("multi");
   const [tableCount, setTableCount] = useState<number>(8);
+  const [address, setAddress] = useState<string>("");
+  const [logoUrl, setLogoUrl] = useState<string>("");
   const [currencySymbol, setCurrencySymbol] = useState<string>("₹");
   const [taxRate, setTaxRate] = useState<number>(5);
   const [taxName, setTaxName] = useState<string>("GST");
@@ -76,7 +78,10 @@ export default function OnboardingPage() {
 
     if (storedRest) {
       try {
-        setRestaurant(JSON.parse(storedRest));
+        const parsed = JSON.parse(storedRest);
+        setRestaurant(parsed);
+        if (parsed.address) setAddress(parsed.address);
+        if (parsed.logoUrl) setLogoUrl(parsed.logoUrl);
       } catch (e) {}
     }
 
@@ -117,6 +122,8 @@ export default function OnboardingPage() {
         body: JSON.stringify({
           cuisineType: cuisine,
           tableCount,
+          address: address.trim(),
+          logoUrl: logoUrl.trim(),
           currency: "INR",
           currencySymbol,
           taxRate,
@@ -459,6 +466,36 @@ export default function OnboardingPage() {
                       {num}
                     </button>
                   ))}
+                </div>
+              </div>
+
+              {/* Operating Address & Restaurant Logo */}
+              <div className="space-y-4 bg-slate-50/80 border border-slate-200/80 rounded-2xl p-5 shadow-xs">
+                <div>
+                  <label className="block text-[10px] font-black uppercase tracking-wider text-slate-700 mb-1.5">
+                    Operating Address (Street, City, Pincode)
+                  </label>
+                  <input
+                    type="text"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    className="w-full bg-white border border-slate-200 text-slate-900 text-xs px-4 py-3 rounded-xl focus:outline-none focus:border-[#ff5722] focus:ring-4 focus:ring-orange-500/10 font-bold shadow-xs transition"
+                    placeholder="e.g. 12/A Park Street, Kolkata, West Bengal 700016"
+                  />
+                  <p className="text-[10px] text-slate-400 font-semibold mt-1">This address will be printed on customer POS receipts and digital QR menus.</p>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-black uppercase tracking-wider text-slate-700 mb-1.5">
+                    Restaurant Logo URL / Photo (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={logoUrl}
+                    onChange={(e) => setLogoUrl(e.target.value)}
+                    className="w-full bg-white border border-slate-200 text-slate-900 text-xs px-4 py-3 rounded-xl focus:outline-none focus:border-[#ff5722] focus:ring-4 focus:ring-orange-500/10 font-bold shadow-xs transition"
+                    placeholder="https://... (or configure in Settings later)"
+                  />
                 </div>
               </div>
 
