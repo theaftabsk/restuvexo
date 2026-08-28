@@ -1,5 +1,5 @@
 
-import { Controller, Req, Res, UseGuards } from '@nestjs/common';
+import { Controller, Post, Req, Res, UseGuards } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { DemoService } from './demo.service';
 

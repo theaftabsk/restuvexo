@@ -467,7 +467,7 @@ let OrderService = class OrderService {
             whereClause.status = 'pending';
             whereClause.creator = { name: 'QR Customer' };
         }
-        else {
+        else if (qrApprovalOnly === 'false') {
             whereClause.NOT = {
                 AND: [
                     { status: 'pending' },

@@ -8,6 +8,9 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DemoController = void 0;
 const common_1 = require("@nestjs/common");
@@ -16,8 +19,19 @@ let DemoController = class DemoController {
     constructor(demoService) {
         this.demoService = demoService;
     }
+    async createDemoRequest(req, res) {
+        return this.demoService.createDemoRequest(req, res);
+    }
 };
 exports.DemoController = DemoController;
+__decorate([
+    (0, common_1.Post)(),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], DemoController.prototype, "createDemoRequest", null);
 exports.DemoController = DemoController = __decorate([
     (0, common_1.Controller)('api/demo'),
     __metadata("design:paramtypes", [demo_service_1.DemoService])
