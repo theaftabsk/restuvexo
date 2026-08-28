@@ -419,7 +419,7 @@ async forgotPassword(req, res: any) {
     });
 
     // Send email with reset password link
-    const frontendUrl = process.env.FRONTEND_URL || "http://app.localhost:3000";
+    const frontendUrl = process.env.FRONTEND_URL || "https://app.restuvexo.shop";
     const resetLink = `${frontendUrl}/auth/reset-password?token=${token}`;
 
     await this.emailService.sendResetPasswordEmail(email, owner.name, resetLink);

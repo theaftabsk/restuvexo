@@ -263,7 +263,7 @@ export default function Home() {
     e.preventDefault();
     setFormStatus({ loading: true, success: false, error: null });
     
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://api.restuvexo.shop";
 
     try {
       const payload = { ...formData };

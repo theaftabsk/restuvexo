@@ -101,12 +101,11 @@ export default function TableManagerDashboard() {
 
   const getCustomerOrigin = () => {
     if (typeof window !== "undefined") {
-      if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
-        return "http://localhost:3001";
+      if (process.env.NEXT_PUBLIC_CUSTOMER_URL) {
+        return process.env.NEXT_PUBLIC_CUSTOMER_URL;
       }
-      return window.location.origin.replace(":3000", ":3001");
     }
-    return "http://localhost:3001";
+    return "https://order.restuvexo.shop";
   };
 
   const triggerToast = (message: string, type: "success" | "error" | "info" = "info") => {
@@ -143,7 +142,7 @@ export default function TableManagerDashboard() {
         const origin = getCustomerOrigin();
         const urlsMap: { [key: string]: string } = {};
         for (const t of tableList) {
-          const targetUrl = `${origin}/menu?qr=${t.qrCode}`;
+          const targetUrl = `${origin}/scan/${t.qrCode}`;
           try {
             const dataUrl = await QRCode.toDataURL(targetUrl, {
               width: 320,
@@ -1168,13 +1167,22 @@ export default function TableManagerDashboard() {
               </div>
             </div>
 
-            <div className="flex gap-2 pt-1">
+            <div className="flex flex-col sm:flex-row gap-2 pt-1">
+              <a
+                href={`${getCustomerOrigin()}/scan/${printStandeeModal.table.qrCode}`}
+                target="_blank"
+                rel="noreferrer"
+                className="flex-1 bg-orange-500 hover:bg-orange-600 text-white text-xs font-black py-2.5 rounded-xl flex items-center justify-center gap-1.5 cursor-pointer shadow-xs transition"
+              >
+                <ArrowUpRight className="w-3.5 h-3.5" />
+                <span>Test Live Menu</span>
+              </a>
               <button
                 onClick={() => window.print()}
                 className="flex-1 bg-slate-900 hover:bg-slate-800 text-white text-xs font-black py-2.5 rounded-xl flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
               >
                 <Printer className="w-3.5 h-3.5" />
-                <span>Print Acrylic Standee</span>
+                <span>Print Standee</span>
               </button>
             </div>
 

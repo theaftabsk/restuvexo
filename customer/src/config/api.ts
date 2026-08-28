@@ -10,7 +10,7 @@ export function getBackendUrl(): string {
       return ""; // Uses relative /api/ reverse-proxied by Nginx
     }
   }
-  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  return process.env.NEXT_PUBLIC_API_URL || "https://api.restuvexo.shop";
 }
 
 /**
@@ -25,6 +25,6 @@ export function getSocketUrl(): string {
       return window.location.origin; // Always same-origin on production HTTPS
     }
   }
-  return process.env.NEXT_PUBLIC_SOCKET_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  return process.env.NEXT_PUBLIC_SOCKET_URL || process.env.NEXT_PUBLIC_API_URL || "https://api.restuvexo.shop";
 }
 

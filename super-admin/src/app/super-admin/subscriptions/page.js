@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 
 export default function SuperAdminSubscriptionsPage() {
-  const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.restuvexo.shop";
 
   const [subscriptions, setSubscriptions] = useState([]);
   const [stats, setStats] = useState({ totalSubscribed: 0, mrr: 0, activeCount: 0, graceCount: 0, suspendedCount: 0 });

@@ -93,10 +93,8 @@ function CheckoutContent() {
 
       // 2. Open Cashfree Checkout
       if (window.Cashfree && orderData.paymentSessionId) {
-        const isLocalhost = typeof window !== "undefined" && window.location.hostname.includes("localhost");
         const cashfree = window.Cashfree({ mode: orderData.environment || "production" });
-
-        const redirectTarget = isLocalhost ? "_self" : "_modal";
+        const redirectTarget = "_modal";
 
         const result = await cashfree.checkout({
           paymentSessionId: orderData.paymentSessionId,

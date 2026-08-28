@@ -135,7 +135,7 @@ export class SubscriptionService {
     const cfConfig = this.getCashfreeConfig();
 
     try {
-      const frontendBase = process.env.FRONTEND_URL || 'http://localhost:3000';
+      const frontendBase = process.env.FRONTEND_URL || 'https://app.restuvexo.shop';
       const cleanPhone = (restaurant.phone || '').replace(/[^0-9]/g, '');
       const validPhone = cleanPhone.length >= 10 ? cleanPhone.slice(-10) : '9876543210';
 

@@ -26,7 +26,7 @@ function LoginScreen({ onLogin }) {
   const [passkey, setPasskey] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.restuvexo.shop";
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -151,7 +151,7 @@ export default function SuperAdminLayout({ children }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
-  const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.restuvexo.shop";
 
   // If visiting /super-admin root (login page), don't show the layout shell
   const isLoginPage = pathname === "/super-admin";

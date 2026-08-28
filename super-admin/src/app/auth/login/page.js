@@ -30,7 +30,7 @@ export default function UnifiedLogin() {
     setSuccess("");
     setLoading(true);
 
-    const BACKEND_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000");
+    const BACKEND_URL = (process.env.NEXT_PUBLIC_API_URL || "https://api.restuvexo.shop");
 
     try {
       const res = await fetch(`${BACKEND_URL}/api/auth/login`, {
@@ -76,7 +76,7 @@ export default function UnifiedLogin() {
     setSuccess("");
     setLoading(true);
 
-    const BACKEND_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000");
+    const BACKEND_URL = (process.env.NEXT_PUBLIC_API_URL || "https://api.restuvexo.shop");
     const demoData = {
       phoneOrEmail: "demo@restuvexo.shop",
       credential: "password123"
@@ -119,7 +119,7 @@ export default function UnifiedLogin() {
     setSuccess("");
     setLoading(true);
 
-    const BACKEND_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000");
+    const BACKEND_URL = (process.env.NEXT_PUBLIC_API_URL || "https://api.restuvexo.shop");
     const demoWaiterData = {
       phoneOrEmail: "01700000000",
       credential: "0000"
@@ -162,7 +162,7 @@ export default function UnifiedLogin() {
     setSuccess("");
     setLoading(true);
 
-    const BACKEND_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000");
+    const BACKEND_URL = (process.env.NEXT_PUBLIC_API_URL || "https://api.restuvexo.shop");
     const demoKitchenData = {
       phoneOrEmail: "01800000000",
       credential: "0000"
