@@ -72,7 +72,167 @@ function FoodIcon({ name, className = "w-8 h-8" }) {
   return null;
 }
 
+
+const TRANSLATIONS = {
+  en: {
+    heroBadge: "AI-Powered Cloud-Native Restaurant OS",
+    heroTitle1: "{curT.heroTitle1}",
+    heroTitle2: "Restaurant Management System",
+    heroSub: "Elevate hospitality and speed up operations with RESTUVEXO, the leading restaurant management operating system. Integrating ultra-high-speed POS, real-time Kitchen Displays (KDS), automated recipe inventory, and smart QR code table ordering into one unified platform.",
+    scheduleDemo: "Schedule Free Demo",
+    registerShop: "Start 1-Month Free Trial",
+    staffTerminal: "Staff Terminal",
+    bookDemoNav: "Book A Demo",
+    benefitsTag: "Live Running Orders & Kitchen Automation",
+    benefitsTitle1: "Why Real-Time Running Orders",
+    benefitsTitle2: "Double Your Restaurant Profits",
+    benefitsSub: "Say goodbye to lost paper slips and waiter errors. From table ordering to live kitchen displays (KDS) and counter checkout, everything syncs instantly to save hours and eliminate food waste.",
+    card1Title: "3x Faster Table Turnover",
+    card1Badge: "{curT.card1Badge}",
+    card1Desc: "See which tables are occupied, running, or ready for bill settlement in real-time. The moment payment is completed, the table frees up automatically on the live floor plan.",
+    card1ProfitLabel: "Profit Impact:",
+    card1Profit: "Serve 40+ extra dining guests every rush hour",
+    card2Title: "Zero Wrong Orders & Food Waste",
+    card2Badge: "{curT.card2Badge}",
+    card2Desc: "No more illegible handwriting or misplaced paper slips. Table numbers, item modifications, and special cooking notes flash on the Kitchen Display System (KDS) with sound chimes.",
+    card2ProfitLabel: "Profit Impact:",
+    card2Profit: "Save ₹15,000 - ₹30,000 every month in wasted raw food",
+    card3Title: "Contactless Self QR Ordering",
+    card3Badge: "{curT.card3Badge}",
+    card3Desc: "Guests scan the acrylic table QR standee to view high-res food photos, browse categories, and place orders directly from their phones. Waiters confirm with 1 tap.",
+    card3ProfitLabel: "Profit Impact:",
+    card3Profit: "Operate a 50-100 seat restaurant smoothly with half the service staff",
+    card4Title: "Live Sales & Profit Telemetry",
+    card4Badge: "{curT.card4Badge}",
+    card4Desc: "Monitor occupied tables, running unpaid orders, gross sales, and net food profits in real-time from anywhere in the world on your smartphone.",
+    card4ProfitLabel: "Profit Impact:",
+    card4Profit: "100% financial transparency and zero cash pilferage",
+    bannerTitle: "Want to see live running orders and kitchen sync in your restaurant?",
+    bannerSub: "Join today and enjoy 1 full month of complete free access.",
+    bannerBtn: "Book Free Demo →",
+    pricingBadge: "{curT.pricingBadge}",
+    pricingTitle: "1 Month Complete Free Access — All-in-One",
+    pricingSub: "No credit card required. Experience all features of RESTUVEXO with unlimited terminals, tables, and staff for a full month at zero cost.",
+    pricingPrice: "₹0",
+    pricingPeriod: "/ 1st Month Free",
+    pricingGuarantee: "✓ No hidden fees • Continue with flexible renewal after 1 month",
+    f1: "High-Speed Counter POS Billing Terminal",
+    f2: "Unlimited Tables & Dynamic QR Menus",
+    f3: "Real-Time Kitchen Display System (KDS KOT)",
+    f4: "Unlimited Waiter & Chef Staff Terminals",
+    f5: "Automated Recipe Costing & Stock Depletion",
+    f6: "24/7 Priority Support & Free Onboarding Assist",
+    pricingCta: "Start 1-Month Free Trial Now",
+    pricingInstant: "Instant 1-minute setup • Go live with your restaurant immediately"
+  },
+  bn: {
+    heroBadge: "ক্লাউড-নেটিভ রেস্তোরাঁ অপারেটিং সিস্টেম",
+    heroTitle1: "আধুনিক রেস্তোরাঁর জন্য",
+    heroTitle2: "কমপ্লিট ম্যানেজমেন্ট সিস্টেম",
+    heroSub: "রেস্তোরাঁর সার্ভিস দ্রুত ও নির্ভুল করতে RESTUVEXO-র আধুনিক প্রযুক্তি। হাই-স্পিড POS কাউন্টার বিলিং, রিয়েল-টাইম কিচেন ডিসপ্লে (KDS), স্বয়ংক্রিয় স্টক ইনভেন্টরি এবং টেবিল QR সেলফ-অর্ডারিং—সবকিছু এক প্ল্যাটফর্মে।",
+    scheduleDemo: "ফ্রি ডেমো বুক করুন",
+    registerShop: "১ মাসের ফ্রি ট্রায়াল শুরু করুন",
+    staffTerminal: "স্টাফ টার্মিনাল",
+    bookDemoNav: "ডেমো বুক করুন",
+    benefitsTag: "লাইভ রানিং অর্ডার ও কিচেন অটোমেশন",
+    benefitsTitle1: "রানিং অর্ডার ও কিচেন ট্র্যাকিং কেন আপনার",
+    benefitsTitle2: "লাভ দ্বিগুণ করে?",
+    benefitsSub: "{curT.benefitsSub}",
+    card1Title: "{curT.card1Title}",
+    card1Badge: "৩ গুণ টার্নওভার",
+    card1Desc: "{curT.card1Desc}",
+    card1ProfitLabel: "আর্থিক লাভ:",
+    card1Profit: "{curT.card1Profit}",
+    card2Title: "{curT.card2Title}",
+    card2Badge: "শূন্য অপচয়",
+    card2Desc: "{curT.card2Desc}",
+    card2ProfitLabel: "আর্থিক লাভ:",
+    card2Profit: "{curT.card2Profit}",
+    card3Title: "{curT.card3Title}",
+    card3Badge: "৫০% কম স্টাফ",
+    card3Desc: "{curT.card3Desc}",
+    card3ProfitLabel: "আর্থিক লাভ:",
+    card3Profit: "{curT.card3Profit}",
+    card4Title: "{curT.card4Title}",
+    card4Badge: "লাইভ টেলিমেট্রি",
+    card4Desc: "{curT.card4Desc}",
+    card4ProfitLabel: "আর্থিক লাভ:",
+    card4Profit: "{curT.card4Profit}",
+    bannerTitle: "{curT.bannerTitle}",
+    bannerSub: "{curT.bannerSub}",
+    bannerBtn: "{curT.bannerBtn}",
+    pricingBadge: "১ মাস ফ্রি ট্রায়াল",
+    pricingTitle: "{curT.pricingTitle}",
+    pricingSub: "{curT.pricingSub}",
+    pricingPrice: "₹0",
+    pricingPeriod: "{curT.pricingPeriod}",
+    pricingGuarantee: "{curT.pricingGuarantee}",
+    f1: "{curT.f1}",
+    f2: "{curT.f2}",
+    f3: "{curT.f3}",
+    f4: "{curT.f4}",
+    f5: "{curT.f5}",
+    f6: "{curT.f6}",
+    pricingCta: "১ মাসের ফ্রি ট্রায়াল শুরু করুন",
+    pricingInstant: "{curT.pricingInstant}",
+  },
+  hi: {
+    heroBadge: "क्लाउड-नेगेटिव रेस्टोरेंट ऑपरेटिंग सिस्टम",
+    heroTitle1: "आधुनिक रेस्टोरेंट के लिए",
+    heroTitle2: "सम्पूर्ण मैनेजमेंट सिस्टम",
+    heroSub: "RESTUVEXO के साथ रेस्टोरेंट संचालन को तेज और आसान बनाएं। हाई-स्पीड POS बिलिंग, रियल-टाइम किचन डिस्प्ले (KDS), स्वचालित इन्वेंट्री और टेबल QR सेल्फ-ऑर्डरिंग—सब एक जगह।",
+    scheduleDemo: "मुफ्त डेमो बुक करें",
+    registerShop: "1 महीने का फ्री ट्रायल शुरू करें",
+    staffTerminal: "स्टाफ टर्मिनल",
+    bookDemoNav: "डेमो बुक करें",
+    benefitsTag: "लाइव रनिंग ऑर्डर्स और किचन ऑटोमेशन",
+    benefitsTitle1: "रनिंग ऑर्डर्स और किचन ट्रैकिंग कैसे",
+    benefitsTitle2: "दोगुना करता है आपका मुनाफा?",
+    benefitsSub: "कागज की पर्ची खोने या वेटर की गलतियों को कहें अलविदा। टेबल ऑर्डरिंग से किचन KDS और काउंटर बिलिंग तक—सब कुछ सेकंडों में सिंक होता है।",
+    card1Title: "टेबल 3 गुना तेजी से खाली होती है",
+    card1Badge: "3x टर्नओवर",
+    card1Desc: "फ्लोर प्लान पर लाइव देखें कौन सी टेबल खाली है या बिलिंग के लिए तैयार है। पेमेंट पूरा होते ही टेबल अपने आप खाली मार्क हो जाती है।",
+    card1ProfitLabel: "वित्तीय लाभ:",
+    card1Profit: "पीक ऑवर्स में 40+ अतिरिक्त ग्राहकों को सेवा दें",
+    card2Title: "0% गलत ऑर्डर और खाना बर्बादी बंद",
+    card2Badge: "शून्य बर्बादी",
+    card2Desc: "वेटर की लिखावट न समझने की परेशानी खत्म। टेबल नंबर, मॉडिफिकेशन और कुकिंग नोट्स सीधे किचन डिस्प्ले (KDS) पर अलर्ट के साथ जाते हैं।",
+    card2ProfitLabel: "वित्तीय लाभ:",
+    card2Profit: "हर महीने ₹15,000 - ₹30,000 कच्चे माल की बर्बादी रोकें",
+    card3Title: "वेटर के बिना ग्राहक सेल्फ QR ऑर्डर",
+    card3Badge: "50% कम स्टाफ",
+    card3Desc: "ग्राहक टेबल पर रखे QR कोड को स्कैन करके फोटो और दाम देखकर सीधे अपने फोन से ऑर्डर कर सकते हैं। वेटर 1 टैप में कन्फर्म करता है।",
+    card3ProfitLabel: "वित्तीय लाभ:",
+    card3Profit: "कम स्टाफ के साथ भी 50-100 सीट का रेस्टोरेंट सुगमता से चलाएं",
+    card4Title: "मालिक के फोन पर लाइव सेल्स और मुनाफा",
+    card4Badge: "लाइव टेलीमेट्री",
+    card4Desc: "दुकान में न होकर भी अपने स्मार्टफोन से लाइव देखें—कितनी टेबल चल रही हैं, आज का कुल कैश और UPI कलेक्शन कितना है और नेट प्रॉफिट क्या है।",
+    card4ProfitLabel: "वित्तीय लाभ:",
+    card4Profit: "कैश चोरी या हेराफेरी का जोखिम 100% खत्म",
+    bannerTitle: "क्या आप अपने रेस्टोरेंट में लाइव रनिंग ऑर्डर देखना चाहते हैं?",
+    bannerSub: "आज ही जुड़ें और पूरे 1 महीने का मुफ्त ट्रायल पाएं।",
+    bannerBtn: "फ्री डेमो बुक करें →",
+    pricingBadge: "1 महीना फ्री ट्रायल",
+    pricingTitle: "1 महीना पूरी तरह मुफ्त — ऑल-इन-वन",
+    pricingSub: "कोई क्रेडिट कार्ड जरूरी नहीं। बिना किसी अग्रिम भुगतान के 1 महीने तक RESTUVEXO के सभी फीचर्स असीमित इस्तेमाल करें।",
+    pricingPrice: "₹0",
+    pricingPeriod: "/ पहला महीना फ्री",
+    pricingGuarantee: "✓ कोई छुपा शुल्क नहीं • 1 महीने बाद अपनी मर्जी से रिन्यू करें",
+    f1: "हाई-स्पीड POS काउंटर बिलिंग टर्मिनल",
+    f2: "असीमित टेबल और डायनेमिक QR मेनू",
+    f3: "रियल-टाइम किचन डिस्प्ले सिस्टम (KDS KOT)",
+    f4: "असीमित वेटर और शेफ स्टाफ टर्मिनल",
+    f5: "ऑटो रेसिपी कॉस्टिंग और स्टॉक ट्रैकिंग",
+    f6: "24/7 प्रायोरिटी सपोर्ट और फ्री सेटअप",
+    pricingCta: "1 महीने का फ्री ट्रायल अभी शुरू करें",
+    pricingInstant: "त्वरित साइन-अप • सिर्फ 1 मिनट में अपना रेस्टोरेंट लाइव करें",
+  }
+};
+
 export default function Home() {
+  const [lang, setLang] = useState<"en" | "bn" | "hi">("en");
+  const curT = TRANSLATIONS[lang];
+
   // Intro loading state for Petpooja-style animation
   const [introLoading, setIntroLoading] = useState(true);
   const [fadeExit, setFadeExit] = useState(false);
@@ -227,7 +387,7 @@ export default function Home() {
     const monthlyRev = dailyOrders * ticketValue * 30;
     // Assume 3.5% increased throughput due to quick POS
     const extraRevenue = monthlyRev * 0.035;
-    // Assume 1.8 mins saved per order. At Γé╣150/hr labor cost
+    // Assume 1.8 mins saved per order. At ₹150/hr labor cost
     const hoursSaved = (dailyOrders * 1.8 * 30) / 60;
     const laborSavings = hoursSaved * 150;
     // Assume reduction of food waste (auto-inventory reconciliation) saves 1.5% of total revenue
@@ -314,7 +474,7 @@ export default function Home() {
   ];
 
   return (
-    <div className="relative min-h-screen flex flex-col justify-between bg-slate-50 text-slate-800 overflow-hidden font-sans">
+    <div className="relative min-h-screen flex flex-col justify-between bg-white text-slate-800 overflow-hidden font-sans">
       
       {/* Petpooja-style Intro Loading screen (only happens on landing page first open) */}
       {introLoading && (
@@ -345,6 +505,14 @@ export default function Home() {
               0%, 100% { width: 0; opacity: 0; }
               50% { width: 60px; opacity: 0.25; }
             }
+            @keyframes liquidFlow1 {
+              0%, 100% { transform: translate(0px, 0px) scale(1); opacity: 0.75; }
+              50% { transform: translate(50px, -35px) scale(1.12); opacity: 0.95; }
+            }
+            @keyframes liquidFlow2 {
+              0%, 100% { transform: translate(0px, 0px) scale(1); opacity: 0.65; }
+              50% { transform: translate(-45px, 45px) scale(1.08); opacity: 0.85; }
+            }
             .animate-draw-left {
               animation: drawLeftCircle 1.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
             }
@@ -362,6 +530,12 @@ export default function Home() {
             }
             .animate-pulse-line {
               animation: pulseLine 1.8s ease-in-out infinite;
+            }
+            .animate-liquid-1 {
+              animation: liquidFlow1 18s ease-in-out infinite;
+            }
+            .animate-liquid-2 {
+              animation: liquidFlow2 24s ease-in-out infinite;
             }
           `}} />
 
@@ -430,7 +604,7 @@ export default function Home() {
             {/* Subtitle tag */}
             <div className="text-center space-y-1.5 opacity-0 animate-text-fade-in-up" style={{ animationDelay: '0.5s' }}>
               <p className="text-[8px] font-bold uppercase tracking-[0.3em] text-slate-400">
-                Restaurant OS by ITVEXO
+                Restaurant Operating System
               </p>
               <div className="h-[1px] bg-gradient-to-r from-transparent via-[#ff5a5f] to-transparent mx-auto rounded-full animate-pulse-line" />
             </div>
@@ -472,10 +646,12 @@ export default function Home() {
         }}
       />
 
-      {/* Background Decorative Gradient Rings */}
-      <div className="absolute top-[-10%] left-[-15%] w-[600px] h-[600px] rounded-full bg-orange-500/5 blur-[120px] pointer-events-none" />
-      <div className="absolute top-[20%] right-[-10%] w-[700px] h-[700px] rounded-full bg-emerald-500/5 blur-[150px] pointer-events-none" />
-      <div className="absolute bottom-[10%] left-[5%] w-[650px] h-[650px] rounded-full bg-indigo-500/5 blur-[120px] pointer-events-none" />
+      {/* Smooth Liquid Floating Ambient Mesh (Pure White Background with Soft Warm Fluid Glows) */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
+        <div className="absolute -top-[15%] -left-[10%] w-[650px] h-[650px] rounded-full bg-gradient-to-br from-orange-400/15 via-amber-300/10 to-transparent blur-[130px] animate-liquid-1" />
+        <div className="absolute top-[30%] -right-[12%] w-[750px] h-[750px] rounded-full bg-gradient-to-bl from-orange-500/10 via-rose-300/8 to-transparent blur-[150px] animate-liquid-2" />
+        <div className="absolute -bottom-[15%] left-[25%] w-[700px] h-[700px] rounded-full bg-gradient-to-tr from-amber-400/10 via-orange-300/12 to-transparent blur-[140px] animate-liquid-1" />
+      </div>
 
       {/* Header */}
       <header className="sticky top-0 w-full bg-white/80 backdrop-blur-md border-b border-slate-100 z-50 transition-all duration-300">
@@ -489,7 +665,7 @@ export default function Home() {
                 RESTUVEXO
               </span>
               <span className="text-[9px] block text-slate-450 font-black uppercase tracking-widest mt-[-3px]">
-                AI-Powered Restaurant OS by ITVEXO
+                AI-Powered Restaurant Operating System
               </span>
             </div>
           </div>
@@ -527,18 +703,18 @@ export default function Home() {
         <section className="grid lg:grid-cols-12 gap-12 items-center pt-8 pb-12">
           <div className="lg:col-span-6 space-y-6 text-left">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-50 border border-orange-100 text-xs font-extrabold text-orange-700 tracking-wide uppercase">
-              <Sparkles className="w-3.5 h-3.5 animate-pulse" /> AI-Powered Cloud-Native POS System
+              <Sparkles className="w-3.5 h-3.5 animate-pulse" /> {curT.heroBadge}
             </div>
             
             <h1 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight text-slate-900 leading-tight">
-              The Ultimate <br />
+              {curT.heroTitle1} <br />
               <span className="bg-gradient-to-r from-orange-500 via-orange-600 to-orange-700 bg-clip-text text-transparent">
                 Restaurant Management System
               </span>
             </h1>
             
             <p className="text-slate-500 text-base md:text-lg leading-relaxed max-w-xl">
-              Elevate hospitality and speed up operations with RESTUVEXO, the leading AI-powered restaurant management software. Our system integrates an ultra-high-speed POS, real-time Kitchen Displays, automated recipe inventory, and smart QR code ordering into one complete restaurant management system.
+              {curT.heroSub}
             </p>
 
             <div className="flex flex-wrap gap-4 pt-2">
@@ -590,7 +766,7 @@ export default function Home() {
                     <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Live Revenue</span>
                     <span className="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded font-bold">+18.5% Today</span>
                   </div>
-                  <div className="text-3xl font-black text-slate-900 tracking-tight">Γé╣24,850.00</div>
+                  <div className="text-3xl font-black text-slate-900 tracking-tight">₹24,850.00</div>
                   
                   {/* Mock Mini Chart Lines */}
                   <div className="flex items-end gap-1.5 h-20 mt-4">
@@ -674,7 +850,7 @@ export default function Home() {
                         <FoodIcon name={item.name} className="w-8 h-8" />
                       </div>
                       <span className="text-xs font-bold text-slate-700 block line-clamp-1">{item.name}</span>
-                      <span className="text-xs font-black text-slate-900 mt-1">Γé╣{item.price.toFixed(2)}</span>
+                      <span className="text-xs font-black text-slate-900 mt-1">₹{item.price.toFixed(2)}</span>
                       
                       <div className="flex items-center gap-3 mt-3" onClick={(e) => e.stopPropagation()}>
                         <button 
@@ -730,12 +906,12 @@ export default function Home() {
                           <span className="text-orange-600 font-black">x{item.count}</span>
                           <span className="text-slate-700">{item.name}</span>
                         </div>
-                        <span className="text-slate-900 font-bold">Γé╣{(item.price * item.count).toFixed(2)}</span>
+                        <span className="text-slate-900 font-bold">₹{(item.price * item.count).toFixed(2)}</span>
                       </div>
                     ))}
                     <div className="border-t border-dashed border-slate-100 pt-3 flex justify-between items-center font-black text-sm">
                       <span>Total Amount:</span>
-                      <span className="text-orange-600 text-base">Γé╣{getPosTotal()}</span>
+                      <span className="text-orange-600 text-base">₹{getPosTotal()}</span>
                     </div>
                   </div>
                 )}
@@ -775,13 +951,13 @@ export default function Home() {
                     {printedBill.items.map(item => (
                       <div key={item.id} className="flex justify-between">
                         <span>{item.name} x{item.count}</span>
-                        <span>Γé╣{(item.price * item.count).toFixed(2)}</span>
+                        <span>₹{(item.price * item.count).toFixed(2)}</span>
                       </div>
                     ))}
                   </div>
                   <div className="border-t border-dashed border-yellow-300 pt-2 flex justify-between font-bold text-slate-900">
                     <span>TOTAL COMPLETED:</span>
-                    <span>Γé╣{printedBill.total}</span>
+                    <span>₹{printedBill.total}</span>
                   </div>
                   <div className="text-center text-[8px] text-slate-400 pt-1">
                     KOT sent to Kitchen Display System (KDS)
@@ -862,7 +1038,7 @@ export default function Home() {
                       <span className="inline-block text-[10px] font-black text-orange-600 uppercase tracking-widest bg-orange-50 border border-orange-100 px-3 py-1 rounded-full">Customer Portal</span>
                       <h3 className="text-2xl font-black text-slate-900 leading-snug">Dynamic QR<br />Ordering</h3>
                       <p className="text-slate-500 text-xs md:text-sm leading-relaxed">
-                        Guests scan, browse, and order directly from their phones. We generate premium QR print cards ΓÇö Classic, Dark &amp; Elegant ΓÇö with your restaurant branding baked in.
+                        Guests scan, browse, and order directly from their phones. We generate premium QR print cards — Classic, Dark &amp; Elegant — with your restaurant branding baked in.
                       </p>
                       <a href="#book-demo" className="inline-flex items-center gap-1.5 text-xs font-extrabold text-orange-600 hover:text-orange-700 group">
                         Learn more <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
@@ -870,13 +1046,13 @@ export default function Home() {
                     </div>
 
                     <div className="md:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {/* QR Hero Card ΓÇô spans 2 cols */}
+                      {/* QR Hero Card – spans 2 cols */}
                       <div className="sm:col-span-2 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 text-white rounded-3xl p-5 flex flex-col justify-between shadow-2xl relative overflow-hidden group min-h-[160px]">
                         <div className="absolute -right-8 -top-8 w-48 h-48 bg-orange-500/15 rounded-full blur-3xl pointer-events-none group-hover:bg-orange-500/25 transition-all duration-700" />
                         <div className="absolute bottom-0 left-0 w-32 h-32 bg-rose-500/5 rounded-full blur-2xl pointer-events-none" />
                         <div className="flex justify-between items-start relative z-10">
                           <div>
-                            <div className="text-[9px] tracking-[0.15em] uppercase font-black text-orange-400">TABLE 04 ┬╖ FLOOR 2</div>
+                            <div className="text-[9px] tracking-[0.15em] uppercase font-black text-orange-400">TABLE 04 • FLOOR 2</div>
                             <h4 className="text-lg font-extrabold mt-1 leading-tight">Scan & Order<br />Your Food</h4>
                           </div>
                           <div className="p-3 bg-white rounded-2xl shadow-xl">
@@ -936,7 +1112,7 @@ export default function Home() {
                     </div>
 
                     <div className="md:col-span-7 grid grid-cols-2 gap-3">
-                      {/* Auth Card ΓÇô full width */}
+                      {/* Auth Card – full width */}
                       <div className="col-span-2 bg-white border border-slate-100 rounded-3xl p-6 shadow-sm space-y-5 relative overflow-hidden">
                         <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-orange-400 via-orange-500 to-rose-500" />
                         <div className="flex items-center gap-3">
@@ -952,8 +1128,8 @@ export default function Home() {
                           {"918274".split("").map((d, i) => (
                             <span key={i} className={d === "2" ? "text-orange-500" : ""}>{d}</span>
                           ))}
-                          <span className="text-slate-200 mx-0.5">┬╖</span>
-                          {"┬╖┬╖┬╖┬╖".split("").map((_, i) => <span key={i} className="text-slate-200">┬╖</span>)}
+                          <span className="text-slate-200 mx-0.5">•</span>
+                          {"••••".split("").map((_, i) => <span key={i} className="text-slate-200">•</span>)}
                         </div>
                         <div className="flex justify-between items-center text-[10px] border-t border-dashed border-slate-100 pt-4">
                           <span className="font-bold text-slate-500 flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />Role Verified</span>
@@ -985,7 +1161,7 @@ export default function Home() {
                       <span className="inline-block text-[10px] font-black text-orange-600 uppercase tracking-widest bg-orange-50 border border-orange-100 px-3 py-1 rounded-full">Real-Time Sync</span>
                       <h3 className="text-2xl font-black text-slate-900 leading-snug">Live Kitchen<br />Display (KDS)</h3>
                       <p className="text-slate-500 text-xs md:text-sm leading-relaxed">
-                        Powered by Socket.io ΓÇö chefs get KOTs the millisecond an order is punched. Update ticket status from Pending to Cooking with one tap and animated live alerts.
+                        Powered by Socket.io — chefs get KOTs the millisecond an order is punched. Update ticket status from Pending to Cooking with one tap and animated live alerts.
                       </p>
                       <a href="#book-demo" className="inline-flex items-center gap-1.5 text-xs font-extrabold text-orange-600 hover:text-orange-700 group">
                         Learn more <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
@@ -1009,7 +1185,7 @@ export default function Home() {
                         {/* KOT Ticket */}
                         <div className="bg-slate-800/70 border border-slate-700/70 rounded-2xl p-4 space-y-3 shadow-inner">
                           <div className="flex justify-between items-center border-b border-slate-700/50 pb-3">
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Table 12 ┬╖ KOT #1042</span>
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Table 12 • KOT #1042</span>
                             <span className="text-[9px] bg-red-500/20 text-red-400 px-2 py-0.5 rounded-lg font-bold border border-red-500/15">04:32 MIN</span>
                           </div>
                           <div className="space-y-2.5 text-xs font-bold">
@@ -1047,7 +1223,7 @@ export default function Home() {
                         {[
                           "Visual categorized menu catalog",
                           "Real-time inventory auto-deduction",
-                          "Quick Add Wizards ΓÇö items in seconds",
+                          "Quick Add Wizards — items in seconds",
                           "Top Selling Items widget on dashboard",
                         ].map((f, i) => (
                           <li key={i} className="flex items-start gap-2 text-[11px] text-slate-600 font-semibold">
@@ -1124,7 +1300,7 @@ export default function Home() {
                         </div>
                       </div>
 
-                      {/* Card 4: Top Selling Widget ΓÇö full width */}
+                      {/* Card 4: Top Selling Widget — full width */}
                       <div className="sm:col-span-2 bg-gradient-to-r from-orange-50 to-rose-50 border border-orange-100 rounded-2xl px-5 py-4 relative overflow-hidden">
                         <div className="flex items-center justify-between mb-3">
                           <h4 className="text-xs font-black text-slate-800 flex items-center gap-2">
@@ -1166,7 +1342,7 @@ export default function Home() {
                   href="#book-demo"
                   className="flex-shrink-0 px-5 py-2.5 rounded-xl bg-gradient-to-br from-slate-900 to-slate-800 hover:from-slate-800 hover:to-slate-700 text-white font-extrabold text-[11px] tracking-widest uppercase transition-all duration-200 active:scale-95 shadow-md shadow-slate-900/20"
                 >
-                  Schedule a Free Demo ΓåÆ
+                  Schedule a Free Demo →
                 </a>
               </div>
             </div>
@@ -1220,7 +1396,7 @@ export default function Home() {
               <div className="space-y-2">
                 <div className="flex justify-between text-xs font-extrabold text-slate-700">
                   <span className="flex items-center gap-1.5"><IndianRupee className="w-4 h-4 text-orange-500" /> Average Order Ticket Value</span>
-                  <span className="text-orange-600 font-black">Γé╣{ticketValue.toLocaleString("en-IN")}</span>
+                  <span className="text-orange-600 font-black">₹{ticketValue.toLocaleString("en-IN")}</span>
                 </div>
                 <input 
                   type="range" 
@@ -1242,26 +1418,26 @@ export default function Home() {
                 <div className="space-y-3">
                   <div className="flex justify-between items-center text-xs">
                     <span className="text-slate-400 font-medium">Monthly Store Revenue:</span>
-                    <span className="font-extrabold">Γé╣{savings.monthlyRevenue}</span>
+                    <span className="font-extrabold">₹{savings.monthlyRevenue}</span>
                   </div>
                   <div className="flex justify-between items-center text-xs">
                     <span className="text-slate-400 font-medium">Throughput Revenue Boost:</span>
-                    <span className="font-extrabold text-emerald-400">+Γé╣{savings.extraRevenue}</span>
+                    <span className="font-extrabold text-emerald-400">+₹{savings.extraRevenue}</span>
                   </div>
                   <div className="flex justify-between items-center text-xs">
                     <span className="text-slate-400 font-medium">Labor Cost Savings:</span>
-                    <span className="font-extrabold text-emerald-400">+Γé╣{savings.laborSavings}</span>
+                    <span className="font-extrabold text-emerald-400">+₹{savings.laborSavings}</span>
                   </div>
                   <div className="flex justify-between items-center text-xs">
                     <span className="text-slate-400 font-medium">Auto-Inventory Food Savings:</span>
-                    <span className="font-extrabold text-emerald-400">+Γé╣{savings.inventorySavings}</span>
+                    <span className="font-extrabold text-emerald-400">+₹{savings.inventorySavings}</span>
                   </div>
                 </div>
               </div>
 
               <div className="pt-6 border-t border-slate-800 mt-6 space-y-1">
                 <div className="text-xs text-orange-400 font-black tracking-wider uppercase">Estimated Monthly Savings</div>
-                <div className="text-3xl font-black text-white tracking-tight">Γé╣{savings.totalSavings}</div>
+                <div className="text-3xl font-black text-white tracking-tight">₹{savings.totalSavings}</div>
                 <p className="text-[9px] text-slate-500 leading-normal pt-1">
                   *Based on typical data comparing standard traditional registers to RESTUVEXO decoupled processing workflows.
                 </p>
@@ -1358,7 +1534,7 @@ export default function Home() {
                   {/* Bot Bubble */}
                   <div className="flex justify-start">
                     <div className="bg-slate-900 border border-slate-800 text-slate-200 text-[11px] font-semibold rounded-[1.2rem] rounded-bl-none px-4 py-2.5 max-w-[85%] space-y-2">
-                      <p className="leading-relaxed">Today's total sales/revenue is **Γé╣780.00** and net profit is **Γé╣420.00**.</p>
+                      <p className="leading-relaxed">Today's total sales/revenue is **₹780.00** and net profit is **₹420.00**.</p>
                     </div>
                   </div>
 
@@ -1482,283 +1658,195 @@ export default function Home() {
           </div>
         </section>
 
-        {/* POSIX RETAIL POS DIVISION SECTION (GREEN & WHITE UI THEME) */}
-        <section id="posix-retail" className="scroll-mt-24 max-w-6xl mx-auto w-full relative py-8">
-          {/* Background Ambient Glow */}
-          <div className="absolute -top-12 -right-12 w-96 h-96 bg-emerald-500/5 rounded-full blur-[100px] pointer-events-none" />
-          <div className="absolute -bottom-12 -left-12 w-96 h-96 bg-teal-500/5 rounded-full blur-[100px] pointer-events-none" />
-          
-          <div className="bg-white/80 backdrop-blur-md text-slate-800 rounded-3xl p-8 md:p-12 border border-emerald-100 shadow-xl shadow-emerald-500/5 relative overflow-hidden">
-            {/* Header */}
-            <div className="relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12 pb-8 border-b border-emerald-100">
-              <div className="space-y-3 max-w-2xl">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-[10px] font-black text-emerald-700 tracking-wider uppercase">
-                  <Sparkles className="w-3.5 h-3.5 text-emerald-600" /> A Product By ITVEXO
-                </div>
-                <h2 className="text-3xl md:text-4xl font-black tracking-tight text-slate-900">
-                  Looking for a <span className="bg-gradient-to-r from-emerald-600 via-teal-600 to-green-600 bg-clip-text text-transparent">Retail POS & Billing</span> System?
-                </h2>
-                <p className="text-slate-500 text-xs md:text-sm leading-relaxed">
-                  While <span className="text-orange-600 font-bold">RESTUVEXO</span> is customized for restaurants and cafes, our parent company <span className="text-slate-700 font-bold">ITVEXO</span> also offers <span className="text-emerald-600 font-bold">POSIX</span> ΓÇö a dedicated billing software engineered for retail shops, supermarkets, and pharmacies.
-                </p>
+        {/* ========================================================
+            REAL-TIME RUNNING ORDERS & KITCHEN AUTOMATION BENEFITS
+            ======================================================== */}
+        <section id="running-orders-benefits" className="scroll-mt-24 max-w-6xl mx-auto w-full relative py-8">
+          <div className="bg-gradient-to-b from-orange-500/[0.03] to-white rounded-3xl p-8 md:p-12 border border-orange-100 shadow-xl shadow-orange-500/5 relative overflow-hidden">
+            {/* Ambient Accent Light */}
+            <div className="absolute top-0 right-1/4 w-80 h-80 bg-orange-400/10 rounded-full blur-[100px] pointer-events-none" />
+
+            {/* Section Header */}
+            <div className="text-center max-w-3xl mx-auto space-y-3 mb-12 relative z-10">
+              <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-orange-50 border border-orange-200/80 text-[10px] font-black text-orange-600 tracking-wider uppercase">
+                <Sparkles className="w-3.5 h-3.5 text-orange-500" />
+                <span>{curT.benefitsTag}</span>
               </div>
-              <div className="flex-shrink-0">
-                <a 
-                  href="https://www.posix.digital/" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold py-3.5 px-6 rounded-xl shadow-md shadow-emerald-500/20 active:scale-95 transition-all duration-200 text-xs uppercase tracking-wider"
-                >
-                  Visit POSIX Website <ExternalLink className="w-4 h-4" />
-                </a>
+              <h2 className="text-3xl md:text-4xl lg:text-5xl font-black tracking-tight text-slate-900 leading-tight">
+                {curT.benefitsTitle1} <span className="bg-gradient-to-r from-orange-600 to-rose-600 bg-clip-text text-transparent">{curT.benefitsTitle2}</span>?
+              </h2>
+              <p className="text-slate-500 text-xs md:text-sm leading-relaxed max-w-2xl mx-auto">
+                {curT.benefitsSub}
+              </p>
+            </div>
+
+            {/* 4 Core Value Pillars Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
+              {/* Card 1: 3x Faster Table Turnover */}
+              <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-xs hover:shadow-md hover:border-orange-200 transition duration-300 space-y-4 group">
+                <div className="w-12 h-12 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center font-black group-hover:scale-105 transition">
+                  <Zap className="w-6 h-6 fill-orange-500 text-orange-500" />
+                </div>
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-extrabold text-slate-900 text-base md:text-lg">{curT.card1Title}</h3>
+                    <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200">{curT.card1Badge}</span>
+                  </div>
+                  <p className="text-slate-500 text-xs leading-relaxed">
+                    {curT.card1Desc}
+                  </p>
+                </div>
+                <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-slate-700">
+                  <span className="text-slate-400 text-[11px]">আর্থিক লাভ:</span>
+                  <span className="text-emerald-600 font-extrabold">{curT.card1Profit}</span>
+                </div>
+              </div>
+
+              {/* Card 2: Zero Food Waste & Wrong KOTs */}
+              <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-xs hover:shadow-md hover:border-orange-200 transition duration-300 space-y-4 group">
+                <div className="w-12 h-12 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center font-black group-hover:scale-105 transition">
+                  <ChefHat className="w-6 h-6 text-rose-600" />
+                </div>
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-extrabold text-slate-900 text-base md:text-lg">{curT.card2Title}</h3>
+                    <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-600 border border-rose-200">{curT.card2Badge}</span>
+                  </div>
+                  <p className="text-slate-500 text-xs leading-relaxed">
+                    {curT.card2Desc}
+                  </p>
+                </div>
+                <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-slate-700">
+                  <span className="text-slate-400 text-[11px]">আর্থিক লাভ:</span>
+                  <span className="text-emerald-600 font-extrabold">{curT.card2Profit}</span>
+                </div>
+              </div>
+
+              {/* Card 3: Contactless Self-Ordering */}
+              <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-xs hover:shadow-md hover:border-orange-200 transition duration-300 space-y-4 group">
+                <div className="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-black group-hover:scale-105 transition">
+                  <QrCode className="w-6 h-6 text-indigo-600" />
+                </div>
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-extrabold text-slate-900 text-base md:text-lg">{curT.card3Title}</h3>
+                    <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-200">{curT.card3Badge}</span>
+                  </div>
+                  <p className="text-slate-500 text-xs leading-relaxed">
+                    {curT.card3Desc}
+                  </p>
+                </div>
+                <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-slate-700">
+                  <span className="text-slate-400 text-[11px]">আর্থিক লাভ:</span>
+                  <span className="text-emerald-600 font-extrabold">{curT.card3Profit}</span>
+                </div>
+              </div>
+
+              {/* Card 4: Real-time Profit & Sales Telemetry */}
+              <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-xs hover:shadow-md hover:border-orange-200 transition duration-300 space-y-4 group">
+                <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-black group-hover:scale-105 transition">
+                  <TrendingUp className="w-6 h-6 text-emerald-600" />
+                </div>
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-extrabold text-slate-900 text-base md:text-lg">{curT.card4Title}</h3>
+                    <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200">{curT.card4Badge}</span>
+                  </div>
+                  <p className="text-slate-500 text-xs leading-relaxed">
+                    {curT.card4Desc}
+                  </p>
+                </div>
+                <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-slate-700">
+                  <span className="text-slate-400 text-[11px]">আর্থিক লাভ:</span>
+                  <span className="text-emerald-600 font-extrabold">{curT.card4Profit}</span>
+                </div>
               </div>
             </div>
 
-            {/* Grid of Industries */}
-            <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-6">
-              
-              {/* Card 1: Grocery */}
-              <div className="bg-white border border-slate-100 hover:border-emerald-500/40 p-6 rounded-2xl transition-all duration-300 hover:scale-[1.01] hover:shadow-md hover:shadow-emerald-500/5 group">
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100 group-hover:bg-emerald-100 transition-colors">
-                    <ShoppingCart className="w-6 h-6" />
-                  </div>
-                  <div className="space-y-1">
-                    <h4 className="font-extrabold text-slate-800 text-sm md:text-base">Grocery & Supermarkets</h4>
-                    <p className="text-slate-500 text-xs leading-relaxed">
-                      Handle thousands of SKUs and high-speed checkouts effortlessly.
-                    </p>
-                  </div>
-                </div>
+            {/* Bottom Highlight Banner */}
+            <div className="mt-8 p-4 bg-orange-50/60 rounded-2xl border border-orange-100 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left relative z-10">
+              <div className="space-y-0.5">
+                <span className="text-xs font-black text-slate-900 block">{curT.bannerTitle}</span>
+                <span className="text-[11px] text-slate-500 font-semibold">{curT.bannerSub}</span>
               </div>
-
-              {/* Card 2: Pharmacies */}
-              <div className="bg-white border border-slate-100 hover:border-emerald-500/40 p-6 rounded-2xl transition-all duration-300 hover:scale-[1.01] hover:shadow-md hover:shadow-emerald-500/5 group">
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100 group-hover:bg-emerald-100 transition-colors">
-                    <Pill className="w-6 h-6" />
-                  </div>
-                  <div className="space-y-1">
-                    <h4 className="font-extrabold text-slate-800 text-sm md:text-base">Pharmacies</h4>
-                    <p className="text-slate-500 text-xs leading-relaxed">
-                      Fast billing with stock tracking for medicines and healthcare products.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Card 3: Clothing & Apparel */}
-              <div className="bg-white border border-slate-100 hover:border-emerald-500/40 p-6 rounded-2xl transition-all duration-300 hover:scale-[1.01] hover:shadow-md hover:shadow-emerald-500/5 group">
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100 group-hover:bg-emerald-100 transition-colors">
-                    <Shirt className="w-6 h-6" />
-                  </div>
-                  <div className="space-y-1">
-                    <h4 className="font-extrabold text-slate-800 text-sm md:text-base">Clothing & Apparel</h4>
-                    <p className="text-slate-500 text-xs leading-relaxed">
-                      Manage product variants, sizes, and customer credit accounts easily.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Card 4: Electronics */}
-              <div className="bg-white border border-slate-100 hover:border-emerald-500/40 p-6 rounded-2xl transition-all duration-300 hover:scale-[1.01] hover:shadow-md hover:shadow-emerald-500/5 group">
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100 group-hover:bg-emerald-100 transition-colors">
-                    <Laptop className="w-6 h-6" />
-                  </div>
-                  <div className="space-y-1">
-                    <h4 className="font-extrabold text-slate-800 text-sm md:text-base">Electronics & Gadgets</h4>
-                    <p className="text-slate-500 text-xs leading-relaxed">
-                      Track high-value items, serial numbers, and warranty information.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-            </div>
-
-            {/* Bottom Callout */}
-            <div className="relative z-10 mt-8 p-4 bg-emerald-50/50 rounded-xl border border-emerald-100 text-center text-xs font-semibold text-emerald-800">
-              Need to manage barcodes, multi-store stock, or retail billing? Get started today on our dedicated retail platform at{" "}
-              <a href="https://www.posix.digital/" target="_blank" rel="noopener noreferrer" className="text-emerald-700 hover:underline font-bold inline-flex items-center gap-0.5">
-                posix.digital <ExternalLink className="w-3 h-3" />
+              <a
+                href="#book-demo"
+                className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-black cursor-pointer shadow-xs transition shrink-0"
+              >
+                {curT.bannerBtn}
               </a>
             </div>
           </div>
         </section>
 
-        {/* PRICING SECTION */}
-        <section id="pricing" className="scroll-mt-24 max-w-6xl mx-auto w-full relative py-8">
-          <div className="text-center max-w-2xl mx-auto space-y-2 mb-12">
-            <span className="text-xs font-black tracking-widest text-orange-600 uppercase">Pricing Plans</span>
-            <h2 className="text-3xl md:text-4xl font-black text-slate-900">Simple, Transparent Pricing</h2>
-            <p className="text-slate-500 text-sm md:text-base">
-              All plans start with a <strong className="text-slate-800">7-Day Free Trial</strong>. No credit card required.
-            </p>
-          </div>
+        {/* PRICING SECTION - 1 MONTH FREE TRIAL */}
+        <section id="pricing" className="scroll-mt-24 max-w-4xl mx-auto w-full relative py-8">
+          <div className="bg-gradient-to-b from-orange-500/[0.04] via-white to-white border-2 border-orange-500/30 rounded-3xl p-8 md:p-12 shadow-xl shadow-orange-500/5 text-center relative overflow-hidden space-y-8">
+            <div className="absolute top-0 right-0 bg-gradient-to-l from-orange-500 to-orange-600 text-white text-[10px] font-black uppercase tracking-widest px-5 py-1.5 rounded-bl-2xl">
+              1 Month Full Access Free
+            </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch">
-            {/* Plan 1: Basic */}
-            <div className="bg-white border border-slate-200/85 rounded-3xl p-8 flex flex-col justify-between hover:border-orange-500/30 transition duration-300 shadow-sm hover:shadow-md relative overflow-hidden group">
-              <div className="space-y-6">
-                <div>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 px-3 py-1 rounded-full border border-slate-200/50">7-Day Trial</span>
-                  <h3 className="text-xl font-black text-slate-800 mt-4">Basic Plan</h3>
-                  <p className="text-slate-450 text-xs mt-1">Perfect for small cafes and food trucks.</p>
-                </div>
+            <div className="space-y-3 max-w-xl mx-auto">
+              <span className="text-[10px] font-black uppercase tracking-widest text-orange-600 bg-orange-50 px-3.5 py-1 rounded-full border border-orange-200">
+                {curT.pricingBadge}
+              </span>
+              <h2 className="text-3xl md:text-4xl lg:text-5xl font-black text-slate-900 tracking-tight">
+                {curT.pricingTitle}
+              </h2>
+              <p className="text-slate-500 text-xs md:text-sm leading-relaxed">
+                {curT.pricingSub}
+              </p>
+            </div>
 
-                <div className="flex items-baseline gap-1.5 border-b border-slate-100 pb-6">
-                  <span className="text-3xl font-black text-slate-900">Γé╣499</span>
-                  <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">/ Month</span>
-                </div>
-
-                <ul className="space-y-3.5 text-xs font-semibold text-slate-650">
-                  <li className="flex items-center gap-2.5">
-                    <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                    <span>1 Active Outlet / Restaurant</span>
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                    <span>High-Speed POS Billing Terminal</span>
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                    <span>View-Only Digital QR Code Menu</span>
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                    <span>Basic Kitchen Display (KDS) Feed</span>
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                    <span>Standard Daily Reports & Analytics</span>
-                  </li>
-                </ul>
+            <div className="bg-white border border-slate-100 p-6 rounded-2xl max-w-lg mx-auto shadow-sm space-y-2">
+              <div className="flex items-baseline justify-center gap-2">
+                <span className="text-5xl font-black text-slate-900 tracking-tight">₹0</span>
+                <span className="text-sm font-bold text-slate-400 uppercase tracking-wider">{curT.pricingPeriod}</span>
               </div>
+              <p className="text-[11px] font-bold text-emerald-600">
+                {curT.pricingGuarantee}
+              </p>
+            </div>
 
-              <div className="pt-8">
-                <a 
-                  href="https://app.restuvexo.shop/auth/signup"
-                  className="w-full inline-flex py-3.5 px-4 bg-slate-50 hover:bg-slate-100 border border-slate-200 hover:border-slate-300 text-slate-800 font-extrabold uppercase tracking-wider rounded-2xl transition duration-200 active:scale-95 text-[10px] items-center justify-center gap-1.5"
-                >
-                  Start 7-Day Free Trial
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </a>
+            {/* Included Features Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-left max-w-2xl mx-auto text-xs font-bold text-slate-700">
+              <div className="flex items-center gap-2.5 bg-slate-50/80 p-3 rounded-xl border border-slate-100">
+                <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                <span>{curT.f1}</span>
+              </div>
+              <div className="flex items-center gap-2.5 bg-slate-50/80 p-3 rounded-xl border border-slate-100">
+                <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                <span>{curT.f2}</span>
+              </div>
+              <div className="flex items-center gap-2.5 bg-slate-50/80 p-3 rounded-xl border border-slate-100">
+                <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                <span>{curT.f3}</span>
+              </div>
+              <div className="flex items-center gap-2.5 bg-slate-50/80 p-3 rounded-xl border border-slate-100">
+                <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                <span>{curT.f4}</span>
+              </div>
+              <div className="flex items-center gap-2.5 bg-slate-50/80 p-3 rounded-xl border border-slate-100">
+                <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                <span>{curT.f5}</span>
+              </div>
+              <div className="flex items-center gap-2.5 bg-slate-50/80 p-3 rounded-xl border border-slate-100">
+                <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                <span>{curT.f6}</span>
               </div>
             </div>
 
-            {/* Plan 2: Pro (Featured/Popular) */}
-            <div className="bg-white border-2 border-orange-500 rounded-3xl p-8 flex flex-col justify-between transition duration-300 shadow-xl shadow-orange-500/5 relative overflow-hidden group">
-              <div className="absolute top-0 right-0 bg-gradient-to-l from-orange-500 to-orange-600 text-white text-[9px] font-black uppercase tracking-widest px-4 py-1.5 rounded-bl-2xl">
-                Most Popular
-              </div>
-
-              <div className="space-y-6">
-                <div>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-orange-600 bg-orange-50 px-3 py-1 rounded-full border border-orange-100">7-Day Trial</span>
-                  <h3 className="text-xl font-black text-slate-800 mt-4 flex items-center gap-1.5">
-                    Pro Plan <Zap className="w-4.5 h-4.5 text-orange-500 fill-orange-500" />
-                  </h3>
-                  <p className="text-slate-450 text-xs mt-1">Advanced controls for full-service bistros.</p>
-                </div>
-
-                <div className="flex items-baseline gap-1.5 border-b border-slate-100 pb-6">
-                  <span className="text-3xl font-black text-slate-900">Γé╣1,499</span>
-                  <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">/ Month</span>
-                </div>
-
-                <ul className="space-y-3.5 text-xs font-semibold text-slate-650">
-                  <li className="flex items-center gap-2.5">
-                    <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                    <span className="font-extrabold text-slate-800">Everything in Basic Plan</span>
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                    <span>Unlimited Waiter & Chef Terminals</span>
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                    <span>Customer QR Code Self-Ordering</span>
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                    <span>Recipe costing & Auto-stock depletion</span>
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                    <span>Esc/Pos local thermal printer routing</span>
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                    <span>Granular staff roles & PIN security</span>
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                    <span>VexoAI Chatbot Assistant</span>
-                  </li>
-                </ul>
-              </div>
-
-              <div className="pt-8">
-                <a 
-                  href="https://app.restuvexo.shop/auth/signup"
-                  className="w-full inline-flex py-3.5 px-4 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-extrabold uppercase tracking-wider rounded-2xl shadow-md shadow-orange-500/10 transition duration-200 active:scale-95 text-[10px] items-center justify-center gap-1.5"
-                >
-                  Start 7-Day Free Trial
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </a>
-              </div>
-            </div>
-
-            {/* Plan 3: Custom */}
-            <div className="bg-white border border-slate-200/85 rounded-3xl p-8 flex flex-col justify-between hover:border-orange-500/30 transition duration-300 shadow-sm hover:shadow-md relative overflow-hidden group">
-              <div className="space-y-6">
-                <div>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 px-3 py-1 rounded-full border border-slate-200/50">Enterprise</span>
-                  <h3 className="text-xl font-black text-slate-800 mt-4">Custom Plan</h3>
-                  <p className="text-slate-455 text-xs mt-1">Tailored features for large restaurant chains.</p>
-                </div>
-
-                <div className="flex items-baseline gap-1.5 border-b border-slate-100 pb-6">
-                  <span className="text-3xl font-black text-slate-900">Custom</span>
-                  <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">/ Business</span>
-                </div>
-
-                <ul className="space-y-3.5 text-xs font-semibold text-slate-650">
-                  <li className="flex items-center gap-2.5">
-                    <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                    <span>Multi-outlet franchise dashboard sync</span>
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                    <span>Dedicated account executive manager</span>
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                    <span>24/7 SLA Priority Phone Support</span>
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                    <span>Custom domain digital menus</span>
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                    <span>Custom third-party integrations</span>
-                  </li>
-                </ul>
-              </div>
-
-              <div className="pt-8">
-                <a 
-                  href="#book-demo"
-                  className="w-full inline-flex py-3.5 px-4 bg-slate-950 hover:bg-slate-900 text-white font-extrabold uppercase tracking-wider rounded-2xl transition duration-200 active:scale-95 text-[10px] items-center justify-center gap-1.5"
-                >
-                  Contact Sales
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </a>
-              </div>
+            <div className="pt-2 max-w-md mx-auto">
+              <a
+                href="https://app.restuvexo.shop/auth/signup"
+                className="w-full inline-flex py-4 px-6 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-black uppercase tracking-wider rounded-2xl shadow-lg shadow-orange-500/20 active:scale-95 transition-all text-xs items-center justify-center gap-2 cursor-pointer"
+              >
+                <span>{curT.pricingCta}</span>
+                <ArrowRight className="w-4 h-4" />
+              </a>
+              <span className="text-[10px] text-slate-400 font-semibold block mt-2">
+                {curT.pricingInstant}
+              </span>
             </div>
           </div>
         </section>
@@ -2008,7 +2096,7 @@ export default function Home() {
           <div className="space-y-3">
             <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest">Quick links</h4>
             <ul className="space-y-2 text-[11px] font-bold text-slate-500">
-              <li><a href="https://app.restuvexo.shop/auth/login" className="hover:text-orange-500">Staff Terminal</a></li>
+              <li><a href="https://app.restuvexo.shop/auth/login" className="hover:text-orange-500">{curT.staffTerminal}</a></li>
               <li><a href="https://app.restuvexo.shop/auth/signup" className="hover:text-orange-500">Register Shop</a></li>
               <li><a href="#book-demo" className="hover:text-orange-500">Book Free Demo</a></li>
             </ul>
@@ -2032,10 +2120,7 @@ export default function Home() {
 
         <div className="max-w-7xl mx-auto px-6 py-6 border-t border-slate-50 text-center text-slate-400 text-[10px] font-semibold space-y-1">
           <div>
-             2026 ITVEXO. All rights reserved. RESTUVEXO and POSIX are products of ITVEXO.
-          </div>
-          <div className="text-[9px] text-slate-350">
-            Looking for retail billing? Explore <a href="https://www.posix.digital/" target="_blank" rel="noopener noreferrer" className="text-orange-500 hover:underline">POSIX Retail POS</a>.
+            © 2026 RESTUVEXO. All rights reserved. The Modern Cloud-Native Restaurant Operating System.
           </div>
         </div>
       </footer>
