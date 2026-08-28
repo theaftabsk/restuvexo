@@ -13,13 +13,19 @@ export class SubscriptionGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
     const originalUrl = request.originalUrl || request.url;
 
-    // 1. Bypass public auth and demo paths
+    // 1. Bypass public auth, demo, and customer QR scan & menu browsing paths
     if (
       originalUrl.startsWith('/api/auth/owner/signup') ||
       originalUrl.startsWith('/api/auth/verify-otp') ||
       originalUrl.startsWith('/api/auth/login') ||
       originalUrl.startsWith('/api/auth/forgot-password') ||
       originalUrl.startsWith('/api/auth/reset-password') ||
+      originalUrl.startsWith('/api/orders/generate-templink') ||
+      originalUrl.startsWith('/api/order/generate-templink') ||
+      originalUrl.startsWith('/api/orders/qr-menu') ||
+      originalUrl.startsWith('/api/order/qr-menu') ||
+      originalUrl.startsWith('/api/orders/qr-place') ||
+      originalUrl.startsWith('/api/order/qr-place') ||
       originalUrl.startsWith('/api/demo')
     ) {
       return true;
@@ -39,131 +45,46 @@ export class SubscriptionGuard implements CanActivate {
       return true;
     }
 
-    // Bypass Super Admin APIs
+    // 4. Bypass Super Admin APIs
     if (originalUrl.startsWith('/api/super-admin')) {
       return true;
     }
 
-    // 4. Resolve Restaurant ID
-    let restaurantId = request.user ? request.user.restaurantId : null;
-
-    if (!restaurantId) {
-      // Resolve for guest checkout / scan paths
-      if (originalUrl.startsWith('/api/orders/qr-menu/')) {
-        const parts = originalUrl.split('/');
-        const tableId = parseInt(parts[parts.length - 1], 10);
-        if (tableId) {
-          const table = await this.prisma.table.findUnique({
-            where: { id: tableId },
-            select: { restaurantId: true }
-          });
-          if (table) restaurantId = table.restaurantId;
-        }
-      } else if (originalUrl.startsWith('/api/orders/qr-place') || originalUrl.startsWith('/api/orders/generate-templink')) {
-        const { qrCode } = request.body;
-        if (qrCode) {
-          const table = await this.prisma.table.findFirst({
-            where: { qrCode: qrCode },
-            select: { restaurantId: true }
-          });
-          if (table) restaurantId = table.restaurantId;
-        }
-      }
-    }
-
+    // 5. Resolve Restaurant ID
+    const restaurantId = request.user ? request.user.restaurantId : null;
     if (!restaurantId) {
       return true;
     }
 
     try {
-      // 5. Query Active Tenant Subscription with Features & Addons Catalog
-      const sub = await this.prisma.restaurantSubscription.findUnique({
+      // 6. Query Active SaaS Subscription
+      const sub = await this.prisma.subscription.findUnique({
         where: { restaurantId },
-        include: {
-          plan: {
-            include: {
-              features: {
-                include: { feature: true }
-              }
-            }
-          },
-          addons: {
-            include: { addon: { include: { feature: true } } }
-          }
-        }
+        include: { plan: true }
       });
 
-      // 6. Expired Subscription Check (Trial End / Base End Date Check)
-      let isExpired = !sub || ['canceled', 'unpaid'].includes(sub.status);
-
-      if (sub && sub.status === 'trialing' && sub.trialEnd) {
-        if (Date.now() > new Date(sub.trialEnd).getTime()) {
-          isExpired = true;
-          await this.prisma.restaurantSubscription.update({
-            where: { id: sub.id },
-            data: { status: 'canceled' }
-          });
-        }
+      // If no explicit subscription row exists, allow access (standard trial / onboarding)
+      if (!sub) {
+        return true;
       }
 
-      if (sub && sub.status === 'active' && sub.endDate) {
-        if (Date.now() > new Date(sub.endDate).getTime()) {
-          isExpired = true;
-          await this.prisma.restaurantSubscription.update({
-            where: { id: sub.id },
-            data: { status: 'canceled' }
-          });
-        }
-      }
-
-      if (isExpired) {
+      // Check if suspended or cancelled
+      if (['SUSPENDED', 'CANCELLED'].includes(sub.status as string)) {
         throw new HttpException({
           subscriptionError: "expired",
-          message: "Your subscription or free trial has expired. Please select a plan in Settings to restore access."
+          message: "Your subscription has expired or was suspended. Please renew your plan in Settings to restore access."
         }, HttpStatus.PAYMENT_REQUIRED);
       }
 
-      // Helper function to check catalog features
-      const hasFeature = (code: string) => {
-        if (!sub) return false;
-        // Enterprise plan bypasses all feature locks
-        if (sub.plan.name === 'Enterprise') return true;
-        
-        const hasBase = sub.plan.features.some(f => f.feature.code === code && f.enabled);
-        const hasAddon = sub.addons.some(a => a.addon.feature?.code === code);
-        return hasBase || hasAddon;
-      };
-
-      // Customer QR Self-Ordering
-      if (originalUrl.startsWith('/api/orders/qr-place') && !hasFeature('qr_ordering')) {
-        throw new HttpException({
-          subscriptionError: "feature_locked",
-          message: "Customer QR Self-Ordering module is not enabled for your plan. Please upgrade."
-        }, HttpStatus.FORBIDDEN);
-      }
-
-      // Kitchen Display System (KDS)
-      if (originalUrl.startsWith('/api/orders/kds') && !hasFeature('kds')) {
-        throw new HttpException({
-          subscriptionError: "feature_locked",
-          message: "Kitchen Display System (KDS) module is not enabled for your plan. Please upgrade."
-        }, HttpStatus.FORBIDDEN);
-      }
-
-      // Inventory Management
-      if (originalUrl.startsWith('/api/inventory') && !hasFeature('inventory')) {
-        throw new HttpException({
-          subscriptionError: "feature_locked",
-          message: "Inventory Management module is not enabled for your plan. Please upgrade."
-        }, HttpStatus.FORBIDDEN);
-      }
-
-      // Analytics & Dynamic Report Generator
-      if (originalUrl.startsWith('/api/dashboard/telemetry') && !hasFeature('advanced_analytics')) {
-        throw new HttpException({
-          subscriptionError: "feature_locked",
-          message: "Analytics & Dynamic Report Generator is not enabled for your plan. Please upgrade."
-        }, HttpStatus.FORBIDDEN);
+      // Check period end
+      if (sub.currentPeriodEnd && Date.now() > new Date(sub.currentPeriodEnd).getTime()) {
+        const graceEnd = new Date(sub.currentPeriodEnd).getTime() + (sub.graceDays || 7) * 86400000;
+        if (Date.now() > graceEnd) {
+          throw new HttpException({
+            subscriptionError: "expired",
+            message: "Your subscription grace period has ended. Please renew to continue using the software."
+          }, HttpStatus.PAYMENT_REQUIRED);
+        }
       }
 
       return true;
@@ -171,7 +92,7 @@ export class SubscriptionGuard implements CanActivate {
       if (err instanceof HttpException) {
         throw err;
       }
-      throw new HttpException(err.message || 'Subscription validation failed', HttpStatus.INTERNAL_SERVER_ERROR);
+      return true; // Fail open to avoid blocking legitimate operations
     }
   }
 }
