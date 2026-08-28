@@ -70,7 +70,8 @@ export default function ReportsDashboard() {
       try {
         const user = JSON.parse(atob(token.split(".")[1]));
         socket = io(getSocketUrl(), {
-          transports: ["websocket", "polling"],
+          transports: ["polling"],
+      upgrade: false,
           reconnection: true,
           reconnectionAttempts: 10,
           reconnectionDelay: 2000,

@@ -360,7 +360,8 @@ function PosContent() {
     }
 
     const socket = io(getSocketUrl(), {
-      transports: ["websocket", "polling"],
+      transports: ["polling"],
+      upgrade: false,
       reconnection: true,
       reconnectionAttempts: 10,
       reconnectionDelay: 2000,

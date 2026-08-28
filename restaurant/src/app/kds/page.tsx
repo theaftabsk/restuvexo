@@ -64,7 +64,8 @@ export default function StandaloneKitchenDisplaySystem() {
 
     // Connect Live Socket Client for absolute zero server load
     const socket = io(getSocketUrl(), {
-      transports: ["websocket", "polling"],
+      transports: ["polling"],
+      upgrade: false,
       reconnection: true,
       reconnectionDelay: 2000,
       reconnectionAttempts: Infinity

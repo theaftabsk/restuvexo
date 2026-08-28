@@ -75,7 +75,8 @@ export default function PreferencesSettings() {
     // 2. Real-Time WebSocket Connection
     if (restaurantId) {
       const socket = io(getSocketUrl(), {
-        transports: ["polling", "websocket"],
+        transports: ["polling"],
+      upgrade: false,
         reconnection: true,
         reconnectionAttempts: Infinity,
         reconnectionDelay: 1000

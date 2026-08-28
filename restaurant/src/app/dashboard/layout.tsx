@@ -178,7 +178,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
     const socketUrl = getSocketUrl();
     const socket = io(socketUrl, {
-      transports: ["websocket", "polling"],
+      transports: ["polling"],
+      upgrade: false,
       reconnection: true,
       reconnectionAttempts: 10,
       reconnectionDelay: 2000,
