@@ -9,6 +9,12 @@ async function bootstrap() {
     const app = await core_1.NestFactory.create(app_module_1.AppModule);
     const server = app.getHttpAdapter().getInstance();
     server.set('trust proxy', 1);
+    app.use((req, res, next) => {
+        if (req.url === '/socket.io' || req.url.startsWith('/socket.io?')) {
+            req.url = req.url.replace('/socket.io', '/socket.io/');
+        }
+        next();
+    });
     app.use((0, helmet_1.default)({
         crossOriginResourcePolicy: { policy: "cross-origin" }
     }));

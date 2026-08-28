@@ -11,6 +11,14 @@ async function bootstrap() {
   const server = app.getHttpAdapter().getInstance();
   server.set('trust proxy', 1);
 
+  // Normalize /socket.io requests to include trailing slash for Engine.IO
+  app.use((req: any, res: any, next: any) => {
+    if (req.url === '/socket.io' || req.url.startsWith('/socket.io?')) {
+      req.url = req.url.replace('/socket.io', '/socket.io/');
+    }
+    next();
+  });
+
   // Secure HTTP headers with cross-origin resource policy enabled for static asset serving
   app.use(helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" }
