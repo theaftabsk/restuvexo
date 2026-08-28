@@ -76,11 +76,11 @@ function FoodIcon({ name, className = "w-8 h-8" }) {
 const TRANSLATIONS = {
   en: {
     heroBadge: "AI-Powered Cloud-Native Restaurant OS",
-    heroTitle1: "{curT.heroTitle1}",
+    heroTitle1: "The Ultimate",
     heroTitle2: "Restaurant Management System",
     heroSub: "Elevate hospitality and speed up operations with RESTUVEXO, the leading restaurant management operating system. Integrating ultra-high-speed POS, real-time Kitchen Displays (KDS), automated recipe inventory, and smart QR code table ordering into one unified platform.",
     scheduleDemo: "Schedule Free Demo",
-    registerShop: "Start 1-Month Free Trial",
+    registerShop: "Start 1-Month Trial (₹1)",
     staffTerminal: "Staff Terminal",
     bookDemoNav: "Book A Demo",
     benefitsTag: "Live Running Orders & Kitchen Automation",
@@ -88,41 +88,41 @@ const TRANSLATIONS = {
     benefitsTitle2: "Double Your Restaurant Profits",
     benefitsSub: "Say goodbye to lost paper slips and waiter errors. From table ordering to live kitchen displays (KDS) and counter checkout, everything syncs instantly to save hours and eliminate food waste.",
     card1Title: "3x Faster Table Turnover",
-    card1Badge: "{curT.card1Badge}",
+    card1Badge: "3x Turnover",
     card1Desc: "See which tables are occupied, running, or ready for bill settlement in real-time. The moment payment is completed, the table frees up automatically on the live floor plan.",
     card1ProfitLabel: "Profit Impact:",
     card1Profit: "Serve 40+ extra dining guests every rush hour",
     card2Title: "Zero Wrong Orders & Food Waste",
-    card2Badge: "{curT.card2Badge}",
+    card2Badge: "Zero Waste",
     card2Desc: "No more illegible handwriting or misplaced paper slips. Table numbers, item modifications, and special cooking notes flash on the Kitchen Display System (KDS) with sound chimes.",
     card2ProfitLabel: "Profit Impact:",
     card2Profit: "Save ₹15,000 - ₹30,000 every month in wasted raw food",
     card3Title: "Contactless Self QR Ordering",
-    card3Badge: "{curT.card3Badge}",
+    card3Badge: "50% Less Staff",
     card3Desc: "Guests scan the acrylic table QR standee to view high-res food photos, browse categories, and place orders directly from their phones. Waiters confirm with 1 tap.",
     card3ProfitLabel: "Profit Impact:",
     card3Profit: "Operate a 50-100 seat restaurant smoothly with half the service staff",
     card4Title: "Live Sales & Profit Telemetry",
-    card4Badge: "{curT.card4Badge}",
+    card4Badge: "Live Telemetry",
     card4Desc: "Monitor occupied tables, running unpaid orders, gross sales, and net food profits in real-time from anywhere in the world on your smartphone.",
     card4ProfitLabel: "Profit Impact:",
     card4Profit: "100% financial transparency and zero cash pilferage",
     bannerTitle: "Want to see live running orders and kitchen sync in your restaurant?",
-    bannerSub: "Join today and enjoy 1 full month of complete free access.",
+    bannerSub: "Join today and start your 30-day trial for just ₹1.",
     bannerBtn: "Book Free Demo →",
-    pricingBadge: "{curT.pricingBadge}",
-    pricingTitle: "1 Month Complete Free Access — All-in-One",
-    pricingSub: "No credit card required. Experience all features of RESTUVEXO with unlimited terminals, tables, and staff for a full month at zero cost.",
-    pricingPrice: "₹0",
-    pricingPeriod: "/ 1st Month Free",
-    pricingGuarantee: "✓ No hidden fees • Continue with flexible renewal after 1 month",
+    pricingBadge: "1 Month Trial for ₹1",
+    pricingTitle: "1 Month Complete Access — Just ₹1",
+    pricingSub: "Get full access to all features of RESTUVEXO with unlimited terminals, tables, and staff for 30 days for just ₹1.",
+    pricingPrice: "₹1",
+    pricingPeriod: "/ 1st Month (Just ₹1)",
+    pricingGuarantee: "✓ No hidden fees • Just ₹1 to verify & start instant 30-day access",
     f1: "High-Speed Counter POS Billing Terminal",
     f2: "Unlimited Tables & Dynamic QR Menus",
     f3: "Real-Time Kitchen Display System (KDS KOT)",
     f4: "Unlimited Waiter & Chef Staff Terminals",
     f5: "Automated Recipe Costing & Stock Depletion",
     f6: "24/7 Priority Support & Free Onboarding Assist",
-    pricingCta: "Start 1-Month Free Trial Now",
+    pricingCta: "Start 1-Month Trial for ₹1",
     pricingInstant: "Instant 1-minute setup • Go live with your restaurant immediately"
   },
   bn: {
@@ -131,50 +131,50 @@ const TRANSLATIONS = {
     heroTitle2: "কমপ্লিট ম্যানেজমেন্ট সিস্টেম",
     heroSub: "রেস্তোরাঁর সার্ভিস দ্রুত ও নির্ভুল করতে RESTUVEXO-র আধুনিক প্রযুক্তি। হাই-স্পিড POS কাউন্টার বিলিং, রিয়েল-টাইম কিচেন ডিসপ্লে (KDS), স্বয়ংক্রিয় স্টক ইনভেন্টরি এবং টেবিল QR সেলফ-অর্ডারিং—সবকিছু এক প্ল্যাটফর্মে।",
     scheduleDemo: "ফ্রি ডেমো বুক করুন",
-    registerShop: "১ মাসের ফ্রি ট্রায়াল শুরু করুন",
+    registerShop: "১ টাকায় ট্রায়াল শুরু করুন",
     staffTerminal: "স্টাফ টার্মিনাল",
     bookDemoNav: "ডেমো বুক করুন",
     benefitsTag: "লাইভ রানিং অর্ডার ও কিচেন অটোমেশন",
     benefitsTitle1: "রানিং অর্ডার ও কিচেন ট্র্যাকিং কেন আপনার",
     benefitsTitle2: "লাভ দ্বিগুণ করে?",
-    benefitsSub: "{curT.benefitsSub}",
-    card1Title: "{curT.card1Title}",
+    benefitsSub: "হাতের লেখার কাগজের KOT বা ওয়েটারের ভুলে খাবার নষ্ট হওয়ার দিন শেষ। ডাইনিং টেবিল থেকে কিচেন KDS এবং ক্যাশিয়ার বিলিং—সবকিছু স্বয়ংক্রিয়ভাবে সিঙ্ক হয়ে আপনার সময় ও টাকা বাঁচায়।",
+    card1Title: "টেবিল খালি হয় ৩ গুণ দ্রুত",
     card1Badge: "৩ গুণ টার্নওভার",
-    card1Desc: "{curT.card1Desc}",
+    card1Desc: "ডাইনিং হলের কোন টেবিল খালি আছে বা কোন টেবিলে খাবার খাচ্ছে, তা ফ্লোর প্ল্যানে রিয়েল-টাইমে সবুজ ও লাল রঙে ভেসে ওঠে। বিল পেমেন্ট করামাত্রই টেবিল স্বয়ংক্রিয়ভাবে ফ্রি হয়ে যায়।",
     card1ProfitLabel: "আর্থিক লাভ:",
-    card1Profit: "{curT.card1Profit}",
-    card2Title: "{curT.card2Title}",
+    card1Profit: "পিক আওয়ারে ৪০+ অতিরিক্ত কাস্টমার সার্ভিস",
+    card2Title: "০% ভুল অর্ডার ও খাবার অপচয় বন্ধ",
     card2Badge: "শূন্য অপচয়",
-    card2Desc: "{curT.card2Desc}",
+    card2Desc: "কাগজের KOT হারিয়ে যাওয়া বা ওয়েটারের হাতের লেখা না বুঝতে পেরে শেফের ভুল রান্নার সুযোগ নেই। টেবিল নাম্বার, পরিমাণ ও স্পাইস লেভেল সরাসরি কিচেন ডিসপ্লেতে (KDS) সাউন্ড অ্যালার্টসহ চলে যায়।",
     card2ProfitLabel: "আর্থিক লাভ:",
-    card2Profit: "{curT.card2Profit}",
-    card3Title: "{curT.card3Title}",
+    card2Profit: "মাসে ₹১৫,০০০ - ₹৩০,০০০ কাঁচামাল অপচয় সেভ",
+    card3Title: "ওয়েটার ছাড়াই কাস্টমার সেলফ-অর্ডার",
     card3Badge: "৫০% কম স্টাফ",
-    card3Desc: "{curT.card3Desc}",
+    card3Desc: "কাস্টমার টেবিলে বসে এক্রিলিক QR কোড স্ক্যান করে ছবি ও দাম দেখে সরাসরি নিজের ফোন থেকে খাবার অর্ডার করতে পারে। ক্যাশিয়ার বা ওয়েটার এক ক্লিকে অ্যাপ্রুভ করলেই রান্না শুরু হয়ে যায়।",
     card3ProfitLabel: "আর্থিক লাভ:",
-    card3Profit: "{curT.card3Profit}",
-    card4Title: "{curT.card4Title}",
+    card3Profit: "কম স্টাফ দিয়ে ৫০-১০০ সিটের হল স্মুথলি পরিচালনা",
+    card4Title: "মালিকের ফোনে লাইভ সেলস ও লাভ ট্র্যাক",
     card4Badge: "লাইভ টেলিমেট্রি",
-    card4Desc: "{curT.card4Desc}",
+    card4Desc: "দোকানে উপস্থিত না থেকেও নিজের স্মার্টফোন থেকে লাইভ দেখতে পাবেন—কয়টি টেবিলে কত টাকার রানিং বিল আছে, আজকের মোট ক্যাশ ও UPI সেলস কত এবং নেট লাভ কত।",
     card4ProfitLabel: "আর্থিক লাভ:",
-    card4Profit: "{curT.card4Profit}",
-    bannerTitle: "{curT.bannerTitle}",
-    bannerSub: "{curT.bannerSub}",
-    bannerBtn: "{curT.bannerBtn}",
-    pricingBadge: "১ মাস ফ্রি ট্রায়াল",
-    pricingTitle: "{curT.pricingTitle}",
-    pricingSub: "{curT.pricingSub}",
-    pricingPrice: "₹0",
-    pricingPeriod: "{curT.pricingPeriod}",
-    pricingGuarantee: "{curT.pricingGuarantee}",
-    f1: "{curT.f1}",
-    f2: "{curT.f2}",
-    f3: "{curT.f3}",
-    f4: "{curT.f4}",
-    f5: "{curT.f5}",
-    f6: "{curT.f6}",
-    pricingCta: "১ মাসের ফ্রি ট্রায়াল শুরু করুন",
-    pricingInstant: "{curT.pricingInstant}",
+    card4Profit: "ক্যাশ চুরি বা কাঁচামাল চুরির ঝুঁকি ১০০% বন্ধ",
+    bannerTitle: "আপনার রেস্তোরাঁর রানিং অর্ডার ও কিচেন লাইভ দেখতে চান?",
+    bannerSub: "আজই জয়েন করুন এবং মাত্র ১ টাকায় ১ মাসের ট্রায়াল উপভোগ করুন।",
+    bannerBtn: "ফ্রি ডেমো বুক করুন →",
+    pricingBadge: "১ টাকায় ১ মাসের ট্রায়াল",
+    pricingTitle: "মাত্র ₹১ টাকায় ১ মাস ফুল অ্যাক্সেস",
+    pricingSub: "মাত্র ১ টাকায় ৩০ দিনের জন্য RESTUVEXO-র সমস্ত ফিচার আনলিমিটেড ব্যবহার করে দেখুন। কোনো ঝুঁকি নেই।",
+    pricingPrice: "₹১",
+    pricingPeriod: "/ ১ম মাস (মাত্র ১ টাকা)",
+    pricingGuarantee: "✓ কোনো হিডেন চার্জ নেই • মাত্র ১ টাকা দিয়ে ৩০ দিনের ফুল অ্যাক্সেস শুরু করুন",
+    f1: "হাই-স্পিড POS কাউন্টার বিলিং টার্মিনাল",
+    f2: "আনলিমিটেড টেবিল ও ডায়নামিক QR মেনু",
+    f3: "লাইভ কিচেন ডিসপ্লে সিস্টেম (KDS KOT)",
+    f4: "ওয়েটার ও শেফ স্টাফ টার্মিনাল অ্যাক্সেস",
+    f5: "অটো রেসিপি স্টক ও ইনভেন্টরি ট্র্যাকিং",
+    f6: "২৪/৭ প্রায়োরিটি সাপোর্ট ও ফ্রি সেটআপ",
+    pricingCta: "মাত্র ₹১-এ ট্রায়াল শুরু করুন",
+    pricingInstant: "তাত্ক্ষণিক সাইন-আপ • মাত্র ১ মিনিটে আপনার রেস্তোরাঁ লাইভ করুন"
   },
   hi: {
     heroBadge: "क्लाउड-नेगेटिव रेस्टोरेंट ऑपरेटिंग सिस्टम",
@@ -182,7 +182,7 @@ const TRANSLATIONS = {
     heroTitle2: "सम्पूर्ण मैनेजमेंट सिस्टम",
     heroSub: "RESTUVEXO के साथ रेस्टोरेंट संचालन को तेज और आसान बनाएं। हाई-स्पीड POS बिलिंग, रियल-टाइम किचन डिस्प्ले (KDS), स्वचालित इन्वेंट्री और टेबल QR सेल्फ-ऑर्डरिंग—सब एक जगह।",
     scheduleDemo: "मुफ्त डेमो बुक करें",
-    registerShop: "1 महीने का फ्री ट्रायल शुरू करें",
+    registerShop: "₹1 में ट्रायल शुरू करें",
     staffTerminal: "स्टाफ टर्मिनल",
     bookDemoNav: "डेमो बुक करें",
     benefitsTag: "लाइव रनिंग ऑर्डर्स और किचन ऑटोमेशन",
@@ -210,22 +210,22 @@ const TRANSLATIONS = {
     card4ProfitLabel: "वित्तीय लाभ:",
     card4Profit: "कैश चोरी या हेराफेरी का जोखिम 100% खत्म",
     bannerTitle: "क्या आप अपने रेस्टोरेंट में लाइव रनिंग ऑर्डर देखना चाहते हैं?",
-    bannerSub: "आज ही जुड़ें और पूरे 1 महीने का मुफ्त ट्रायल पाएं।",
+    bannerSub: "आज ही जुड़ें और सिर्फ ₹1 में पूरे 30 दिनों का ट्रायल पाएं।",
     bannerBtn: "फ्री डेमो बुक करें →",
-    pricingBadge: "1 महीना फ्री ट्रायल",
-    pricingTitle: "1 महीना पूरी तरह मुफ्त — ऑल-इन-वन",
-    pricingSub: "कोई क्रेडिट कार्ड जरूरी नहीं। बिना किसी अग्रिम भुगतान के 1 महीने तक RESTUVEXO के सभी फीचर्स असीमित इस्तेमाल करें।",
-    pricingPrice: "₹0",
-    pricingPeriod: "/ पहला महीना फ्री",
-    pricingGuarantee: "✓ कोई छुपा शुल्क नहीं • 1 महीने बाद अपनी मर्जी से रिन्यू करें",
+    pricingBadge: "₹1 में 1 महीने का ट्रायल",
+    pricingTitle: "सिर्फ ₹1 में 1 महीना फुल एक्सेस",
+    pricingSub: "सिर्फ ₹1 में 30 दिनों के लिए RESTUVEXO के सभी फीचर्स का भरपूर लाभ उठाएं।",
+    pricingPrice: "₹1",
+    pricingPeriod: "/ पहला महीना (सिर्फ ₹1)",
+    pricingGuarantee: "✓ कोई छुपा शुल्क नहीं • सिर्फ ₹1 देकर 30 दिनों का फुल एक्सेस पाएं",
     f1: "हाई-स्पीड POS काउंटर बिलिंग टर्मिनल",
     f2: "असीमित टेबल और डायनेमिक QR मेनू",
     f3: "रियल-टाइम किचन डिस्प्ले सिस्टम (KDS KOT)",
     f4: "असीमित वेटर और शेफ स्टाफ टर्मिनल",
     f5: "ऑटो रेसिपी कॉस्टिंग और स्टॉक ट्रैकिंग",
     f6: "24/7 प्रायोरिटी सपोर्ट और फ्री सेटअप",
-    pricingCta: "1 महीने का फ्री ट्रायल अभी शुरू करें",
-    pricingInstant: "त्वरित साइन-अप • सिर्फ 1 मिनट में अपना रेस्टोरेंट लाइव करें",
+    pricingCta: "₹1 में 1 महीने का ट्रायल शुरू करें",
+    pricingInstant: "त्वरित साइन-अप • सिर्फ 1 मिनट में अपना रेस्टोरेंट लाइव करें"
   }
 };
 
@@ -709,7 +709,7 @@ export default function Home() {
             <h1 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight text-slate-900 leading-tight">
               {curT.heroTitle1} <br />
               <span className="bg-gradient-to-r from-orange-500 via-orange-600 to-orange-700 bg-clip-text text-transparent">
-                Restaurant Management System
+                {curT.heroTitle2}
               </span>
             </h1>
             
@@ -720,15 +720,15 @@ export default function Home() {
             <div className="flex flex-wrap gap-4 pt-2">
               <a 
                 href="#book-demo" 
-                className="flex-1 sm:flex-initial text-center bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-bold py-3.5 px-8 rounded-xl shadow-lg shadow-orange-500/10 active:scale-95 transition duration-200"
+                className="flex-1 sm:flex-initial text-center bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-bold py-3.5 px-8 rounded-xl shadow-lg shadow-orange-500/10 active:scale-95 transition duration-200 cursor-pointer"
               >
-                Schedule Free Demo
+                {curT.scheduleDemo}
               </a>
               <a 
                 href="https://app.restuvexo.shop/auth/signup" 
-                className="flex-1 sm:flex-initial text-center bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 font-bold py-3.5 px-8 rounded-xl shadow-sm active:scale-95 transition duration-200"
+                className="flex-1 sm:flex-initial text-center bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 font-bold py-3.5 px-8 rounded-xl shadow-sm active:scale-95 transition duration-200 cursor-pointer"
               >
-                Register Shop
+                {curT.registerShop}
               </a>
             </div>
 
@@ -1697,7 +1697,7 @@ export default function Home() {
                   </p>
                 </div>
                 <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-slate-700">
-                  <span className="text-slate-400 text-[11px]">আর্থিক লাভ:</span>
+                  <span className="text-slate-400 text-[11px]">{curT.card1ProfitLabel}</span>
                   <span className="text-emerald-600 font-extrabold">{curT.card1Profit}</span>
                 </div>
               </div>
@@ -1717,7 +1717,7 @@ export default function Home() {
                   </p>
                 </div>
                 <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-slate-700">
-                  <span className="text-slate-400 text-[11px]">আর্থিক লাভ:</span>
+                  <span className="text-slate-400 text-[11px]">{curT.card1ProfitLabel}</span>
                   <span className="text-emerald-600 font-extrabold">{curT.card2Profit}</span>
                 </div>
               </div>
@@ -1737,7 +1737,7 @@ export default function Home() {
                   </p>
                 </div>
                 <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-slate-700">
-                  <span className="text-slate-400 text-[11px]">আর্থিক লাভ:</span>
+                  <span className="text-slate-400 text-[11px]">{curT.card1ProfitLabel}</span>
                   <span className="text-emerald-600 font-extrabold">{curT.card3Profit}</span>
                 </div>
               </div>
@@ -1757,7 +1757,7 @@ export default function Home() {
                   </p>
                 </div>
                 <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-slate-700">
-                  <span className="text-slate-400 text-[11px]">আর্থিক লাভ:</span>
+                  <span className="text-slate-400 text-[11px]">{curT.card1ProfitLabel}</span>
                   <span className="text-emerald-600 font-extrabold">{curT.card4Profit}</span>
                 </div>
               </div>
@@ -1800,7 +1800,7 @@ export default function Home() {
 
             <div className="bg-white border border-slate-100 p-6 rounded-2xl max-w-lg mx-auto shadow-sm space-y-2">
               <div className="flex items-baseline justify-center gap-2">
-                <span className="text-5xl font-black text-slate-900 tracking-tight">₹0</span>
+                <span className="text-5xl font-black text-slate-900 tracking-tight">{curT.pricingPrice}</span>
                 <span className="text-sm font-bold text-slate-400 uppercase tracking-wider">{curT.pricingPeriod}</span>
               </div>
               <p className="text-[11px] font-bold text-emerald-600">
