@@ -332,7 +332,7 @@ let AuthService = class AuthService {
                     resetExpires: tokenExpiry
                 }
             });
-            const frontendUrl = process.env.FRONTEND_URL || "http://app.localhost:3000";
+            const frontendUrl = process.env.FRONTEND_URL || "https://app.restuvexo.shop";
             const resetLink = `${frontendUrl}/auth/reset-password?token=${token}`;
             await this.emailService.sendResetPasswordEmail(email, owner.name, resetLink);
             console.log(`[Security Log] Forgot password link sent to email: ${email} (IP: ${req.ip})`);

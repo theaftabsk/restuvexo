@@ -54,11 +54,11 @@ export declare class SubscriptionService {
                 restaurantId: number;
                 status: string;
                 createdAt: Date;
-                subscriptionId: number;
-                paymentMethod: string;
                 amount: Prisma.Decimal;
-                transactionId: string | null;
                 notes: string | null;
+                paymentMethod: string;
+                transactionId: string | null;
+                subscriptionId: number;
                 gateway: string | null;
                 gatewayEventId: string | null;
                 cfOrderId: string | null;
@@ -68,9 +68,9 @@ export declare class SubscriptionService {
             events: {
                 id: number;
                 createdAt: Date;
-                subscriptionId: number;
-                action: string;
                 notes: string | null;
+                action: string;
+                subscriptionId: number;
                 actor: string;
                 details: Prisma.JsonValue | null;
             }[];
@@ -80,14 +80,14 @@ export declare class SubscriptionService {
             createdAt: Date;
             planId: number;
             updatedAt: Date;
-            discountApplied: Prisma.Decimal;
-            amount: Prisma.Decimal;
             startedAt: Date;
             currentPeriodStart: Date;
             currentPeriodEnd: Date;
             nextBillingAt: Date;
+            amount: Prisma.Decimal;
             renewalAmount: Prisma.Decimal;
             graceDays: number;
+            discountApplied: Prisma.Decimal;
             notes: string | null;
         };
         recommendedPlan?: undefined;
@@ -185,11 +185,11 @@ export declare class SubscriptionService {
                 restaurantId: number;
                 status: string;
                 createdAt: Date;
-                subscriptionId: number;
-                paymentMethod: string;
                 amount: Prisma.Decimal;
-                transactionId: string | null;
                 notes: string | null;
+                paymentMethod: string;
+                transactionId: string | null;
+                subscriptionId: number;
                 gateway: string | null;
                 gatewayEventId: string | null;
                 cfOrderId: string | null;
@@ -203,14 +203,14 @@ export declare class SubscriptionService {
             createdAt: Date;
             planId: number;
             updatedAt: Date;
-            discountApplied: Prisma.Decimal;
-            amount: Prisma.Decimal;
             startedAt: Date;
             currentPeriodStart: Date;
             currentPeriodEnd: Date;
             nextBillingAt: Date;
+            amount: Prisma.Decimal;
             renewalAmount: Prisma.Decimal;
             graceDays: number;
+            discountApplied: Prisma.Decimal;
             notes: string | null;
         })[];
         stats: {
