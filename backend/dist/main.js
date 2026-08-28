@@ -42,7 +42,17 @@ async function bootstrap() {
         },
         credentials: true,
         methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
-        allowedHeaders: ["Content-Type", "Authorization", "x-api-version", "x-client-id", "x-client-secret"]
+        allowedHeaders: [
+            "Content-Type",
+            "Authorization",
+            "x-api-version",
+            "x-client-id",
+            "x-client-secret",
+            "x-super-admin-key",
+            "x-requested-with",
+            "Accept",
+            "Origin"
+        ]
     });
     app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
     app.use((req, res, next) => {
