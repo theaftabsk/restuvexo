@@ -39,16 +39,26 @@ export class AuthGuard implements CanActivate {
             where: { id: decoded.restaurantId },
             select: { id: true }
           });
-          const userExists = await this.prisma.user.findUnique({
+          const userRecord = await this.prisma.user.findUnique({
             where: { id: decoded.id },
-            select: { id: true }
+            select: { id: true, restaurantId: true, status: true }
           });
 
-          const valid = !!(restaurantExists && userExists);
+          // Strict Multi-Tenant Enforcement:
+          // 1. Restaurant must exist
+          // 2. User must exist
+          // 3. User must belong exclusively to this restaurantId
+          // 4. User account must be active (not deactivated by owner)
+          const valid = !!(
+            restaurantExists &&
+            userRecord &&
+            userRecord.restaurantId === decoded.restaurantId &&
+            userRecord.status === 'active'
+          );
           verificationCache.set(cacheKey, { valid, timestamp: Date.now() });
 
           if (!valid) {
-            throw new UnauthorizedException("Session expired or database seeded. Please log out and log in again.");
+            throw new UnauthorizedException("Session invalid, account deactivated, or cross-tenant access denied. Please log in again.");
           }
         }
       }

@@ -48,14 +48,17 @@ let AuthGuard = class AuthGuard {
                         where: { id: decoded.restaurantId },
                         select: { id: true }
                     });
-                    const userExists = await this.prisma.user.findUnique({
+                    const userRecord = await this.prisma.user.findUnique({
                         where: { id: decoded.id },
-                        select: { id: true }
+                        select: { id: true, restaurantId: true, status: true }
                     });
-                    const valid = !!(restaurantExists && userExists);
+                    const valid = !!(restaurantExists &&
+                        userRecord &&
+                        userRecord.restaurantId === decoded.restaurantId &&
+                        userRecord.status === 'active');
                     verificationCache.set(cacheKey, { valid, timestamp: Date.now() });
                     if (!valid) {
-                        throw new common_1.UnauthorizedException("Session expired or database seeded. Please log out and log in again.");
+                        throw new common_1.UnauthorizedException("Session invalid, account deactivated, or cross-tenant access denied. Please log in again.");
                     }
                 }
             }

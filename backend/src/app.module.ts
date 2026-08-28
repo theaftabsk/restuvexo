@@ -16,7 +16,6 @@ import { SuperAdminModule } from './modules/superAdmin/superAdmin.module';
 import { UploadModule } from './modules/upload/upload.module';
 import { DemoModule } from './modules/demo/demo.module';
 import { SubscriptionModule } from './modules/subscription/subscription.module';
-import { PhonePeModule } from './modules/payment/phonepe.module';
 
 @Module({
   imports: [
@@ -35,7 +34,6 @@ import { PhonePeModule } from './modules/payment/phonepe.module';
     UploadModule,
     DemoModule,
     SubscriptionModule,
-    PhonePeModule,
   ],
   providers: [
     {

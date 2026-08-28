@@ -52,8 +52,8 @@ export declare class SubscriptionService {
             payments: {
                 id: number;
                 restaurantId: number;
-                createdAt: Date;
                 status: string;
+                createdAt: Date;
                 subscriptionId: number;
                 paymentMethod: string;
                 amount: Prisma.Decimal;
@@ -76,9 +76,9 @@ export declare class SubscriptionService {
             }[];
             id: number;
             restaurantId: number;
+            status: import(".prisma/client").$Enums.SubscriptionStatus;
             createdAt: Date;
             planId: number;
-            status: import(".prisma/client").$Enums.SubscriptionStatus;
             updatedAt: Date;
             discountApplied: Prisma.Decimal;
             amount: Prisma.Decimal;
@@ -183,8 +183,8 @@ export declare class SubscriptionService {
             payments: {
                 id: number;
                 restaurantId: number;
-                createdAt: Date;
                 status: string;
+                createdAt: Date;
                 subscriptionId: number;
                 paymentMethod: string;
                 amount: Prisma.Decimal;
@@ -199,9 +199,9 @@ export declare class SubscriptionService {
         } & {
             id: number;
             restaurantId: number;
+            status: import(".prisma/client").$Enums.SubscriptionStatus;
             createdAt: Date;
             planId: number;
-            status: import(".prisma/client").$Enums.SubscriptionStatus;
             updatedAt: Date;
             discountApplied: Prisma.Decimal;
             amount: Prisma.Decimal;
